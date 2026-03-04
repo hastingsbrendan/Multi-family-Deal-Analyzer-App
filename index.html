@@ -1974,30 +1974,34 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Load deals only once user is confirmed — triggers when user transitions from null/false -> object
+  // Load deals only once user is a confirmed object (not null=loading or false=logged out)
   useEffect(() => {
-    if (!user) return;
-    sbRead()
-      .then(({ data: cloudDeals, updated_at }) => {
-        lastCloudUpdate.current = updated_at;
-        if (cloudDeals.length === 0) {
-          const local = loadLocal();
-          if (local.length > 0) {
-            sbWrite(local).catch(e => { setSyncStatus("error"); setSyncError(e.message); });
-            setDeals(local);
-          } else { setDeals([]); }
-        } else {
-          setDeals(cloudDeals);
-          saveLocal(cloudDeals);
-        }
-      })
-      .catch(e => { setDeals(loadLocal()); setSyncStatus("error"); setSyncError(e.message); });
+    if (!user || typeof user !== "object") return;
+    // Small delay to ensure Supabase session is fully hydrated before first API call
+    const t = setTimeout(() => {
+      sbRead()
+        .then(({ data: cloudDeals, updated_at }) => {
+          lastCloudUpdate.current = updated_at;
+          if (cloudDeals.length === 0) {
+            const local = loadLocal();
+            if (local.length > 0) {
+              sbWrite(local).catch(e => { setSyncStatus("error"); setSyncError(e.message); });
+              setDeals(local);
+            } else { setDeals([]); }
+          } else {
+            setDeals(cloudDeals);
+            saveLocal(cloudDeals);
+          }
+        })
+        .catch(e => { setDeals(loadLocal()); setSyncStatus("error"); setSyncError(e.message); });
+    }, 300);
+    return () => clearTimeout(t);
   }, [user]);
 
   // Re-pull from cloud when tab regains visibility or window is focused (cross-device sync)
   useEffect(() => {
     const pull = () => {
-      if (!isOnline || syncStatus === "saving") return;
+      if (!user || !isOnline || syncStatus === "saving") return;
       sbRead()
         .then(({ data: cloudDeals, updated_at }) => {
           // If updated_at isn't available, always apply cloud data to stay safe
@@ -2021,7 +2025,7 @@ function App() {
   }, [isOnline, syncStatus]);
 
   useEffect(() => {
-    if (deals === null) return;
+    if (deals === null || !user) return;
     saveLocal(deals);
     if (!isOnline) { setSyncStatus("offline"); return; }
     clearTimeout(syncTimer.current);
