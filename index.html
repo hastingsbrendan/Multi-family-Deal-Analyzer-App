@@ -1624,10 +1624,25 @@ function AuthScreen({ onAuth }) {
   const [msg, setMsg] = useState("");
 
   useEffect(() => {
-    // Supabase appends #access_token=...&type=recovery or type=signup to the URL
     const hash = window.location.hash;
-    if (hash.includes("type=recovery")) setMode("reset");
-    if (hash.includes("type=signup"))   { window.location.hash = ""; setMode("verified"); }
+    if (hash.includes("type=recovery")) {
+      // Password reset — Supabase client will exchange the token automatically.
+      // onAuthStateChange fires SIGNED_IN, then we show the reset form.
+      setMode("reset");
+    }
+    if (hash.includes("type=signup")) {
+      // Email verification — DON'T clear the hash yet. The Supabase client reads
+      // it automatically via detectSessionInUrl:true and fires onAuthStateChange
+      // with SIGNED_IN, which sets user and bypasses the auth screen entirely.
+      // If that doesn't happen within 3s, fall back to showing a "verified" message.
+      setMode("verifying");
+      const fallback = setTimeout(() => {
+        window.location.hash = "";
+        setMode("verified");
+      }, 3000);
+      // Clean up fallback if auth state change fires first (handled in App)
+      return () => clearTimeout(fallback);
+    }
   }, []);
 
   const clr = () => { setError(""); setMsg(""); };
@@ -1707,6 +1722,14 @@ function AuthScreen({ onAuth }) {
               Click it to activate your account.
             </div>
             <button style={lS} onClick={() => setMode("login")}>Back to login</button>
+          </div>
+        )}
+
+        {mode === "verifying" && (
+          <div style={{textAlign:"center"}}>
+            <div style={{fontSize:44, marginBottom:12}}>⏳</div>
+            <div style={{fontWeight:800, fontSize:18, marginBottom:8}}>Verifying your email…</div>
+            <div style={{color:"var(--muted)", fontSize:14, marginBottom:20}}>Just a moment while we activate your account.</div>
           </div>
         )}
 
@@ -1995,9 +2018,27 @@ function App() {
         }, 300);
       }
     });
-    const { data: { subscription } } = sbClient.auth.onAuthStateChange((_evt, session) => {
+    const { data: { subscription } } = sbClient.auth.onAuthStateChange((evt, session) => {
       const u = session?.user || false;
       setUser(u);
+      if (u && (evt === "SIGNED_IN" || evt === "USER_UPDATED")) {
+        // Clean up hash after Supabase has processed it
+        if (window.location.hash.includes("access_token")) {
+          window.history.replaceState(null, "", window.location.pathname);
+        }
+        // Load deals for newly signed-in user
+        const local = loadLocal();
+        setDeals(local);
+        setTimeout(() => {
+          sbRead()
+            .then(({ data: cloudDeals, updated_at }) => {
+              lastCloudUpdate.current = updated_at;
+              if (cloudDeals.length > 0) { setDeals(cloudDeals); saveLocal(cloudDeals); }
+              else if (local.length > 0) { sbWrite(local).catch(() => {}); }
+            })
+            .catch(() => {});
+        }, 300);
+      }
       if (!u) { setDeals([]); setActiveDealId(null); setShowProfile(false); saveLocal([]); }
     });
     return () => subscription.unsubscribe();
