@@ -1971,55 +1971,37 @@ function App() {
   // Bootstrap: restore session from localStorage on mount, then listen for changes
   useEffect(() => {
     authGetSession().then(({ data: { session } }) => {
-      setUser(session?.user || false);
+      const u = session?.user || false;
+      setUser(u);
       setAuthLoading(false);
+      if (u) {
+        // Show local data immediately so there's never a loading screen
+        const local = loadLocal();
+        setDeals(local);
+        // Then sync from cloud in background and update if newer
+        setTimeout(() => {
+          sbRead()
+            .then(({ data: cloudDeals, updated_at }) => {
+              lastCloudUpdate.current = updated_at;
+              if (cloudDeals.length > 0) {
+                setDeals(cloudDeals);
+                saveLocal(cloudDeals);
+              } else if (local.length > 0) {
+                // New user on new device — push local up to cloud
+                sbWrite(local).catch(() => {});
+              }
+            })
+            .catch(() => {}); // silently keep local data on cloud error
+        }, 300);
+      }
     });
     const { data: { subscription } } = sbClient.auth.onAuthStateChange((_evt, session) => {
-      setUser(session?.user || false);
-      if (!session) { setDeals(null); setActiveDealId(null); setShowProfile(false); }
+      const u = session?.user || false;
+      setUser(u);
+      if (!u) { setDeals([]); setActiveDealId(null); setShowProfile(false); saveLocal([]); }
     });
     return () => subscription.unsubscribe();
   }, []);
-
-  // Load deals only once user is a confirmed object (not null=loading or false=logged out)
-  useEffect(() => {
-    if (!user || typeof user !== "object") return;
-    let settled = false;
-    const done = (dealList) => { settled = true; setDeals(dealList); };
-
-    // Safety net: if sbRead hangs for any reason, fall back to local after 5s
-    const fallback = setTimeout(() => {
-      if (!settled) { done(loadLocal()); setSyncStatus("error"); setSyncError("Sync timed out — showing local data."); }
-    }, 5000);
-
-    // Small delay to ensure Supabase session is fully hydrated before first API call
-    setTimeout(() => {
-      sbRead()
-        .then(({ data: cloudDeals, updated_at }) => {
-          clearTimeout(fallback);
-          lastCloudUpdate.current = updated_at;
-          if (cloudDeals.length === 0) {
-            const local = loadLocal();
-            if (local.length > 0) {
-              // Migrate local data to cloud for this user
-              sbWrite(local).catch(() => {});
-              done(local);
-            } else {
-              done([]);
-            }
-          } else {
-            saveLocal(cloudDeals);
-            done(cloudDeals);
-          }
-        })
-        .catch(() => {
-          clearTimeout(fallback);
-          done(loadLocal());
-        });
-    }, 300);
-
-    return () => clearTimeout(fallback);
-  }, [user]);
 
   // Re-pull from cloud when tab regains visibility or window is focused (cross-device sync)
   useEffect(() => {
@@ -2111,8 +2093,8 @@ function App() {
       <div style={{minHeight:"100vh",background:D.bg,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'DM Sans','Segoe UI',sans-serif"}}>
         <div style={{textAlign:"center",color:D.muted}}>
           <div style={{fontSize:32,marginBottom:12}}>☁️</div>
-          <div style={{fontSize:15,fontWeight:700,color:D.text,marginBottom:4}}>Loading your deals…</div>
-          <div style={{fontSize:12}}>Connecting to Supabase</div>
+          <div style={{fontSize:15,fontWeight:700,color:D.text,marginBottom:4}}>Loading…</div>
+          <div style={{fontSize:12}}>Restoring your session</div>
         </div>
       </div>
     );
