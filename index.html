@@ -61,11 +61,18 @@ async function sbRead() {
 async function sbWrite(deals) {
   const { data: { user } } = await sbClient.auth.getUser();
   if (!user) throw new Error("Not authenticated");
-  const { error } = await sbClient
+  // Try update first (existing user), then insert (new user)
+  const { error: updateErr } = await sbClient
     .from("deals")
-    .upsert({ user_id: user.id, data: deals, updated_at: new Date().toISOString() },
-             { onConflict: "user_id" });
-  if (error) throw new Error(`Write: ${error.message}`);
+    .update({ data: deals, updated_at: new Date().toISOString() })
+    .eq("user_id", user.id);
+  if (updateErr) {
+    // Row doesn't exist yet — insert for new user
+    const { error: insertErr } = await sbClient
+      .from("deals")
+      .insert({ user_id: user.id, data: deals, updated_at: new Date().toISOString() });
+    if (insertErr) throw new Error(`Write: ${insertErr.message}`);
+  }
 }
 
 // Auth convenience wrappers
@@ -1977,25 +1984,41 @@ function App() {
   // Load deals only once user is a confirmed object (not null=loading or false=logged out)
   useEffect(() => {
     if (!user || typeof user !== "object") return;
+    let settled = false;
+    const done = (dealList) => { settled = true; setDeals(dealList); };
+
+    // Safety net: if sbRead hangs for any reason, fall back to local after 5s
+    const fallback = setTimeout(() => {
+      if (!settled) { done(loadLocal()); setSyncStatus("error"); setSyncError("Sync timed out — showing local data."); }
+    }, 5000);
+
     // Small delay to ensure Supabase session is fully hydrated before first API call
-    const t = setTimeout(() => {
+    setTimeout(() => {
       sbRead()
         .then(({ data: cloudDeals, updated_at }) => {
+          clearTimeout(fallback);
           lastCloudUpdate.current = updated_at;
           if (cloudDeals.length === 0) {
             const local = loadLocal();
             if (local.length > 0) {
-              sbWrite(local).catch(e => { setSyncStatus("error"); setSyncError(e.message); });
-              setDeals(local);
-            } else { setDeals([]); }
+              // Migrate local data to cloud for this user
+              sbWrite(local).catch(() => {});
+              done(local);
+            } else {
+              done([]);
+            }
           } else {
-            setDeals(cloudDeals);
             saveLocal(cloudDeals);
+            done(cloudDeals);
           }
         })
-        .catch(e => { setDeals(loadLocal()); setSyncStatus("error"); setSyncError(e.message); });
+        .catch(() => {
+          clearTimeout(fallback);
+          done(loadLocal());
+        });
     }, 300);
-    return () => clearTimeout(t);
+
+    return () => clearTimeout(fallback);
   }, [user]);
 
   // Re-pull from cloud when tab regains visibility or window is focused (cross-device sync)
