@@ -1580,7 +1580,7 @@ function SensitivityTab({deal}){
 const TABS_MOBILE=["Summary","Assumptions","Cash Flow","Comps","Showing","Red Flags","Sensitivity"];
 const TABS_DESK  =["Deal Summary","Assumptions","Cash Flow","Rent Comps","Showing","Red Flags","Sensitivity"];
 
-function DealPage({deal, onUpdate, onBack, onExport}) {
+function DealPage({deal, onUpdate, onBack, onExport, onShare, groupRole}) {
   const [tab, setTab] = useState(0);
   const isMobile = useIsMobile();
   const result = useMemo(() => calcDeal(deal), [deal]);
@@ -1785,7 +1785,7 @@ function PortfolioMap({deals, onSelect}) {
 }
 
 // ─── PORTFOLIO PAGE ────────────────────────────────────────────────────────────
-function PortfolioPage({deals, onSelect, onAdd, onDelete, onExport, onReorder, dark, setDark, filterState, onTour}) {
+function PortfolioPage({deals, onSelect, onAdd, onDelete, onExport, onReorder, dark, setDark, filterState, onTour, activeGroup, onExitGroup, onShareDeal, onOpenGroups}) {
   const [filter, setFilter] = filterState; // lifted state so it persists across navigation
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
