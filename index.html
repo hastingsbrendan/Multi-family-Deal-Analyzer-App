@@ -1695,8 +1695,7 @@ function PortfolioPage({deals, onSelect, onAdd, onDelete, onExport, onReorder, d
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
       <div><div style={{fontSize:22,fontWeight:800,color:"var(--text)",letterSpacing:"-0.02em"}}>Multi-family Deal Analyzer</div><div style={{fontSize:12,color:"var(--muted)"}}>2–4 Unit Multifamily</div></div>
       <div style={{display:"flex",gap:8}}>
-        <button onClick={()=>setDark(!dark)} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 10px",color:"var(--text)",fontSize:14}}>{dark?"☀":"🌙"}</button>
-        <button onClick={()=>onTour&&onTour()} title="Take a Tour" style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"8px 10px",color:"var(--muted)",fontSize:13,cursor:"pointer"}} >🗺️</button>
+        <button onClick={()=>onTour&&onTour()} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"8px 14px",color:"var(--muted)",fontSize:13,cursor:"pointer",fontWeight:600,display:"flex",alignItems:"center",gap:6}}>🗺️ Take a Tour</button>
         <button onClick={onAdd} style={{background:"var(--accent)",color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",fontSize:13,fontWeight:800}}>+ Add</button>
       </div>
     </div>
@@ -1733,7 +1732,6 @@ function PortfolioPage({deals, onSelect, onAdd, onDelete, onExport, onReorder, d
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:28}}>
       <div><div style={{fontSize:28,fontWeight:800,color:"var(--text)",letterSpacing:"-0.02em"}}>Multi-family Deal Analyzer</div><div style={{fontSize:13,color:"var(--muted)"}}>2–4 Unit Multifamily · 10-Year Hold</div></div>
       <div style={{display:"flex",gap:10}}>
-        <button onClick={()=>setDark(!dark)} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 14px",color:"var(--text)",fontSize:14}}>{dark?"☀":"🌙"}</button>
         <button onClick={onExport} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 16px",color:"var(--text)",fontSize:13,fontWeight:700}}>⬇ Export</button>
         <button onClick={onAdd} style={{background:"var(--accent)",color:"#fff",border:"none",borderRadius:8,padding:"8px 18px",fontSize:13,fontWeight:800}}>+ New Deal</button>
       </div>
@@ -2157,8 +2155,6 @@ function SettingsPage({ prefs, onSave, onBack, deals, dark, setDark }) {
   const [local, setLocal] = useState({ ...DEFAULT_PREFS, ...prefs });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [showApplyModal, setShowApplyModal] = useState(false);
-  const [pendingPrefs, setPendingPrefs] = useState(null);
 
   const set = (key, val) => setLocal(p => ({ ...p, [key]: val }));
   const setCC = (key, val) => setLocal(p => ({ ...p, closingCosts: { ...p.closingCosts, [key]: val } }));
@@ -2171,14 +2167,6 @@ function SettingsPage({ prefs, onSave, onBack, deals, dark, setDark }) {
     setTimeout(() => setSaved(false), 2000);
   };
 
-  const handleSaveClick = () => {
-    if (deals?.length > 0) {
-      setPendingPrefs(local);
-      setShowApplyModal(true);
-    } else {
-      handleSave(false);
-    }
-  };
 
   const card  = { background:"var(--card)", border:"1px solid var(--border)", borderRadius:12, padding:24, marginBottom:14 };
   const iS    = { width:"100%", padding:"9px 12px", borderRadius:7, fontSize:14, border:"1px solid var(--border)", background:"var(--input-bg)", color:"var(--text)", fontFamily:"inherit" };
@@ -2311,49 +2299,47 @@ function SettingsPage({ prefs, onSave, onBack, deals, dark, setDark }) {
         </div>
       </div>
 
-      {/* ── Save ────────────────────────────────────────── */}
-      <div style={{display:"flex", gap:10, alignItems:"center"}}>
-        <button onClick={handleSaveClick} disabled={saving}
-          style={{background:"var(--accent)", color:"#fff", border:"none", borderRadius:8,
-            padding:"12px 28px", fontSize:15, fontWeight:700, cursor:"pointer", opacity:saving?0.7:1}}>
-          {saving ? "Saving…" : "Save Settings"}
-        </button>
-        <button onClick={()=>{ setLocal({...DEFAULT_PREFS}); }}
-          style={{background:"none", border:"1px solid var(--border)", borderRadius:8,
-            padding:"12px 20px", fontSize:14, color:"var(--muted)", cursor:"pointer"}}>
-          Reset to Defaults
-        </button>
-        {saved && <span style={{color:"#10b981", fontSize:13, fontWeight:600}}>✓ Saved</span>}
-      </div>
-
-      {/* ── Apply to all deals modal ─────────────────────── */}
-      {showApplyModal && (
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",display:"flex",
-          alignItems:"center",justifyContent:"center",zIndex:1000,padding:16}}>
-          <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,
-            padding:28,maxWidth:400,width:"100%"}}>
-            <div style={{fontWeight:800,fontSize:17,marginBottom:8}}>Apply to existing deals?</div>
-            <div style={{color:"var(--muted)",fontSize:14,lineHeight:1.6,marginBottom:20}}>
-              Would you like to apply these defaults to your {deals.length} existing deal{deals.length!==1?"s":""}?
-              <br/><br/>
-              This will update financing, growth, and tax assumptions on all deals.
-              <strong style={{color:"var(--text)"}}> It will not change purchase prices, rents, or property-specific expenses.</strong>
-            </div>
-            <div style={{display:"flex",gap:10}}>
-              <button onClick={()=>{setShowApplyModal(false);handleSave(true);}}
-                style={{flex:1,background:"var(--accent)",color:"#fff",border:"none",borderRadius:8,
-                  padding:"11px",fontSize:14,fontWeight:700,cursor:"pointer"}}>
-                Yes, apply to all {deals.length} deals
-              </button>
-              <button onClick={()=>{setShowApplyModal(false);handleSave(false);}}
-                style={{flex:1,background:"none",border:"1px solid var(--border)",borderRadius:8,
-                  padding:"11px",fontSize:14,color:"var(--text)",cursor:"pointer"}}>
-                New deals only
-              </button>
-            </div>
-          </div>
+      {/* ── Actions ──────────────────────────────────────── */}
+      <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:20,marginBottom:14}}>
+        <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>Save Changes</div>
+        <div style={{fontSize:13,color:"var(--muted)",marginBottom:16,lineHeight:1.6}}>
+          Choose how to apply your updated assumptions.
+          {deals?.length > 0 && <span> You have <strong style={{color:"var(--text)"}}>{deals.length} existing deal{deals.length!==1?"s":""}</strong>.</span>}
         </div>
-      )}
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <button onClick={()=>handleSave(true)} disabled={saving}
+            style={{background:"var(--accent)",color:"#fff",border:"none",borderRadius:8,
+              padding:"12px 20px",fontSize:14,fontWeight:700,cursor:"pointer",textAlign:"left",
+              opacity:saving?0.7:1,display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:18}}>🔄</span>
+            <div>
+              <div>Push to All Deals</div>
+              <div style={{fontSize:12,fontWeight:400,opacity:0.85}}>Updates financing, growth & tax assumptions on all existing deals</div>
+            </div>
+          </button>
+          <button onClick={()=>handleSave(false)} disabled={saving}
+            style={{background:"var(--card)",color:"var(--text)",border:"1px solid var(--accent)",borderRadius:8,
+              padding:"12px 20px",fontSize:14,fontWeight:700,cursor:"pointer",textAlign:"left",
+              opacity:saving?0.7:1,display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:18}}>✨</span>
+            <div>
+              <div>Apply to New Deals Only</div>
+              <div style={{fontSize:12,fontWeight:400,color:"var(--muted)"}}>Existing deals are unchanged — new deals start with these defaults</div>
+            </div>
+          </button>
+          <button onClick={()=>setLocal({...DEFAULT_PREFS})}
+            style={{background:"none",border:"1px solid var(--border)",borderRadius:8,
+              padding:"12px 20px",fontSize:14,color:"var(--muted)",cursor:"pointer",textAlign:"left",
+              display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:18}}>↩️</span>
+            <div>
+              <div>Reset to Defaults</div>
+              <div style={{fontSize:12,fontWeight:400}}>Restore all values to system defaults (does not save)</div>
+            </div>
+          </button>
+        </div>
+        {saved && <div style={{color:"#10b981",fontSize:13,fontWeight:600,marginTop:12}}>✓ Settings saved</div>}
+      </div>
     </div>
   );
 }
