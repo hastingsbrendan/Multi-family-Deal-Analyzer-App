@@ -60,16 +60,30 @@ const saveLocal = (d, uid) => {
 async function sbRead() {
   const { data: { user } } = await sbClient.auth.getUser();
   if (!user) throw new Error("Not authenticated");
-  // Explicit user_id filter as defense-in-depth alongside RLS
   const { data, error } = await sbClient
     .from("deals")
-    .select("data, updated_at")
+    .select("data, prefs, updated_at")
     .eq("user_id", user.id)
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
   if (error) throw new Error(`Read: ${error.message}`);
-  return { data: data?.data || [], updated_at: data?.updated_at || null };
+  return { data: data?.data || [], prefs: data?.prefs || null, updated_at: data?.updated_at || null };
+}
+
+async function sbWritePrefs(prefs) {
+  const { data: { user } } = await sbClient.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  const { error: updateErr } = await sbClient
+    .from("deals")
+    .update({ prefs, updated_at: new Date().toISOString() })
+    .eq("user_id", user.id);
+  if (updateErr) {
+    const { error: insertErr } = await sbClient
+      .from("deals")
+      .insert({ user_id: user.id, data: [], prefs, updated_at: new Date().toISOString() });
+    if (insertErr) throw new Error(`WritePrefs: ${insertErr.message}`);
+  }
 }
 
 // Writes deals for the current user — upserts on user_id (one row per user)
@@ -158,28 +172,55 @@ function useOnlineStatus() {
   return online;
 }
 
-const newDeal = () => ({
+const DEFAULT_PREFS = {
+  // Default assumptions applied to every new deal
+  downPaymentPct:   25,
+  interestRate:     7.0,
+  amortYears:       30,
+  vacancyRate:      5,
+  rentGrowth:       3,
+  expenseGrowth:    3,
+  appreciationRate: 3,
+  taxBracket:       22,
+  closingCosts: { title:1500, transferTax:2000, inspection:500, attorney:1000, lenderFees:2000 },
+  // Expense defaults
+  propertyTaxPct:   1.5,
+  insurancePct:     0.5,
+  maintenancePct:   5,
+  capexPct:         5,
+  propertyMgmtPct:  8,
+  // Red flag thresholds
+  dscrFloor:        1.2,
+  capRateFloor:     0.06,
+  expRatioCeiling:  0.50,
+};
+
+// newDeal accepts optional user prefs to seed defaults
+const newDeal = (prefs) => {
+  const p = { ...DEFAULT_PREFS, ...(prefs || {}) };
+  return ({
   id: Date.now(), address: "", status: "Analyzing", notes: "", showingDate: "", showingTime: "", photos: [],
   assumptions: {
     purchasePrice: 450000, purchasePriceSource: "",
-    downPaymentPct: 25, downPaymentSource: "",
-    interestRate: 7.0, interestRateSource: "",
-    amortYears: 30, amortSource: "",
-    closingCosts: { title:1500, transferTax:2000, inspection:500, attorney:1000, lenderFees:2000 },
+    downPaymentPct: p.downPaymentPct, downPaymentSource: "",
+    interestRate: p.interestRate, interestRateSource: "",
+    amortYears: p.amortYears, amortSource: "",
+    closingCosts: { ...p.closingCosts },
     sellerConcessions: 0, sellerConcessionsSource: "",
-    units: Array(4).fill(null).map((_,i) => ({ rent: i<2?1800:0, rentSource:"", listedRent: 0, rentcastRent: 0 })),
+    units: Array(4).fill(null).map((_,i) => ({ rent: 0, rentSource:"", listedRent: 0, rentcastRent: 0 })),
     numUnits: 2,
-    vacancyRate: 5, vacancySource: "",
-    expenseModes: { propertyTax:"value", insurance:"value", maintenance:"value", capex:"value", propertyMgmt:"pct", utilities:"value" },
+    beds: "", baths: "", yearBuilt: "", sqftTotal: "", lotSize: "", annualPropertyTax: "",
+    vacancyRate: p.vacancyRate, vacancySource: "",
+    expenseModes: { propertyTax:"pct", insurance:"pct", maintenance:"pct", capex:"pct", propertyMgmt:"pct", utilities:"value" },
     expenses: {
-      propertyTax:6000, propertyTaxSource:"", propertyTaxPct:1.5,
-      insurance:1800, insuranceSource:"", insurancePct:0.5,
-      maintenance:2400, maintenanceSource:"", maintenancePct:5,
-      capex:2400, capexSource:"", capexPct:5,
-      propertyMgmt:2160, propertyMgmtSource:"", propertyMgmtPct:8,
+      propertyTax:6000, propertyTaxSource:"", propertyTaxPct: p.propertyTaxPct,
+      insurance:1800, insuranceSource:"", insurancePct: p.insurancePct,
+      maintenance:2400, maintenanceSource:"", maintenancePct: p.maintenancePct,
+      capex:2400, capexSource:"", capexPct: p.capexPct,
+      propertyMgmt:2160, propertyMgmtSource:"", propertyMgmtPct: p.propertyMgmtPct,
       utilities:0, utilitiesSource:"", utilitiesPct:0,
     },
-    selfManage:false, rentGrowth:3, expenseGrowth:3, appreciationRate:3, taxBracket:22,
+    selfManage:false, rentGrowth: p.rentGrowth, expenseGrowth: p.expenseGrowth, appreciationRate: p.appreciationRate, taxBracket: p.taxBracket,
     ownerOccupied:false, ownerUnit:0, ownerOccupancyYears:2, alternativeRent:0, ownerUseUtilities:0,
     refi: { enabled:false, year:5, newRate:6.5, newLTV:75 },
     valueAdd: { enabled:false, reModelCost:40000, rentBumpPerUnit:200, unitsRenovated:2, completionYear:3 },
@@ -211,7 +252,7 @@ const newDeal = () => ({
     },
   },
   redFlags: { manual: [] },
-});
+  }); };
 
 // ─── FINANCIAL ENGINE ─────────────────────────────────────────────────────────
 function resolveExpenses(a, grossRentYear0) {
@@ -474,10 +515,9 @@ function DealSummaryTab({deal, result, onUpdate}) {
       <MetricCard label="CoC Return (Yr1)" value={FMT_PCT(result.cocReturn)} highlight/>
       <MetricCard label="Cap Rate (Yr3)" value={FMT_PCT(result.years[2]?.capRate)}/>
       <MetricCard label="IRR (10yr)" value={FMT_PCT(result.irr)} highlight/>
-      <MetricCard label="Equity Multiple" value={FMT_X(result.equityMultiple)}/>
-      <MetricCard label="Break-Even Occ." value={FMT_PCT(result.breakEvenOccupancy)} sub="Vacancy @ zero CF"/>
       <MetricCard label="Gross Rent (Mo.)" value={FMT_USD(result.grossRentYear0/12)} sub="Before vacancy"/>
       <MetricCard label="Total Expenses (Mo.)" value={FMT_USD(result.baseExpenses/12)} sub="Excl. debt service"/>
+      <MetricCard label="Debt Service (Mo.)" value={FMT_USD(result.annualDebtService/12)} sub="P&I payment"/>
     </div>
     <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap"}}>
       <div style={{flex:"1 1 200px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:10,padding:14}}>
@@ -759,6 +799,13 @@ function PropertyLookupPanel({deal, onChange}) {
       const assYrs = Object.keys(prop.taxAssessments).sort().reverse();
       if (assYrs.length > 0) assessedValue = prop.taxAssessments[assYrs[0]]?.value || null;
     }
+    // Pre-populate Property Details fields from Rentcast
+    if (prop.bedrooms != null)    a.beds            = prop.bedrooms;
+    if (prop.bathrooms != null)   a.baths           = prop.bathrooms;
+    if (prop.yearBuilt != null)   a.yearBuilt       = prop.yearBuilt;
+    if (prop.squareFootage != null) a.sqftTotal     = prop.squareFootage;
+    if (prop.lotSize != null)     a.lotSize         = prop.lotSize;
+    if (annualTax != null)        a.annualPropertyTax = annualTax;
     a.rentcastData = {
       fetchedAt: new Date().toLocaleDateString(),
       bedsPerUnit: preview.bedsPerUnit || null,
@@ -903,6 +950,68 @@ function AssumptionsTab({deal,onChange}){
     <Section title="Financing">
       <InputRow label="Interest Rate" value={a.interestRate} onChange={v=>upd("interestRate",v)} suffix="%" source={a.interestRateSource} onSourceChange={v=>upd("interestRateSource",v)}/>
       <InputRow label="Amortization" value={a.amortYears} onChange={v=>upd("amortYears",v)} suffix="yrs" source={a.amortSource} onSourceChange={v=>upd("amortSource",v)}/>
+    </Section>
+    <Section title="Property Details">
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 12px"}}>
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:11,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Number of Units</div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <button onClick={()=>{if(a.numUnits>2)upd("numUnits",a.numUnits-1);}} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:6,width:28,height:28,cursor:"pointer",color:"var(--text)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+            <span style={{fontWeight:700,fontSize:15,minWidth:20,textAlign:"center"}}>{a.numUnits}</span>
+            <button onClick={()=>{if(a.numUnits<4)upd("numUnits",a.numUnits+1);}} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:6,width:28,height:28,cursor:"pointer",color:"var(--text)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+          </div>
+        </div>
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:11,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Year Built</div>
+          <input type="number" value={a.yearBuilt||""} placeholder="e.g. 1985"
+            onChange={e=>upd("yearBuilt",e.target.value)}
+            style={{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"}}/>
+        </div>
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:11,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Bedrooms (total)</div>
+          <input type="number" value={a.beds||""} placeholder="e.g. 4"
+            onChange={e=>upd("beds",e.target.value)}
+            style={{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"}}/>
+        </div>
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:11,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Bathrooms (total)</div>
+          <input type="number" value={a.baths||""} placeholder="e.g. 2"
+            onChange={e=>upd("baths",e.target.value)}
+            style={{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"}}/>
+        </div>
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:11,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Sq. Footage (total)</div>
+          <input type="number" value={a.sqftTotal||""} placeholder="e.g. 2400"
+            onChange={e=>upd("sqftTotal",e.target.value)}
+            style={{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"}}/>
+        </div>
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:11,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Lot Size (sq ft)</div>
+          <input type="number" value={a.lotSize||""} placeholder="e.g. 5200"
+            onChange={e=>upd("lotSize",e.target.value)}
+            style={{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"}}/>
+        </div>
+        <div style={{marginBottom:10,gridColumn:"1 / -1"}}>
+          <div style={{fontSize:11,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Annual Property Tax ($)</div>
+          <input type="number" value={a.annualPropertyTax||""} placeholder="e.g. 6000"
+            onChange={e=>upd("annualPropertyTax",e.target.value)}
+            style={{maxWidth:200,width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"}}/>
+          {a.rentcastData?.annualTax && !a.annualPropertyTax &&
+            <div style={{fontSize:11,color:"var(--muted)",marginTop:3}}>
+              Rentcast: ${(+a.rentcastData.annualTax).toLocaleString()}/yr
+              <button onClick={()=>upd("annualPropertyTax", a.rentcastData.annualTax)}
+                style={{marginLeft:6,fontSize:11,color:"var(--accent)",background:"none",border:"none",cursor:"pointer",padding:0,fontFamily:"inherit"}}>
+                Use this
+              </button>
+            </div>
+          }
+        </div>
+      </div>
+      {a.rentcastData && (
+        <div style={{fontSize:11,color:"var(--muted)",marginTop:4}}>
+          ℹ️ Fields pre-filled from Rentcast data fetched {a.rentcastData.fetchedAt}
+        </div>
+      )}
     </Section>
     <Section title={`Units & Rent (${a.numUnits} units)`} action={<div style={{display:"flex",gap:8}}><button onClick={()=>{if(a.numUnits>2)upd("numUnits",a.numUnits-1);}} style={btnSm}>−</button><button onClick={()=>{if(a.numUnits<4)upd("numUnits",a.numUnits+1);}} style={btnSm}>+</button></div>}>
       {Array.from({length:a.numUnits}).map((_,i)=>{
@@ -1231,16 +1340,19 @@ function ShowingTab({deal,onChange}){
 }
 
 
-function RedFlagsTab({deal,result,onChange}){
+function RedFlagsTab({deal,result,onChange,prefs=DEFAULT_PREFS}){
   const [exp,setExp]=useState({});
   const yr1=result.years?.[0];
   const expR=yr1&&yr1.egi>0?yr1.expenses/yr1.egi:null;
   const dscr=yr1?.dscr??null;
   const cr=yr1?.capRate??null;
+  const dscrFloor = prefs.dscrFloor ?? 1.2;
+  const crFloor   = prefs.capRateFloor ?? 0.06;
+  const expCeil   = prefs.expRatioCeiling ?? 0.50;
   const AF=[
-    {key:"dscr",label:"DSCR Below 1.2x",triggered:dscr!==null&&dscr<1.2,severity:dscr!==null&&dscr<1.0?"critical":"warning",detail:dscr!==null?`Yr 1 DSCR is ${dscr.toFixed(2)}x — debt service may not be covered by NOI.`:"No data",actual:dscr!==null?`${dscr.toFixed(2)}x`:"—",threshold:"1.20x"},
-    {key:"caprate",label:"Cap Rate Below 6%",triggered:cr!==null&&cr<0.06,severity:cr!==null&&cr<0.04?"critical":"warning",detail:cr!==null?`Yr 1 Cap Rate is ${(cr*100).toFixed(2)}% — low return relative to purchase price.`:"No data",actual:cr!==null?`${(cr*100).toFixed(2)}%`:"—",threshold:"6.00%"},
-    {key:"expratio",label:"Expense Ratio Above 50%",triggered:expR!==null&&expR>0.50,severity:expR!==null&&expR>0.65?"critical":"warning",detail:expR!==null?`Yr 1 Expense Ratio is ${(expR*100).toFixed(1)}% — high expenses relative to income.`:"No data",actual:expR!==null?`${(expR*100).toFixed(1)}%`:"—",threshold:"50%"},
+    {key:"dscr",label:`DSCR Below ${dscrFloor.toFixed(2)}x`,triggered:dscr!==null&&dscr<dscrFloor,severity:dscr!==null&&dscr<dscrFloor*0.85?"critical":"warning",detail:dscr!==null?`Yr 1 DSCR is ${dscr.toFixed(2)}x — debt service may not be covered by NOI.`:"No data",actual:dscr!==null?`${dscr.toFixed(2)}x`:"—",threshold:`${dscrFloor.toFixed(2)}x`},
+    {key:"caprate",label:`Cap Rate Below ${(crFloor*100).toFixed(1)}%`,triggered:cr!==null&&cr<crFloor,severity:cr!==null&&cr<crFloor*0.67?"critical":"warning",detail:cr!==null?`Yr 1 Cap Rate is ${(cr*100).toFixed(2)}% — low return relative to purchase price.`:"No data",actual:cr!==null?`${(cr*100).toFixed(2)}%`:"—",threshold:`${(crFloor*100).toFixed(1)}%`},
+    {key:"expratio",label:`Expense Ratio Above ${(expCeil*100).toFixed(0)}%`,triggered:expR!==null&&expR>expCeil,severity:expR!==null&&expR>expCeil*1.3?"critical":"warning",detail:expR!==null?`Yr 1 Expense Ratio is ${(expR*100).toFixed(1)}% — high expenses relative to income.`:"No data",actual:expR!==null?`${(expR*100).toFixed(1)}%`:"—",threshold:`${(expCeil*100).toFixed(0)}%`},
   ];
   const manual=deal.redFlags?.manual||[];
   const mit=deal.redFlags?.mitigations||{};
@@ -1343,7 +1455,7 @@ function DealPage({deal, onUpdate, onBack, onExport}) {
     {tab===2&&<CashFlowTab result={result} deal={deal}/>}
     {tab===3&&<RentCompsTab deal={deal} onChange={onUpdate}/>}
     {tab===4&&<ShowingTab deal={deal} onChange={onUpdate}/>}
-    {tab===5&&<RedFlagsTab deal={deal} result={result} onChange={onUpdate}/>}
+    {tab===5&&<RedFlagsTab deal={deal} result={result} onChange={onUpdate} prefs={window.__userPrefs||DEFAULT_PREFS}/>}
     {tab===6&&<SensitivityTab deal={deal}/>}
   </div>);
 }
@@ -2028,12 +2140,221 @@ function ProfilePage({ user, onBack, onSignOut, dark, setDark }) {
   );
 }
 
+
+// ─── SETTINGS PAGE ────────────────────────────────────────────────────────────
+function SettingsPage({ prefs, onSave, onBack, deals, dark, setDark }) {
+  const [local, setLocal] = useState({ ...DEFAULT_PREFS, ...prefs });
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [showApplyModal, setShowApplyModal] = useState(false);
+  const [pendingPrefs, setPendingPrefs] = useState(null);
+
+  const set = (key, val) => setLocal(p => ({ ...p, [key]: val }));
+  const setCC = (key, val) => setLocal(p => ({ ...p, closingCosts: { ...p.closingCosts, [key]: val } }));
+
+  const handleSave = (applyToDeals) => {
+    setSaving(true);
+    onSave(local, applyToDeals);
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleSaveClick = () => {
+    if (deals?.length > 0) {
+      setPendingPrefs(local);
+      setShowApplyModal(true);
+    } else {
+      handleSave(false);
+    }
+  };
+
+  const card  = { background:"var(--card)", border:"1px solid var(--border)", borderRadius:12, padding:24, marginBottom:14 };
+  const iS    = { width:"100%", padding:"9px 12px", borderRadius:7, fontSize:14, border:"1px solid var(--border)", background:"var(--input-bg)", color:"var(--text)", fontFamily:"inherit" };
+  const label = (txt) => <label style={{fontSize:11,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",display:"block",marginBottom:4}}>{txt}</label>;
+  const row2  = { display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 };
+  const row3  = { display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12 };
+
+  return (
+    <div style={{maxWidth:600, margin:"0 auto", paddingBottom:40}}>
+      <div style={{display:"flex", alignItems:"center", gap:12, margin:"20px 0 24px"}}>
+        <button onClick={onBack} style={{background:"var(--card)", border:"1px solid var(--border)",
+          borderRadius:8, padding:"8px 14px", color:"var(--text)", fontSize:13, cursor:"pointer", fontWeight:600}}>
+          ← Back
+        </button>
+        <div>
+          <div style={{fontWeight:800, fontSize:18}}>Default Settings</div>
+          <div style={{fontSize:12, color:"var(--muted)", marginTop:2}}>Applied to every new deal you create</div>
+        </div>
+      </div>
+
+      {/* ── Financing Defaults ───────────────────────────── */}
+      <div style={card}>
+        <div style={{fontWeight:700, fontSize:14, marginBottom:16}}>Financing</div>
+        <div style={row3}>
+          <div>
+            {label("Down Payment %")}
+            <input type="number" value={local.downPaymentPct} onChange={e=>set("downPaymentPct",+e.target.value)} style={iS} min={0} max={100}/>
+          </div>
+          <div>
+            {label("Interest Rate %")}
+            <input type="number" value={local.interestRate} onChange={e=>set("interestRate",+e.target.value)} style={iS} step={0.1}/>
+          </div>
+          <div>
+            {label("Amortization (yrs)")}
+            <input type="number" value={local.amortYears} onChange={e=>set("amortYears",+e.target.value)} style={iS}/>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Income & Growth Defaults ─────────────────────── */}
+      <div style={card}>
+        <div style={{fontWeight:700, fontSize:14, marginBottom:16}}>Income & Growth</div>
+        <div style={row2}>
+          <div>
+            {label("Vacancy Rate %")}
+            <input type="number" value={local.vacancyRate} onChange={e=>set("vacancyRate",+e.target.value)} style={iS} min={0} max={100}/>
+          </div>
+          <div>
+            {label("Rent Growth % / yr")}
+            <input type="number" value={local.rentGrowth} onChange={e=>set("rentGrowth",+e.target.value)} style={iS} step={0.1}/>
+          </div>
+          <div>
+            {label("Expense Growth % / yr")}
+            <input type="number" value={local.expenseGrowth} onChange={e=>set("expenseGrowth",+e.target.value)} style={iS} step={0.1}/>
+          </div>
+          <div>
+            {label("Appreciation % / yr")}
+            <input type="number" value={local.appreciationRate} onChange={e=>set("appreciationRate",+e.target.value)} style={iS} step={0.1}/>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Tax ─────────────────────────────────────────── */}
+      <div style={card}>
+        <div style={{fontWeight:700, fontSize:14, marginBottom:16}}>Tax</div>
+        <div style={{maxWidth:180}}>
+          {label("Income Tax Bracket %")}
+          <input type="number" value={local.taxBracket} onChange={e=>set("taxBracket",+e.target.value)} style={iS} min={0} max={60}/>
+        </div>
+      </div>
+
+      {/* ── Expense % Defaults ───────────────────────────── */}
+      <div style={card}>
+        <div style={{fontWeight:700, fontSize:14, marginBottom:4}}>Expense Defaults (%)</div>
+        <div style={{fontSize:12, color:"var(--muted)", marginBottom:16}}>Used when expense mode is set to % of rent</div>
+        <div style={row3}>
+          <div>
+            {label("Property Tax %")}
+            <input type="number" value={local.propertyTaxPct} onChange={e=>set("propertyTaxPct",+e.target.value)} style={iS} step={0.1}/>
+          </div>
+          <div>
+            {label("Insurance %")}
+            <input type="number" value={local.insurancePct} onChange={e=>set("insurancePct",+e.target.value)} style={iS} step={0.1}/>
+          </div>
+          <div>
+            {label("Maintenance %")}
+            <input type="number" value={local.maintenancePct} onChange={e=>set("maintenancePct",+e.target.value)} style={iS} step={0.1}/>
+          </div>
+          <div>
+            {label("CapEx %")}
+            <input type="number" value={local.capexPct} onChange={e=>set("capexPct",+e.target.value)} style={iS} step={0.1}/>
+          </div>
+          <div>
+            {label("Property Mgmt %")}
+            <input type="number" value={local.propertyMgmtPct} onChange={e=>set("propertyMgmtPct",+e.target.value)} style={iS} step={0.1}/>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Closing Costs ────────────────────────────────── */}
+      <div style={card}>
+        <div style={{fontWeight:700, fontSize:14, marginBottom:16}}>Closing Cost Defaults ($)</div>
+        <div style={row3}>
+          {[["title","Title & Escrow"],["transferTax","Transfer Tax"],["inspection","Inspection"],["attorney","Attorney"],["lenderFees","Lender Fees"]].map(([k,lbl])=>(
+            <div key={k}>
+              {label(lbl)}
+              <input type="number" value={local.closingCosts[k]||0} onChange={e=>setCC(k,+e.target.value)} style={iS}/>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Red Flag Thresholds ──────────────────────────── */}
+      <div style={card}>
+        <div style={{fontWeight:700, fontSize:14, marginBottom:4}}>Red Flag Thresholds</div>
+        <div style={{fontSize:12, color:"var(--muted)", marginBottom:16}}>Triggers warnings on the Red Flags tab</div>
+        <div style={row3}>
+          <div>
+            {label("DSCR Floor (x)")}
+            <input type="number" value={local.dscrFloor} onChange={e=>set("dscrFloor",+e.target.value)} style={iS} step={0.05}/>
+          </div>
+          <div>
+            {label("Cap Rate Floor %")}
+            <input type="number" value={(local.capRateFloor*100).toFixed(1)} onChange={e=>set("capRateFloor",+e.target.value/100)} style={iS} step={0.1}/>
+          </div>
+          <div>
+            {label("Exp. Ratio Ceiling %")}
+            <input type="number" value={(local.expRatioCeiling*100).toFixed(0)} onChange={e=>set("expRatioCeiling",+e.target.value/100)} style={iS}/>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Save ────────────────────────────────────────── */}
+      <div style={{display:"flex", gap:10, alignItems:"center"}}>
+        <button onClick={handleSaveClick} disabled={saving}
+          style={{background:"var(--accent)", color:"#fff", border:"none", borderRadius:8,
+            padding:"12px 28px", fontSize:15, fontWeight:700, cursor:"pointer", opacity:saving?0.7:1}}>
+          {saving ? "Saving…" : "Save Settings"}
+        </button>
+        <button onClick={()=>{ setLocal({...DEFAULT_PREFS}); }}
+          style={{background:"none", border:"1px solid var(--border)", borderRadius:8,
+            padding:"12px 20px", fontSize:14, color:"var(--muted)", cursor:"pointer"}}>
+          Reset to Defaults
+        </button>
+        {saved && <span style={{color:"#10b981", fontSize:13, fontWeight:600}}>✓ Saved</span>}
+      </div>
+
+      {/* ── Apply to all deals modal ─────────────────────── */}
+      {showApplyModal && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",display:"flex",
+          alignItems:"center",justifyContent:"center",zIndex:1000,padding:16}}>
+          <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,
+            padding:28,maxWidth:400,width:"100%"}}>
+            <div style={{fontWeight:800,fontSize:17,marginBottom:8}}>Apply to existing deals?</div>
+            <div style={{color:"var(--muted)",fontSize:14,lineHeight:1.6,marginBottom:20}}>
+              Would you like to apply these defaults to your {deals.length} existing deal{deals.length!==1?"s":""}?
+              <br/><br/>
+              This will update financing, growth, and tax assumptions on all deals.
+              <strong style={{color:"var(--text)"}}> It will not change purchase prices, rents, or property-specific expenses.</strong>
+            </div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>{setShowApplyModal(false);handleSave(true);}}
+                style={{flex:1,background:"var(--accent)",color:"#fff",border:"none",borderRadius:8,
+                  padding:"11px",fontSize:14,fontWeight:700,cursor:"pointer"}}>
+                Yes, apply to all {deals.length} deals
+              </button>
+              <button onClick={()=>{setShowApplyModal(false);handleSave(false);}}
+                style={{flex:1,background:"none",border:"1px solid var(--border)",borderRadius:8,
+                  padding:"11px",fontSize:14,color:"var(--text)",cursor:"pointer"}}>
+                New deals only
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function App() {
   const [dark, setDark] = useState(true);
-  const [user, setUser] = useState(null);          // null=loading, false=logged out, object=logged in
+  const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [showProfile, setShowProfile] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [prefs, setPrefs] = useState(DEFAULT_PREFS);
   const [deals, setDeals] = useState(null);
   const [activeDealId, setActiveDealId] = useState(null);
   const [syncStatus, setSyncStatus] = useState("idle");
@@ -2059,6 +2380,7 @@ function App() {
           sbRead()
             .then(({ data: cloudDeals, updated_at }) => {
               lastCloudUpdate.current = updated_at;
+              if (data.prefs) { const p = { ...DEFAULT_PREFS, ...data.prefs }; setPrefs(p); window.__userPrefs = p; }
               if (cloudDeals.length > 0) {
                 setDeals(cloudDeals);
                 saveLocal(cloudDeals, u.id);
@@ -2150,7 +2472,7 @@ function App() {
     }
   }, [isOnline]);
 
-  const addDeal      = () => { const d=newDeal(); setDeals(p=>[...p,d]); setActiveDealId(d.id); };
+  const addDeal      = () => { const d=newDeal(prefs); setDeals(p=>[...p,d]); setActiveDealId(d.id); };
   const updateDeal   = useCallback((u) => { setDeals(p=>p.map(d=>d.id===u.id?u:d)); }, []);
   const deleteDeal   = (id) => setDeals(p=>p.filter(d=>d.id!==id));
   const reorderDeals = useCallback((next) => { setDeals(next); }, []);
@@ -2159,7 +2481,8 @@ function App() {
   const handleSignOut = async () => {
     await authSignOut();
     setDeals(null); setActiveDealId(null);
-    setShowProfile(false); setProfileMenuOpen(false);
+    setShowProfile(false); setShowSettings(false); setProfileMenuOpen(false);
+    setPrefs(DEFAULT_PREFS);
     saveLocal([]);
   };
 
@@ -2218,6 +2541,35 @@ function App() {
       <style>{`*{box-sizing:border-box;margin:0;padding:0;}html,body{background:#0f172a;color:#e2e8f0;font-family:'DM Sans','Segoe UI',sans-serif;}input,select,textarea{font-family:inherit;outline:none;}input,select{font-size:16px!important;}:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--border-faint:#1e293b;--text:#e2e8f0;--muted:#94a3b8;--accent:#6366f1;--input-bg:#0f172a;--table-head:#1e293b;--row-hover:#6366f108;--row-sub:#1a2744;}`}</style>
       <div style={{padding:"0 16px"}}>
         <ProfilePage user={user} onBack={()=>setShowProfile(false)} onSignOut={handleSignOut} dark={dark} setDark={setDark}/>
+      </div>
+    </div>
+  );
+  if (showSettings) return (
+    <div style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
+      <style>{`*{box-sizing:border-box;margin:0;padding:0;}html,body{background:#0f172a;color:#e2e8f0;font-family:'DM Sans','Segoe UI',sans-serif;}input,select,textarea{font-family:inherit;outline:none;}input,select{font-size:16px!important;}:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--border-faint:#1e293b;--text:#e2e8f0;--muted:#94a3b8;--accent:#6366f1;--input-bg:#0f172a;--table-head:#1e293b;--row-hover:#6366f108;--row-sub:#1a2744;}`}</style>
+      <div style={{padding:"0 16px"}}>
+        <SettingsPage prefs={prefs} onSave={(newPrefs, applyToDeals)=>{
+          setPrefs(newPrefs);
+          window.__userPrefs = newPrefs;
+          sbWritePrefs(newPrefs).catch(()=>{});
+          if (applyToDeals && deals?.length > 0) {
+            const updated = deals.map(d => {
+              const a = JSON.parse(JSON.stringify(d.assumptions));
+              // Only overwrite fields that match the original default (user hasn't customized them)
+              if (a.downPaymentPct   === d._defaultDownPct   || true) a.downPaymentPct   = newPrefs.downPaymentPct;
+              if (a.interestRate     === d._defaultRate       || true) a.interestRate     = newPrefs.interestRate;
+              if (a.amortYears       === d._defaultAmort      || true) a.amortYears       = newPrefs.amortYears;
+              a.vacancyRate      = newPrefs.vacancyRate;
+              a.rentGrowth       = newPrefs.rentGrowth;
+              a.expenseGrowth    = newPrefs.expenseGrowth;
+              a.appreciationRate = newPrefs.appreciationRate;
+              a.taxBracket       = newPrefs.taxBracket;
+              return { ...d, assumptions: a };
+            });
+            setDeals(updated);
+          }
+          setShowSettings(false);
+        }} onBack={()=>setShowSettings(false)} deals={deals} dark={dark} setDark={setDark}/>
       </div>
     </div>
   );
@@ -2297,6 +2649,12 @@ function App() {
                           {user?.email}
                         </div>
                       </div>
+                      <button onClick={()=>{setShowSettings(true);setProfileMenuOpen(false);}}
+                        style={{display:"block",width:"100%",textAlign:"left",padding:"10px 14px",
+                          background:"none",border:"none",color:"var(--text)",fontSize:13,
+                          cursor:"pointer",fontFamily:"inherit"}}>
+                        ⚙️ Settings
+                      </button>
                       <button onClick={()=>{setShowProfile(true);setProfileMenuOpen(false);}}
                         style={{display:"block",width:"100%",textAlign:"left",padding:"10px 14px",
                           background:"none",border:"none",color:"var(--text)",fontSize:13,
