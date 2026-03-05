@@ -515,8 +515,10 @@ function DealSummaryTab({deal, result, onUpdate}) {
       <MetricCard label="CoC Return (Yr1)" value={FMT_PCT(result.cocReturn)} highlight/>
       <MetricCard label="Cap Rate (Yr3)" value={FMT_PCT(result.years[2]?.capRate)}/>
       <MetricCard label="IRR (10yr)" value={FMT_PCT(result.irr)} highlight/>
+    </div>
+    <div style={{display:"flex",flexWrap:"wrap",gap:10,marginBottom:20}}>
       <MetricCard label="Gross Rent (Mo.)" value={FMT_USD(result.grossRentYear0/12)} sub="Before vacancy"/>
-      <MetricCard label="Total Expenses (Mo.)" value={FMT_USD(result.baseExpenses/12)} sub="Excl. debt service"/>
+      <MetricCard label="Operating Expenses (Mo.)" value={FMT_USD(result.baseExpenses/12)} sub="Excl. debt service"/>
       <MetricCard label="Debt Service (Mo.)" value={FMT_USD(result.annualDebtService/12)} sub="P&I payment"/>
     </div>
     <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap"}}>
@@ -944,10 +946,7 @@ function AssumptionsTab({deal,onChange}){
       <InputRow label="Down Payment" value={a.downPaymentPct} onChange={v=>upd("downPaymentPct",v)} suffix="%" source={a.downPaymentSource} onSourceChange={v=>upd("downPaymentSource",v)}/>
       <InputRow label="Seller Concessions" value={a.sellerConcessions} onChange={v=>upd("sellerConcessions",v)} prefix="$" source={a.sellerConcessionsSource} onSourceChange={v=>upd("sellerConcessionsSource",v)}/>
     </Section>
-    <Section title="Closing Costs">
-      {[["title","Title"],["transferTax","Transfer Tax"],["inspection","Inspection"],["attorney","Attorney"],["lenderFees","Lender Fees"]].map(([k,lbl])=>(<InputRow key={k} label={lbl} value={a.closingCosts[k]} onChange={v=>upd(`closingCosts.${k}`,v)} prefix="$"/>))}
-    </Section>
-    <Section title="Financing">
+        <Section title="Financing">
       <InputRow label="Interest Rate" value={a.interestRate} onChange={v=>upd("interestRate",v)} suffix="%" source={a.interestRateSource} onSourceChange={v=>upd("interestRateSource",v)}/>
       <InputRow label="Amortization" value={a.amortYears} onChange={v=>upd("amortYears",v)} suffix="yrs" source={a.amortSource} onSourceChange={v=>upd("amortSource",v)}/>
     </Section>
@@ -1071,6 +1070,29 @@ function AssumptionsTab({deal,onChange}){
       })}
       <div style={{fontSize:12,color:"var(--muted)",padding:"6px 0"}}>Year 1 computed total: <strong style={{color:"var(--text)"}}>{FMT_USD(resolveExpenses(a,grossRentYear0).total)}</strong></div>
     </Section>
+    {(()=>{
+      const [ccOpen, setCcOpen] = React.useState(false);
+      const ccTotal = Object.values(a.closingCosts||{}).reduce((s,v)=>s+(+v||0),0);
+      return (
+        <div style={{marginBottom:24}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+            borderBottom:"2px solid var(--accent)",paddingBottom:6,marginBottom:ccOpen?10:0,cursor:"pointer"}}
+            onClick={()=>setCcOpen(v=>!v)}>
+            <div style={{fontSize:12,fontWeight:800,letterSpacing:"0.1em",color:"var(--accent)",textTransform:"uppercase"}}>
+              Closing Costs <span style={{fontWeight:400,color:"var(--muted)",fontSize:11,textTransform:"none",letterSpacing:0}}>({FMT_USD(ccTotal)} total)</span>
+            </div>
+            <div style={{fontSize:14,color:"var(--muted)",transform:ccOpen?"rotate(180deg)":"none",transition:"transform 0.2s"}}>▾</div>
+          </div>
+          {ccOpen && (
+            <div>
+              {[["title","Title"],["transferTax","Transfer Tax"],["inspection","Inspection"],["attorney","Attorney"],["lenderFees","Lender Fees"]].map(([k,lbl])=>(
+                <InputRow key={k} label={lbl} value={a.closingCosts[k]} onChange={v=>upd(`closingCosts.${k}`,v)} prefix="$"/>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    })()}
     <Section title="Owner Occupancy" action={<label style={{fontSize:12,color:"var(--muted)",display:"flex",gap:8,alignItems:"center",cursor:"pointer"}}><input type="checkbox" checked={!!a.ownerOccupied} onChange={e=>upd("ownerOccupied",e.target.checked)}/> Enable</label>}>
       {a.ownerOccupied ? (<>
         <div style={{display:isMobile?"block":"grid",gridTemplateColumns:"200px 1fr 1fr",gap:8,alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--border-faint)"}}>
@@ -1634,7 +1656,7 @@ function PortfolioMap({deals, onSelect}) {
 }
 
 // ─── PORTFOLIO PAGE ────────────────────────────────────────────────────────────
-function PortfolioPage({deals, onSelect, onAdd, onDelete, onExport, onReorder, dark, setDark, filterState}) {
+function PortfolioPage({deals, onSelect, onAdd, onDelete, onExport, onReorder, dark, setDark, filterState, onTour}) {
   const [filter, setFilter] = filterState; // lifted state so it persists across navigation
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
@@ -1674,6 +1696,7 @@ function PortfolioPage({deals, onSelect, onAdd, onDelete, onExport, onReorder, d
       <div><div style={{fontSize:22,fontWeight:800,color:"var(--text)",letterSpacing:"-0.02em"}}>Multi-family Deal Analyzer</div><div style={{fontSize:12,color:"var(--muted)"}}>2–4 Unit Multifamily</div></div>
       <div style={{display:"flex",gap:8}}>
         <button onClick={()=>setDark(!dark)} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 10px",color:"var(--text)",fontSize:14}}>{dark?"☀":"🌙"}</button>
+        <button onClick={()=>onTour&&onTour()} title="Take a Tour" style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"8px 10px",color:"var(--muted)",fontSize:13,cursor:"pointer"}} >🗺️</button>
         <button onClick={onAdd} style={{background:"var(--accent)",color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",fontSize:13,fontWeight:800}}>+ Add</button>
       </div>
     </div>
@@ -2110,19 +2133,7 @@ function ProfilePage({ user, onBack, onSignOut, dark, setDark }) {
         }
       </div>
 
-      {/* Preferences */}
-      <div style={card}>
-        <div style={{fontWeight:700, fontSize:14, marginBottom:14}}>Preferences</div>
-        <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
-          <span style={{fontSize:14}}>Dark mode</span>
-          <button onClick={()=>setDark(!dark)} style={{background:dark?"var(--accent)":"#cbd5e1",
-            border:"none", borderRadius:20, width:46, height:24, position:"relative", cursor:"pointer",
-            transition:"background 0.2s", flexShrink:0}}>
-            <div style={{width:16, height:16, background:"#fff", borderRadius:"50%", position:"absolute",
-              top:4, left:dark?26:4, transition:"left 0.2s"}}/>
-          </button>
-        </div>
-      </div>
+
 
       {/* Sign out */}
       <div style={card}>
@@ -2183,7 +2194,7 @@ function SettingsPage({ prefs, onSave, onBack, deals, dark, setDark }) {
           ← Back
         </button>
         <div>
-          <div style={{fontWeight:800, fontSize:18}}>Default Settings</div>
+          <div style={{fontWeight:800, fontSize:18}}>Global Assumptions</div>
           <div style={{fontSize:12, color:"var(--muted)", marginTop:2}}>Applied to every new deal you create</div>
         </div>
       </div>
@@ -2347,12 +2358,117 @@ function SettingsPage({ prefs, onSave, onBack, deals, dark, setDark }) {
   );
 }
 
+
+// ─── ONBOARDING TOUR ──────────────────────────────────────────────────────────
+const TOUR_STEPS = [
+  {
+    title: "Welcome to Multi-family Deal Analyzer 🏢",
+    body: "This tool helps you underwrite 2–4 unit multifamily properties from first look to closing. We'll walk you through the key features in about 60 seconds.",
+    icon: "🏢",
+  },
+  {
+    title: "Your Deal Portfolio",
+    body: "The portfolio is your command center. Every deal you're analyzing, under contract, or own lives here. Filter by status, sort by returns, and spot your best opportunities at a glance.",
+    icon: "📋",
+  },
+  {
+    title: "Add a Deal & Enter Assumptions",
+    body: "Click '+ Add' to create a new deal. On the Assumptions tab, enter the purchase price, financing terms, rents, and expenses. Every input has a source field so you can track where your numbers came from.",
+    icon: "✏️",
+  },
+  {
+    title: "Auto-fill with Rentcast",
+    body: "Paste a Zillow or Redfin listing URL into the Property Lookup panel to auto-fill the address, property details, taxes, and rent estimates — saving you 10+ minutes per deal.",
+    icon: "⚡",
+  },
+  {
+    title: "Deal Summary & Cash Flow",
+    body: "The Summary tab shows your key metrics instantly: NOI, CoC return, IRR, cap rate, and monthly cash flow. The Cash Flow tab projects 10 years of performance with full income, expense, and equity detail.",
+    icon: "📊",
+  },
+  {
+    title: "Red Flags & Sensitivity",
+    body: "The Red Flags tab auto-checks DSCR, cap rate, and expense ratio against your thresholds. The Sensitivity tab shows how returns shift with different rent or purchase price assumptions.",
+    icon: "🚩",
+  },
+  {
+    title: "Global Assumptions",
+    body: "Set your default financing terms, growth rates, and analysis thresholds once in Global Assumptions (⚙️ menu). Every new deal will start with your preferred numbers.",
+    icon: "⚙️",
+  },
+  {
+    title: "You're ready to analyze deals.",
+    body: "Start by clicking '+ Add' to create your first deal, or paste a listing URL directly into the Property Lookup panel. Your data syncs automatically across all your devices.",
+    icon: "🚀",
+  },
+];
+
+function OnboardingTour({ onClose, onDone }) {
+  const [step, setStep] = useState(0);
+  const total = TOUR_STEPS.length;
+  const s = TOUR_STEPS[step];
+  const isLast = step === total - 1;
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",display:"flex",
+      alignItems:"center",justifyContent:"center",zIndex:2000,padding:16}}
+      onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:18,
+        padding:"36px 32px",maxWidth:460,width:"100%",position:"relative",
+        boxShadow:"0 24px 64px rgba(0,0,0,0.5)"}}>
+
+        {/* Close */}
+        <button onClick={onClose} style={{position:"absolute",top:14,right:16,background:"none",
+          border:"none",color:"var(--muted)",fontSize:20,cursor:"pointer",lineHeight:1}}>✕</button>
+
+        {/* Step indicator */}
+        <div style={{display:"flex",gap:5,marginBottom:24,justifyContent:"center"}}>
+          {TOUR_STEPS.map((_,i)=>(
+            <div key={i} onClick={()=>setStep(i)} style={{height:3,flex:1,borderRadius:2,cursor:"pointer",
+              background:i<=step?"var(--accent)":"var(--border)",transition:"background 0.2s"}}/>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div style={{textAlign:"center",marginBottom:28}}>
+          <div style={{fontSize:48,marginBottom:16,lineHeight:1}}>{s.icon}</div>
+          <div style={{fontWeight:800,fontSize:19,marginBottom:10,lineHeight:1.3}}>{s.title}</div>
+          <div style={{color:"var(--muted)",fontSize:15,lineHeight:1.7}}>{s.body}</div>
+        </div>
+
+        {/* Navigation */}
+        <div style={{display:"flex",gap:10,alignItems:"center",justifyContent:"space-between"}}>
+          <button onClick={()=>setStep(s=>Math.max(0,s-1))} disabled={step===0}
+            style={{background:"none",border:"1px solid var(--border)",borderRadius:8,
+              padding:"10px 18px",fontSize:14,cursor:step===0?"not-allowed":"pointer",
+              color:"var(--muted)",opacity:step===0?0.4:1}}>
+            ← Back
+          </button>
+          <span style={{fontSize:12,color:"var(--muted)"}}>{step+1} of {total}</span>
+          {isLast
+            ? <button onClick={onDone} style={{background:"var(--accent)",color:"#fff",border:"none",
+                borderRadius:8,padding:"10px 22px",fontSize:14,fontWeight:700,cursor:"pointer"}}>
+                Get Started →
+              </button>
+            : <button onClick={()=>setStep(s=>s+1)} style={{background:"var(--accent)",color:"#fff",
+                border:"none",borderRadius:8,padding:"10px 22px",fontSize:14,fontWeight:700,cursor:"pointer"}}>
+                Next →
+              </button>
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [dark, setDark] = useState(true);
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [showProfile, setShowProfile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showAppSettings, setShowAppSettings] = useState(false);
+  const [showTour, setShowTour] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [prefs, setPrefs] = useState(DEFAULT_PREFS);
   const [deals, setDeals] = useState(null);
@@ -2387,6 +2503,9 @@ function App() {
               } else if (local.length > 0) {
                 // First login on new device — push cached local up to cloud
                 sbWrite(local).catch(() => {});
+              } else {
+                // Brand new user — show onboarding tour
+                setShowTour(true);
               }
               // New user with no data anywhere — stays as empty array, correct
             })
@@ -2481,7 +2600,7 @@ function App() {
   const handleSignOut = async () => {
     await authSignOut();
     setDeals(null); setActiveDealId(null);
-    setShowProfile(false); setShowSettings(false); setProfileMenuOpen(false);
+    setShowProfile(false); setShowSettings(false); setShowAppSettings(false); setProfileMenuOpen(false);
     setPrefs(DEFAULT_PREFS);
     saveLocal([]);
   };
@@ -2541,6 +2660,63 @@ function App() {
       <style>{`*{box-sizing:border-box;margin:0;padding:0;}html,body{background:#0f172a;color:#e2e8f0;font-family:'DM Sans','Segoe UI',sans-serif;}input,select,textarea{font-family:inherit;outline:none;}input,select{font-size:16px!important;}:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--border-faint:#1e293b;--text:#e2e8f0;--muted:#94a3b8;--accent:#6366f1;--input-bg:#0f172a;--table-head:#1e293b;--row-hover:#6366f108;--row-sub:#1a2744;}`}</style>
       <div style={{padding:"0 16px"}}>
         <ProfilePage user={user} onBack={()=>setShowProfile(false)} onSignOut={handleSignOut} dark={dark} setDark={setDark}/>
+      </div>
+    </div>
+  );
+  if (showAppSettings) return (
+    <div style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
+      <style>{`*{box-sizing:border-box;margin:0;padding:0;}html,body{background:#0f172a;color:#e2e8f0;font-family:'DM Sans','Segoe UI',sans-serif;}input,select,textarea{font-family:inherit;outline:none;}input,select{font-size:16px!important;}:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--border-faint:#1e293b;--text:#e2e8f0;--muted:#94a3b8;--accent:#6366f1;--input-bg:#0f172a;--table-head:#1e293b;--row-hover:#6366f108;--row-sub:#1a2744;}`}</style>
+      <div style={{padding:"0 16px"}}>
+        <div style={{maxWidth:480, margin:"0 auto", paddingBottom:40}}>
+          <div style={{display:"flex", alignItems:"center", gap:12, margin:"20px 0 24px"}}>
+            <button onClick={()=>setShowAppSettings(false)} style={{background:"var(--card)", border:"1px solid var(--border)",
+              borderRadius:8, padding:"8px 14px", color:"var(--text)", fontSize:13, cursor:"pointer", fontWeight:600}}>
+              ← Back
+            </button>
+            <div style={{fontWeight:800, fontSize:18}}>Settings</div>
+          </div>
+          {/* Appearance */}
+          <div style={{background:"var(--card)", border:"1px solid var(--border)", borderRadius:12, padding:24, marginBottom:14}}>
+            <div style={{fontWeight:700, fontSize:14, marginBottom:14}}>Appearance</div>
+            <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+              <div>
+                <div style={{fontSize:14, fontWeight:500}}>Dark mode</div>
+                <div style={{fontSize:12, color:"var(--muted)", marginTop:2}}>Easy on the eyes for late-night deal analysis</div>
+              </div>
+              <button onClick={()=>setDark(!dark)} style={{background:dark?"var(--accent)":"#cbd5e1",
+                border:"none", borderRadius:20, width:46, height:24, position:"relative", cursor:"pointer",
+                transition:"background 0.2s", flexShrink:0}}>
+                <div style={{width:16, height:16, background:"#fff", borderRadius:"50%", position:"absolute",
+                  top:4, left:dark?26:4, transition:"left 0.2s"}}/>
+              </button>
+            </div>
+          </div>
+          {/* Account */}
+          <div style={{background:"var(--card)", border:"1px solid var(--border)", borderRadius:12, padding:24, marginBottom:14}}>
+            <div style={{fontWeight:700, fontSize:14, marginBottom:14}}>Account</div>
+            <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+              <div>
+                <div style={{fontSize:14, fontWeight:500}}>{user?.user_metadata?.display_name || "No name set"}</div>
+                <div style={{fontSize:12, color:"var(--muted)", marginTop:2}}>{user?.email}</div>
+              </div>
+              <button onClick={()=>{setShowAppSettings(false); setShowProfile(true);}}
+                style={{background:"none", border:"1px solid var(--border)", borderRadius:7,
+                  padding:"7px 14px", fontSize:13, cursor:"pointer", color:"var(--text)", fontWeight:600}}>
+                Edit Profile
+              </button>
+            </div>
+          </div>
+          {/* Sign out */}
+          <div style={{background:"var(--card)", border:"1px solid var(--border)", borderRadius:12, padding:24}}>
+            <div style={{fontWeight:700, fontSize:14, marginBottom:4}}>Sign Out</div>
+            <div style={{color:"var(--muted)", fontSize:13, marginBottom:14}}>You'll need to sign back in to access your deals.</div>
+            <button onClick={handleSignOut}
+              style={{background:"#fee2e2", color:"#991b1b", border:"1px solid #fca5a5",
+                borderRadius:8, padding:"10px 20px", fontSize:14, fontWeight:700, cursor:"pointer"}}>
+              Sign Out
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -2653,6 +2829,12 @@ function App() {
                         style={{display:"block",width:"100%",textAlign:"left",padding:"10px 14px",
                           background:"none",border:"none",color:"var(--text)",fontSize:13,
                           cursor:"pointer",fontFamily:"inherit"}}>
+                        📐 Global Assumptions
+                      </button>
+                      <button onClick={()=>{setShowAppSettings(true);setProfileMenuOpen(false);}}
+                        style={{display:"block",width:"100%",textAlign:"left",padding:"10px 14px",
+                          background:"none",border:"none",color:"var(--text)",fontSize:13,
+                          cursor:"pointer",fontFamily:"inherit"}}>
                         ⚙️ Settings
                       </button>
                       <button onClick={()=>{setShowProfile(true);setProfileMenuOpen(false);}}
@@ -2676,9 +2858,10 @@ function App() {
       </div>
       <div style={{padding:"18px 16px 0"}}>
         {!activeDeal
-          ?<PortfolioPage deals={deals} onSelect={id=>setActiveDealId(id)} onAdd={addDeal} onDelete={deleteDeal} onExport={()=>exportPortfolioCSV(deals)} onReorder={reorderDeals} dark={dark} setDark={setDark} filterState={[portfolioFilter,setPortfolioFilter]}/>
+          ?<PortfolioPage deals={deals} onSelect={id=>setActiveDealId(id)} onAdd={addDeal} onDelete={deleteDeal} onExport={()=>exportPortfolioCSV(deals)} onReorder={reorderDeals} dark={dark} setDark={setDark} filterState={[portfolioFilter,setPortfolioFilter]} onTour={()=>setShowTour(true)}/>
           :<DealPage deal={activeDeal} onUpdate={updateDeal} onBack={()=>setActiveDealId(null)} onExport={()=>exportDealCSV(activeDeal)}/>
         }
+        {showTour && <OnboardingTour onClose={()=>setShowTour(false)} onDone={()=>setShowTour(false)}/>}
       </div>
     </div>
   </>);
