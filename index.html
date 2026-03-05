@@ -254,6 +254,133 @@ const newDeal = (prefs) => {
   redFlags: { manual: [] },
   }); };
 
+// ─── GROUPS API ──────────────────────────────────────────────────────
+
+async function sbGetMyGroups() {
+  const { data: { user } } = await sbClient.auth.getUser();
+  if (!user) return [];
+  const { data: memberships } = await sbClient
+    .from('group_members').select('group_id, role, status').eq('user_id', user.id);
+  if (!memberships?.length) return [];
+  const groupIds = memberships.map(m => m.group_id);
+  const { data: groups } = await sbClient
+    .from('groups').select('id, name, description, created_by, created_at').in('id', groupIds);
+  return (groups || []).map(g => ({
+    ...g,
+    role:   memberships.find(m => m.group_id === g.id)?.role   || 'Viewer',
+    status: memberships.find(m => m.group_id === g.id)?.status || 'active',
+  }));
+}
+
+async function sbGetPendingInvites() {
+  const { data: { user } } = await sbClient.auth.getUser();
+  if (!user) return [];
+  const { data } = await sbClient
+    .from('group_members')
+    .select('group_id, role, invited_by, created_at, groups(name, description)')
+    .eq('user_id', user.id).eq('status', 'pending');
+  return data || [];
+}
+
+async function sbCreateGroup(name, description) {
+  const { data: { user } } = await sbClient.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+  const { data: group, error } = await sbClient
+    .from('groups').insert({ name, description: description || '', created_by: user.id })
+    .select().single();
+  if (error) throw error;
+  await sbClient.from('group_members').insert({
+    group_id: group.id, user_id: user.id, role: 'Owner',
+    status: 'active', invited_by: user.id
+  });
+  return group;
+}
+
+async function sbInviteMember(groupId, email, role) {
+  const { data: { user } } = await sbClient.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+  const { data: profile } = await sbClient
+    .from('profiles').select('id').eq('email', email).maybeSingle();
+  if (!profile) {
+    const { error } = await sbClient.from('group_invites_pending')
+      .insert({ group_id: groupId, invited_email: email, role, invited_by: user.id });
+    if (error) throw error;
+    return { pending: true };
+  }
+  const { error } = await sbClient.from('group_members')
+    .insert({ group_id: groupId, user_id: profile.id, role, status: 'pending', invited_by: user.id });
+  if (error) throw error;
+  return { pending: false };
+}
+
+async function sbRespondToInvite(groupId, accept) {
+  const { data: { user } } = await sbClient.auth.getUser();
+  if (!user) return;
+  if (accept) {
+    await sbClient.from('group_members').update({ status: 'active' })
+      .eq('group_id', groupId).eq('user_id', user.id);
+  } else {
+    await sbClient.from('group_members').delete()
+      .eq('group_id', groupId).eq('user_id', user.id);
+  }
+}
+
+async function sbLeaveGroup(groupId) {
+  const { data: { user } } = await sbClient.auth.getUser();
+  if (!user) return;
+  await sbClient.from('group_members').delete()
+    .eq('group_id', groupId).eq('user_id', user.id);
+}
+
+async function sbGetGroupMembers(groupId) {
+  const { data } = await sbClient
+    .from('group_members')
+    .select('user_id, role, status, profiles(display_name, email)')
+    .eq('group_id', groupId);
+  return data || [];
+}
+
+async function sbUpdateMemberRole(groupId, memberId, newRole) {
+  await sbClient.from('group_members').update({ role: newRole })
+    .eq('group_id', groupId).eq('user_id', memberId);
+}
+
+async function sbRemoveMember(groupId, memberId) {
+  await sbClient.from('group_members').delete()
+    .eq('group_id', groupId).eq('user_id', memberId);
+}
+
+async function sbGetGroupDeals(groupId) {
+  const { data } = await sbClient
+    .from('group_deals').select('deal_data, updated_at')
+    .eq('group_id', groupId).order('updated_at', { ascending: false });
+  return (data?.[0]?.deal_data) || [];
+}
+
+async function sbWriteGroupDeals(groupId, deals) {
+  const { data: { user } } = await sbClient.auth.getUser();
+  if (!user) return;
+  const { error: upErr } = await sbClient.from('group_deals')
+    .update({ deal_data: deals, updated_at: new Date().toISOString() })
+    .eq('group_id', groupId);
+  if (upErr) {
+    await sbClient.from('group_deals')
+      .insert({ group_id: groupId, deal_data: deals, updated_by: user.id });
+  }
+}
+
+async function sbShareDealToGroup(deal, groupId) {
+  const { data: { user } } = await sbClient.auth.getUser();
+  const existing = await sbGetGroupDeals(groupId);
+  const sharedDeal = {
+    ...deal, id: Date.now(),
+    sharedFromUserId: user?.id,
+    sharedAt: new Date().toISOString()
+  };
+  await sbWriteGroupDeals(groupId, [...existing, sharedDeal]);
+  return sharedDeal;
+}
+
 // ─── FINANCIAL ENGINE ─────────────────────────────────────────────────────────
 function resolveExpenses(a, grossRentYear0) {
   const modes = a.expenseModes || {};
@@ -1465,6 +1592,8 @@ function DealPage({deal, onUpdate, onBack, onExport}) {
         <select value={deal.status} onChange={e=>onUpdate({...deal,status:e.target.value})} style={{background:STATUS_COLORS[deal.status]+"22",border:`1px solid ${STATUS_COLORS[deal.status]}55`,borderRadius:6,padding:"6px 10px",color:STATUS_COLORS[deal.status],fontWeight:700,fontSize:13,cursor:"pointer"}}>
           {STATUS_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
         </select>
+        {onShare&&<button onClick={onShare} style={{background:"#ede9fe",border:"1px solid #c4b5fd",borderRadius:6,padding:"7px 14px",cursor:"pointer",fontSize:13,color:"#5b21b6",fontWeight:700}}>👥 Share</button>}
+        {groupRole==="Viewer"&&<div style={{fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:20,background:"#ede9fe",color:"#5b21b6",border:"1px solid #c4b5fd"}}>👁 View Only</div>}
         <button onClick={onExport} style={{background:"var(--accent)",color:"#fff",border:"none",borderRadius:6,padding:"7px 14px",cursor:"pointer",fontSize:13,fontWeight:700}}>⬇ CSV</button>
       </div>
     </div>
@@ -1692,10 +1821,19 @@ function PortfolioPage({deals, onSelect, onAdd, onDelete, onExport, onReorder, d
   );
 
   if(isMobile){return(<div style={{paddingBottom:80}}>
+    {activeGroup&&<div style={{background:"#ede9fe",border:"1px solid #c4b5fd",borderRadius:10,padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+      <span style={{fontSize:16}}>👥</span>
+      <div style={{flex:1}}>
+        <div style={{fontWeight:700,fontSize:13,color:"#5b21b6"}}>{activeGroup.name}</div>
+        <div style={{fontSize:11,color:"#7c3aed"}}>{activeGroup.role} · Group Portfolio</div>
+      </div>
+      <button onClick={onExitGroup} style={{background:"none",border:"1px solid #c4b5fd",borderRadius:6,padding:"4px 10px",fontSize:11,color:"#7c3aed",cursor:"pointer",fontWeight:700}}>← My Deals</button>
+    </div>}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
       <div><div style={{fontSize:22,fontWeight:800,color:"var(--text)",letterSpacing:"-0.02em"}}>Multi-family Deal Analyzer</div><div style={{fontSize:12,color:"var(--muted)"}}>2–4 Unit Multifamily</div></div>
       <div style={{display:"flex",gap:8}}>
         <button onClick={()=>onTour&&onTour()} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"8px 14px",color:"var(--muted)",fontSize:13,cursor:"pointer",fontWeight:600,display:"flex",alignItems:"center",gap:6}}>🗺️ Take a Tour</button>
+        <button onClick={()=>window._openGroups&&window._openGroups()} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"8px 14px",color:"var(--muted)",fontSize:13,cursor:"pointer",fontWeight:600,display:"flex",alignItems:"center",gap:6}}>👥 Groups</button>
         <button onClick={onAdd} style={{background:"var(--accent)",color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",fontSize:13,fontWeight:800}}>+ Add</button>
       </div>
     </div>
@@ -1717,6 +1855,7 @@ function PortfolioPage({deals, onSelect, onAdd, onDelete, onExport, onReorder, d
             <button onClick={()=>moveItem(i,1)} disabled={i===filtered.length-1} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:4,width:28,height:28,fontSize:12,color:i===filtered.length-1?"var(--border)":"var(--text)",display:"flex",alignItems:"center",justifyContent:"center"}}>↓</button>
             <button onClick={()=>onSelect(d.id)} style={{background:"var(--accent)",border:"none",borderRadius:4,padding:"5px 10px",fontSize:11,color:"#fff",fontWeight:700}}>Open →</button>
             <button onClick={e=>{e.stopPropagation();handleDelete(d.id);}} style={{background:"none",border:"none",color:"#ef4444",fontSize:18,padding:"0 4px",display:"flex",alignItems:"center"}}>✕</button>
+            {onShareDeal&&<button onClick={e=>{e.stopPropagation();onShareDeal(d);}} style={{background:"none",border:"none",color:"#6366f1",fontSize:16,padding:"0 4px",display:"flex",alignItems:"center"}} title="Share deal">👥</button>}
           </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}} onClick={()=>onSelect(d.id)}>
@@ -1729,10 +1868,19 @@ function PortfolioPage({deals, onSelect, onAdd, onDelete, onExport, onReorder, d
 
   // Desktop table layout
   return(<div style={{maxWidth:1100,margin:"0 auto",paddingBottom:40}}>
+    {activeGroup&&<div style={{background:"#ede9fe",border:"1px solid #c4b5fd",borderRadius:10,padding:"12px 18px",marginBottom:16,display:"flex",alignItems:"center",gap:12}}>
+      <span style={{fontSize:18}}>👥</span>
+      <div style={{flex:1}}>
+        <div style={{fontWeight:700,fontSize:14,color:"#5b21b6"}}>{activeGroup.name}</div>
+        <div style={{fontSize:12,color:"#7c3aed"}}>{activeGroup.role} · Shared Group Portfolio</div>
+      </div>
+      <button onClick={onExitGroup} style={{background:"none",border:"1px solid #c4b5fd",borderRadius:7,padding:"6px 14px",fontSize:12,color:"#7c3aed",cursor:"pointer",fontWeight:700}}>← Back to My Deals</button>
+    </div>}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:28}}>
       <div><div style={{fontSize:28,fontWeight:800,color:"var(--text)",letterSpacing:"-0.02em"}}>Multi-family Deal Analyzer</div><div style={{fontSize:13,color:"var(--muted)"}}>2–4 Unit Multifamily · 10-Year Hold</div></div>
       <div style={{display:"flex",gap:10}}>
         <button onClick={()=>onTour&&onTour()} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"8px 14px",color:"var(--muted)",fontSize:13,cursor:"pointer",fontWeight:600,display:"flex",alignItems:"center",gap:6}}>🗺️ Take a Tour</button>
+        <button onClick={()=>onOpenGroups&&onOpenGroups()} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"8px 14px",color:"var(--muted)",fontSize:13,cursor:"pointer",fontWeight:600,display:"flex",alignItems:"center",gap:6}}>👥 Groups</button>
         <button onClick={onExport} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 16px",color:"var(--text)",fontSize:13,fontWeight:700}}>⬇ Export</button>
         <button onClick={onAdd} style={{background:"var(--accent)",color:"#fff",border:"none",borderRadius:8,padding:"8px 18px",fontSize:13,fontWeight:800}}>+ New Deal</button>
       </div>
@@ -1755,7 +1903,8 @@ function PortfolioPage({deals, onSelect, onAdd, onDelete, onExport, onReorder, d
           <td style={{padding:"12px",color:"var(--accent)",fontWeight:700}}>{FMT_PCT(r.irr)}</td>
           <td style={{padding:"12px",color:"var(--text)"}}>{FMT_X(r.equityMultiple)}</td>
           <td style={{padding:"12px"}}><DSCRBadge dscr={r.dscr}/></td>
-          <td style={{padding:"12px"}}><button onClick={e=>{e.stopPropagation();handleDelete(d.id);}} style={{background:"none",border:"none",color:"#ef4444",fontSize:16,padding:0}}>✕</button></td>
+          <td style={{padding:"12px"}}><button onClick={e=>{e.stopPropagation();handleDelete(d.id);}} style={{background:"none",border:"none",color:"#ef4444",fontSize:16,padding:0}}>✕</button>
+      {onShareDeal&&<button onClick={e=>{e.stopPropagation();onShareDeal(d);}} style={{background:"none",border:"none",color:"#6366f1",fontSize:14,padding:"0 2px",cursor:"pointer"}} title="Share deal">👥</button>}</td>
         </tr>);})}
         </tbody>
       </table></div>
@@ -2390,6 +2539,435 @@ const TOUR_STEPS = [
   },
 ];
 
+
+// ─── GROUPS PAGE ─────────────────────────────────────────────────────
+// ─── SHARE DEAL MODAL ────────────────────────────────────────────────
+function ShareDealModal({ deal, user, onClose, onShared }) {
+  const [groups, setGroups]   = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [sharing, setSharing] = React.useState(false);
+  const [selected, setSelected] = React.useState(null);
+  const [msg, setMsg]         = React.useState(null);
+
+  React.useEffect(() => {
+    sbGetMyGroups().then(g => {
+      // Only groups where user can contribute (Owner or Editor)
+      setGroups(g.filter(gr => gr.status === 'active' && gr.role !== 'Viewer'));
+      setLoading(false);
+    });
+  }, []);
+
+  const handleShare = async () => {
+    if (!selected) return;
+    setSharing(true);
+    try {
+      await sbShareDealToGroup(deal, selected.id);
+      onShared(selected.name);
+    } catch(e) {
+      setMsg('Failed to share: ' + e.message);
+      setSharing(false);
+    }
+  };
+
+  const overlay = {position:'fixed',inset:0,background:'rgba(0,0,0,0.65)',display:'flex',
+    alignItems:'center',justifyContent:'center',zIndex:2000,padding:16};
+  const box = {background:'var(--card)',border:'1px solid var(--border)',borderRadius:14,
+    padding:28,maxWidth:400,width:'100%'};
+  const btnPrimary = {background:'var(--accent)',color:'#fff',border:'none',borderRadius:8,
+    padding:'10px 20px',fontSize:14,fontWeight:700,cursor:'pointer'};
+  const btnGhost = {background:'none',border:'1px solid var(--border)',borderRadius:8,
+    padding:'9px 16px',fontSize:13,color:'var(--muted)',cursor:'pointer'};
+
+  return (
+    <div style={overlay} onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={box}>
+        <div style={{fontWeight:800,fontSize:17,marginBottom:4}}>Share Deal</div>
+        <div style={{fontSize:13,color:'var(--muted)',marginBottom:18}}>
+          {deal.address || 'Untitled Deal'}
+        </div>
+
+        {msg && <div style={{background:'#fee2e2',color:'#991b1b',borderRadius:8,
+          padding:'8px 12px',marginBottom:12,fontSize:13}}>{msg}</div>}
+
+        {loading ? (
+          <div style={{color:'var(--muted)',padding:'20px 0',textAlign:'center'}}>Loading groups…</div>
+        ) : groups.length === 0 ? (
+          <div style={{textAlign:'center',padding:'20px 0'}}>
+            <div style={{fontSize:32,marginBottom:10}}>👥</div>
+            <div style={{fontWeight:600,marginBottom:6}}>No groups yet</div>
+            <div style={{fontSize:13,color:'var(--muted)'}}>
+              Create a group first via the profile menu → Deal Groups.
+            </div>
+          </div>
+        ) : (
+          <div style={{marginBottom:18}}>
+            <div style={{fontSize:12,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',
+              letterSpacing:'0.06em',marginBottom:10}}>Share to Group</div>
+            {groups.map(g => (
+              <div key={g.id}
+                onClick={()=>setSelected(g)}
+                style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',
+                  borderRadius:8,marginBottom:6,cursor:'pointer',
+                  border:`2px solid ${selected?.id===g.id ? 'var(--accent)' : 'var(--border)'}`,
+                  background: selected?.id===g.id ? 'var(--accent)11' : 'var(--bg)'}}>
+                <div style={{width:36,height:36,borderRadius:'50%',background:'#6366f1',
+                  display:'flex',alignItems:'center',justifyContent:'center',
+                  fontSize:16,color:'#fff',flexShrink:0}}>
+                  {g.name[0].toUpperCase()}
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,fontSize:14}}>{g.name}</div>
+                  <div style={{fontSize:12,color:'var(--muted)'}}>{g.role}</div>
+                </div>
+                {selected?.id===g.id && <span style={{color:'var(--accent)',fontSize:18}}>✓</span>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{display:'flex',gap:10}}>
+          <button onClick={handleShare}
+            disabled={!selected||sharing||groups.length===0}
+            style={{...btnPrimary, opacity:(!selected||sharing)?0.5:1}}>
+            {sharing ? 'Sharing…' : 'Share Deal'}
+          </button>
+          <button onClick={onClose} style={btnGhost}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GroupsPage({ user, onBack, onSelectGroup }) {
+  const [groups, setGroups]           = React.useState([]);
+  const [pending, setPending]         = React.useState([]);
+  const [loading, setLoading]         = React.useState(true);
+  const [showCreate, setShowCreate]   = React.useState(false);
+  const [showInvite, setShowInvite]   = React.useState(null); // groupId
+  const [showMembers, setShowMembers] = React.useState(null); // group obj
+  const [members, setMembers]         = React.useState([]);
+  const [newName, setNewName]         = React.useState('');
+  const [newDesc, setNewDesc]         = React.useState('');
+  const [inviteEmail, setInviteEmail] = React.useState('');
+  const [inviteRole, setInviteRole]   = React.useState('Editor');
+  const [msg, setMsg]                 = React.useState(null);
+  const [saving, setSaving]           = React.useState(false);
+
+  const flash = (text, ok=true) => { setMsg({text,ok}); setTimeout(()=>setMsg(null),3000); };
+
+  const reload = async () => {
+    setLoading(true);
+    const [g, p] = await Promise.all([sbGetMyGroups(), sbGetPendingInvites()]);
+    setGroups(g); setPending(p); setLoading(false);
+  };
+  React.useEffect(() => { reload(); }, []);
+
+  const handleCreate = async () => {
+    if (!newName.trim()) return;
+    setSaving(true);
+    try {
+      await sbCreateGroup(newName.trim(), newDesc.trim());
+      setNewName(''); setNewDesc(''); setShowCreate(false);
+      flash('Group created!');
+      reload();
+    } catch(e) { flash(e.message, false); }
+    setSaving(false);
+  };
+
+  const handleInvite = async () => {
+    if (!inviteEmail.trim()) return;
+    setSaving(true);
+    try {
+      const res = await sbInviteMember(showInvite, inviteEmail.trim(), inviteRole);
+      setInviteEmail('');
+      flash(res.pending ? 'Invite saved — they'll see it when they join.' : 'Invite sent!');
+      if (showMembers) {
+        const m = await sbGetGroupMembers(showMembers.id);
+        setMembers(m);
+      }
+    } catch(e) { flash(e.message, false); }
+    setSaving(false);
+  };
+
+  const handleRespond = async (groupId, accept) => {
+    await sbRespondToInvite(groupId, accept);
+    flash(accept ? 'Joined group!' : 'Invite declined');
+    reload();
+  };
+
+  const handleLeave = async (groupId) => {
+    if (!confirm('Leave this group? You will lose access to shared deals.')) return;
+    await sbLeaveGroup(groupId);
+    flash('Left group');
+    reload();
+  };
+
+  const openMembers = async (group) => {
+    setShowMembers(group);
+    const m = await sbGetGroupMembers(group.id);
+    setMembers(m);
+  };
+
+  const handleRoleChange = async (groupId, memberId, newRole) => {
+    await sbUpdateMemberRole(groupId, memberId, newRole);
+    const m = await sbGetGroupMembers(groupId);
+    setMembers(m);
+  };
+
+  const handleRemoveMember = async (groupId, memberId) => {
+    if (!confirm('Remove this member?')) return;
+    await sbRemoveMember(groupId, memberId);
+    const m = await sbGetGroupMembers(groupId);
+    setMembers(m);
+  };
+
+  const card  = { background:'var(--card)', border:'1px solid var(--border)', borderRadius:12, padding:20, marginBottom:12 };
+  const iS    = { width:'100%', padding:'9px 12px', borderRadius:7, fontSize:14, border:'1px solid var(--border)', background:'var(--input-bg)', color:'var(--text)', fontFamily:'inherit', marginBottom:10 };
+  const btnPrimary = { background:'var(--accent)', color:'#fff', border:'none', borderRadius:8, padding:'10px 20px', fontSize:14, fontWeight:700, cursor:'pointer' };
+  const btnGhost   = { background:'none', border:'1px solid var(--border)', borderRadius:8, padding:'9px 16px', fontSize:13, color:'var(--muted)', cursor:'pointer' };
+
+  const ROLE_COLORS = { Owner:'#6366f1', Editor:'#10b981', Viewer:'#94a3b8', pending:'#f59e0b' };
+
+  return (
+    <div style={{minHeight:'100vh', background:'var(--bg)', color:'var(--text)'}}>
+      <div style={{maxWidth:640, margin:'0 auto', padding:'0 16px 60px'}}>
+
+        {/* Header */}
+        <div style={{display:'flex', alignItems:'center', gap:12, margin:'20px 0 24px'}}>
+          <button onClick={onBack} style={btnGhost}>← Back</button>
+          <div style={{fontWeight:800, fontSize:18}}>Deal Groups</div>
+          <div style={{marginLeft:'auto'}}>
+            <button onClick={()=>setShowCreate(true)} style={btnPrimary}>+ New Group</button>
+          </div>
+        </div>
+
+        {msg && (
+          <div style={{background: msg.ok ? '#d1fae5' : '#fee2e2', color: msg.ok ? '#065f46' : '#991b1b',
+            borderRadius:8, padding:'10px 14px', marginBottom:14, fontSize:13, fontWeight:600}}>
+            {msg.text}
+          </div>
+        )}
+
+        {/* Pending invites */}
+        {pending.length > 0 && (
+          <div style={{...card, border:'1px solid #f59e0b', background:'#fffbeb'}}>
+            <div style={{fontWeight:700, fontSize:13, color:'#92400e', marginBottom:12}}>
+              📬 Pending Invites ({pending.length})
+            </div>
+            {pending.map(inv => (
+              <div key={inv.group_id} style={{display:'flex', justifyContent:'space-between', alignItems:'center',
+                padding:'10px 0', borderBottom:'1px solid #fde68a'}}>
+                <div>
+                  <div style={{fontWeight:700, fontSize:14}}>{inv.groups?.name}</div>
+                  <div style={{fontSize:12, color:'#92400e', marginTop:2}}>
+                    Invited as <strong>{inv.role}</strong>
+                    {inv.groups?.description && ` · ${inv.groups.description}`}
+                  </div>
+                </div>
+                <div style={{display:'flex', gap:8}}>
+                  <button onClick={()=>handleRespond(inv.group_id, true)}
+                    style={{...btnPrimary, padding:'7px 14px', fontSize:13}}>Accept</button>
+                  <button onClick={()=>handleRespond(inv.group_id, false)}
+                    style={{...btnGhost, padding:'7px 14px', fontSize:13}}>Decline</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Group list */}
+        {loading ? (
+          <div style={{textAlign:'center', padding:40, color:'var(--muted)'}}>Loading groups…</div>
+        ) : groups.length === 0 && pending.length === 0 ? (
+          <div style={{textAlign:'center', padding:'60px 20px'}}>
+            <div style={{fontSize:48, marginBottom:16}}>👥</div>
+            <div style={{fontWeight:700, fontSize:16, marginBottom:8}}>No groups yet</div>
+            <div style={{color:'var(--muted)', fontSize:14, marginBottom:20}}>
+              Create a group to share deals with partners, co-investors, or your team.
+            </div>
+            <button onClick={()=>setShowCreate(true)} style={btnPrimary}>Create Your First Group</button>
+          </div>
+        ) : (
+          groups.filter(g=>g.status==='active').map(group => (
+            <div key={group.id} style={card}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10}}>
+                <div style={{flex:1}}>
+                  <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:4}}>
+                    <div style={{fontWeight:800, fontSize:15}}>{group.name}</div>
+                    <span style={{fontSize:11, fontWeight:700, color:ROLE_COLORS[group.role]||'var(--muted)',
+                      background:'var(--bg)', border:`1px solid ${ROLE_COLORS[group.role]||'var(--border)'}`,
+                      borderRadius:20, padding:'2px 8px'}}>{group.role}</span>
+                  </div>
+                  {group.description && <div style={{fontSize:13, color:'var(--muted)'}}>{group.description}</div>}
+                </div>
+              </div>
+              <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
+                <button onClick={()=>onSelectGroup(group)}
+                  style={{...btnPrimary, padding:'8px 16px', fontSize:13}}>
+                  📂 Open Deals
+                </button>
+                <button onClick={()=>openMembers(group)}
+                  style={{...btnGhost, padding:'8px 16px', fontSize:13}}>
+                  👥 Members
+                </button>
+                {(group.role === 'Owner' || group.role === 'Editor') && (
+                  <button onClick={()=>{ setShowInvite(group.id); setInviteEmail(''); }}
+                    style={{...btnGhost, padding:'8px 16px', fontSize:13}}>
+                    + Invite
+                  </button>
+                )}
+                {group.role !== 'Owner' && (
+                  <button onClick={()=>handleLeave(group.id)}
+                    style={{...btnGhost, padding:'8px 16px', fontSize:13, color:'#ef4444'}}>
+                    Leave
+                  </button>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+
+        {/* ── Create Group Modal ── */}
+        {showCreate && (
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',display:'flex',
+            alignItems:'center',justifyContent:'center',zIndex:1000,padding:16}}
+            onClick={e=>{if(e.target===e.currentTarget)setShowCreate(false);}}>
+            <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:14,padding:28,maxWidth:420,width:'100%'}}>
+              <div style={{fontWeight:800,fontSize:17,marginBottom:16}}>Create a Group</div>
+              <input style={iS} placeholder="Group name (e.g. Smith Family Investments)"
+                value={newName} onChange={e=>setNewName(e.target.value)}
+                onKeyDown={e=>e.key==='Enter'&&handleCreate()}/>
+              <textarea style={{...iS,height:80,resize:'vertical'}}
+                placeholder="Description (optional)"
+                value={newDesc} onChange={e=>setNewDesc(e.target.value)}/>
+              <div style={{fontSize:12,color:'var(--muted)',marginBottom:16}}>
+                You'll be the Owner. Invite others after creating.
+              </div>
+              <div style={{display:'flex',gap:10}}>
+                <button onClick={handleCreate} disabled={!newName.trim()||saving} style={btnPrimary}>
+                  {saving?'Creating…':'Create Group'}
+                </button>
+                <button onClick={()=>setShowCreate(false)} style={btnGhost}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Invite Modal ── */}
+        {showInvite && (
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',display:'flex',
+            alignItems:'center',justifyContent:'center',zIndex:1000,padding:16}}
+            onClick={e=>{if(e.target===e.currentTarget)setShowInvite(null);}}>
+            <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:14,padding:28,maxWidth:420,width:'100%'}}>
+              <div style={{fontWeight:800,fontSize:17,marginBottom:16}}>Invite to Group</div>
+              <input style={iS} type="email" placeholder="Email address"
+                value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)}/>
+              <div style={{marginBottom:14}}>
+                <div style={{fontSize:12,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',
+                  letterSpacing:'0.06em',marginBottom:8}}>Role</div>
+                {['Editor','Viewer'].map(r=>(
+                  <label key={r} style={{display:'flex',alignItems:'center',gap:10,marginBottom:8,cursor:'pointer'}}>
+                    <input type="radio" name="inviteRole" checked={inviteRole===r}
+                      onChange={()=>setInviteRole(r)} style={{accentColor:'var(--accent)'}}/>
+                    <div>
+                      <div style={{fontSize:14,fontWeight:600,color:ROLE_COLORS[r]}}>{r}</div>
+                      <div style={{fontSize:12,color:'var(--muted)'}}>
+                        {r==='Editor'?'Can add, edit, and analyze deals':'Can view deals and analysis — cannot edit'}
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              <div style={{display:'flex',gap:10}}>
+                <button onClick={handleInvite} disabled={!inviteEmail.trim()||saving} style={btnPrimary}>
+                  {saving?'Sending…':'Send Invite'}
+                </button>
+                <button onClick={()=>setShowInvite(null)} style={btnGhost}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Members Panel ── */}
+        {showMembers && (
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',display:'flex',
+            alignItems:'center',justifyContent:'center',zIndex:1000,padding:16}}
+            onClick={e=>{if(e.target===e.currentTarget)setShowMembers(null);}}>
+            <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:14,
+              padding:28,maxWidth:460,width:'100%',maxHeight:'80vh',overflowY:'auto'}}>
+              <div style={{fontWeight:800,fontSize:17,marginBottom:4}}>{showMembers.name}</div>
+              <div style={{fontSize:13,color:'var(--muted)',marginBottom:16}}>Members</div>
+              {members.map(m => {
+                const isMe = m.user_id === user?.id;
+                const name = m.profiles?.display_name || m.profiles?.email || m.user_id?.slice(0,8)+'…';
+                const isOwner = showMembers.role === 'Owner';
+                return (
+                  <div key={m.user_id} style={{display:'flex',alignItems:'center',gap:10,
+                    padding:'10px 0',borderBottom:'1px solid var(--border-faint)'}}>
+                    <div style={{width:34,height:34,borderRadius:'50%',background:'var(--accent)',
+                      display:'flex',alignItems:'center',justifyContent:'center',
+                      fontSize:13,fontWeight:700,color:'#fff',flexShrink:0}}>
+                      {(m.profiles?.display_name||m.profiles?.email||'?')[0].toUpperCase()}
+                    </div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:14,fontWeight:600}}>{name}{isMe&&' (you)'}</div>
+                      <div style={{fontSize:12,color:'var(--muted)'}}>{m.profiles?.email}</div>
+                    </div>
+                    {m.status==='pending' && (
+                      <span style={{fontSize:11,fontWeight:700,color:'#92400e',background:'#fef3c7',
+                        borderRadius:20,padding:'2px 8px'}}>Pending</span>
+                    )}
+                    {isOwner && !isMe ? (
+                      <div style={{display:'flex',alignItems:'center',gap:6}}>
+                        <select value={m.role}
+                          onChange={e=>handleRoleChange(showMembers.id, m.user_id, e.target.value)}
+                          style={{fontSize:12,padding:'4px 8px',borderRadius:6,border:'1px solid var(--border)',
+                            background:'var(--input-bg)',color:ROLE_COLORS[m.role]||'var(--text)',fontWeight:700,
+                            fontFamily:'inherit'}}>
+                          {['Owner','Editor','Viewer'].map(r=><option key={r} value={r}>{r}</option>)}
+                        </select>
+                        <button onClick={()=>handleRemoveMember(showMembers.id, m.user_id)}
+                          style={{background:'none',border:'none',color:'#ef4444',cursor:'pointer',fontSize:16,padding:'0 4px'}}>
+                          ×
+                        </button>
+                      </div>
+                    ) : (
+                      <span style={{fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:20,
+                        color:ROLE_COLORS[m.role]||'var(--muted)',border:`1px solid ${ROLE_COLORS[m.role]||'var(--border)'}`,
+                        background:'var(--bg)'}}>
+                        {m.role}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+              {(showMembers.role === 'Owner' || showMembers.role === 'Editor') && (
+                <div style={{marginTop:14}}>
+                  <div style={{display:'flex',gap:8}}>
+                    <input style={{...iS,margin:0,flex:1}} type="email" placeholder="Invite by email"
+                      value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)}/>
+                    <select value={inviteRole} onChange={e=>setInviteRole(e.target.value)}
+                      style={{padding:'9px 10px',borderRadius:7,fontSize:13,border:'1px solid var(--border)',
+                        background:'var(--input-bg)',color:'var(--text)',fontFamily:'inherit'}}>
+                      <option>Editor</option><option>Viewer</option>
+                    </select>
+                    <button onClick={()=>{setShowInvite(showMembers.id); handleInvite();}}
+                      style={{...btnPrimary,padding:'9px 14px',fontSize:13,whiteSpace:'nowrap'}}
+                      disabled={!inviteEmail.trim()}>
+                      Invite
+                    </button>
+                  </div>
+                </div>
+              )}
+              <button onClick={()=>setShowMembers(null)} style={{...btnGhost,marginTop:14,width:'100%'}}>Close</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function OnboardingTour({ onClose, onDone }) {
   const [step, setStep] = useState(0);
   const total = TOUR_STEPS.length;
@@ -2456,6 +3034,10 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showAppSettings, setShowAppSettings] = useState(false);
   const [showTour, setShowTour] = useState(false);
+  const [showGroups, setShowGroups] = useState(false);
+  const [activeGroup, setActiveGroup] = useState(null); // {id, name, role} or null = personal
+  const [groupDeals, setGroupDeals] = useState([]);
+  const [showShareModal, setShowShareModal] = useState(null); // deal to share
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [prefs, setPrefs] = useState(DEFAULT_PREFS);
   const [deals, setDeals] = useState(null);
@@ -2587,10 +3169,21 @@ function App() {
   const handleSignOut = async () => {
     await authSignOut();
     setDeals(null); setActiveDealId(null);
-    setShowProfile(false); setShowSettings(false); setShowAppSettings(false); setProfileMenuOpen(false);
+    setShowProfile(false); setShowSettings(false); setShowAppSettings(false); setShowGroups(false); setActiveGroup(null); setGroupDeals([]); setProfileMenuOpen(false);
     setPrefs(DEFAULT_PREFS);
     saveLocal([]);
   };
+
+  // Load group deals when switching to a group context
+  React.useEffect(() => {
+    if (!activeGroup) return;
+    sbGetGroupDeals(activeGroup.id).then(d => setGroupDeals(d || []));
+  }, [activeGroup?.id]);
+
+  const saveGroupDeals = React.useCallback((updated) => {
+    setGroupDeals(updated);
+    if (activeGroup) sbWriteGroupDeals(activeGroup.id, updated).catch(()=>{});
+  }, [activeGroup?.id]);
 
   const forceRefresh = () => {
     setSyncStatus("saving");
@@ -2649,6 +3242,13 @@ function App() {
         <ProfilePage user={user} onBack={()=>setShowProfile(false)} onSignOut={handleSignOut} dark={dark} setDark={setDark}/>
       </div>
     </div>
+  );
+  if (showGroups) return (
+    <GroupsPage
+      user={user}
+      onBack={()=>setShowGroups(false)}
+      onSelectGroup={(group)=>{ setActiveGroup(group); setShowGroups(false); }}
+    />
   );
   if (showAppSettings) return (
     <div style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
@@ -2824,6 +3424,13 @@ function App() {
                           cursor:"pointer",fontFamily:"inherit"}}>
                         ⚙️ Settings
                       </button>
+                      <div style={{height:1,background:"var(--border)",margin:"4px 0"}}/>
+                      <button onClick={()=>{setShowGroups(true);setProfileMenuOpen(false);}}
+                        style={{display:"block",width:"100%",textAlign:"left",padding:"10px 14px",
+                          background:"none",border:"none",color:"var(--text)",fontSize:13,
+                          cursor:"pointer",fontFamily:"inherit"}}>
+                        👥 Deal Groups
+                      </button>
                       <button onClick={()=>{setShowProfile(true);setProfileMenuOpen(false);}}
                         style={{display:"block",width:"100%",textAlign:"left",padding:"10px 14px",
                           background:"none",border:"none",color:"var(--text)",fontSize:13,
@@ -2845,10 +3452,50 @@ function App() {
       </div>
       <div style={{padding:"18px 16px 0"}}>
         {!activeDeal
-          ?<PortfolioPage deals={deals} onSelect={id=>setActiveDealId(id)} onAdd={addDeal} onDelete={deleteDeal} onExport={()=>exportPortfolioCSV(deals)} onReorder={reorderDeals} dark={dark} setDark={setDark} filterState={[portfolioFilter,setPortfolioFilter]} onTour={()=>setShowTour(true)}/>
-          :<DealPage deal={activeDeal} onUpdate={updateDeal} onBack={()=>setActiveDealId(null)} onExport={()=>exportDealCSV(activeDeal)}/>
+          ?<PortfolioPage
+              deals={activeGroup ? groupDeals : deals}
+              onSelect={id=>setActiveDealId(id)}
+              onAdd={activeGroup
+                ? ()=>{ const d=newDeal(prefs); saveGroupDeals([...(groupDeals||[]),d]); setActiveDealId(d.id); }
+                : addDeal}
+              onDelete={activeGroup
+                ? (id)=>saveGroupDeals((groupDeals||[]).filter(d=>d.id!==id))
+                : deleteDeal}
+              onExport={()=>exportPortfolioCSV(activeGroup ? groupDeals : deals)}
+              onReorder={activeGroup
+                ? (neo)=>saveGroupDeals(neo)
+                : reorderDeals}
+              dark={dark} setDark={setDark}
+              filterState={[portfolioFilter,setPortfolioFilter]}
+              onTour={()=>setShowTour(true)}
+              onOpenGroups={()=>setShowGroups(true)}
+              activeGroup={activeGroup}
+              onExitGroup={()=>setActiveGroup(null)}
+              onShareDeal={(deal)=>setShowShareModal(deal)}
+            />
+          :<DealPage
+              deal={activeDeal}
+              onUpdate={activeGroup
+                ? (u)=>saveGroupDeals((groupDeals||[]).map(d=>d.id===u.id?u:d))
+                : updateDeal}
+              onBack={()=>setActiveDealId(null)}
+              onExport={()=>exportDealCSV(activeDeal)}
+              onShare={()=>setShowShareModal(activeDeal)}
+              groupRole={activeGroup?.role}
+            />
         }
         {showTour && <OnboardingTour onClose={()=>setShowTour(false)} onDone={()=>setShowTour(false)}/>}
+        {showShareModal && (
+          <ShareDealModal
+            deal={showShareModal}
+            user={user}
+            onClose={()=>setShowShareModal(null)}
+            onShared={(groupName)=>{
+              setShowShareModal(null);
+              alert(`Deal shared to "${groupName}" successfully.`);
+            }}
+          />
+        )}
       </div>
     </div>
   </>);
