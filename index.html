@@ -42,14 +42,29 @@ const sbClient = supabase.createClient(SB_URL, SB_ANON_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
 });
 
-const loadLocal = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; } };
-const saveLocal = (d) => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch {} };
+// Key local cache by user ID so different users on same device never see each other's data
+const loadLocal = (uid) => {
+  try {
+    const key = uid ? STORAGE_KEY + "_" + uid : STORAGE_KEY;
+    return JSON.parse(localStorage.getItem(key)) || [];
+  } catch { return []; }
+};
+const saveLocal = (d, uid) => {
+  try {
+    const key = uid ? STORAGE_KEY + "_" + uid : STORAGE_KEY;
+    localStorage.setItem(key, JSON.stringify(d));
+  } catch {}
+};
 
 // Reads deals for the currently authenticated user (RLS enforces user_id = auth.uid())
 async function sbRead() {
+  const { data: { user } } = await sbClient.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  // Explicit user_id filter as defense-in-depth alongside RLS
   const { data, error } = await sbClient
     .from("deals")
     .select("data, updated_at")
+    .eq("user_id", user.id)
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -217,7 +232,7 @@ function calcDeal(deal) {
   const ooEnabled=!!a.ownerOccupied;
   const ooUnit=ooEnabled?Math.min(+a.ownerUnit||0,a.numUnits-1):null;
   const ooYears=ooEnabled?Math.max(1,+a.ownerOccupancyYears||2):0;
-  const ooAnnualRentLost=ooEnabled?(+a.units[ooUnit]?.rent||0)*12:0;
+  const ooAnnualRentLost=ooEnabled?(+(a.units[ooUnit]?.rent||a.units[ooUnit]?.listedRent)||0)*12:0;
   const ooAnnualUtilities=ooEnabled?(+a.ownerUseUtilities||0):0;
   const ooAltRentMonthly=ooEnabled?(+a.alternativeRent||0):0;
   const vacRate=(+a.vacancyRate||0)/100, rentGrowth=(+a.rentGrowth||0)/100;
@@ -1625,22 +1640,24 @@ function AuthScreen({ onAuth }) {
 
   useEffect(() => {
     const hash = window.location.hash;
-    if (hash.includes("type=recovery")) {
-      // Password reset — Supabase client will exchange the token automatically.
-      // onAuthStateChange fires SIGNED_IN, then we show the reset form.
+    const params = new URLSearchParams(window.location.search);
+    // Supabase v2 PKCE flow uses ?code= query param (not hash)
+    // Legacy implicit flow uses #access_token=...&type=...
+    const isRecovery = hash.includes("type=recovery") || params.get("type") === "recovery";
+    const isSignup   = hash.includes("type=signup")   || params.get("type") === "signup";
+    const hasCode    = params.has("code");
+
+    if (isRecovery) {
       setMode("reset");
-    }
-    if (hash.includes("type=signup")) {
-      // Email verification — DON'T clear the hash yet. The Supabase client reads
-      // it automatically via detectSessionInUrl:true and fires onAuthStateChange
-      // with SIGNED_IN, which sets user and bypasses the auth screen entirely.
-      // If that doesn't happen within 3s, fall back to showing a "verified" message.
+    } else if (isSignup || hasCode) {
+      // Show verifying spinner — onAuthStateChange in App will fire SIGNED_IN
+      // when Supabase exchanges the code/token, which bypasses this screen entirely.
+      // 4s fallback in case exchange fails.
       setMode("verifying");
       const fallback = setTimeout(() => {
-        window.location.hash = "";
+        window.history.replaceState(null, "", window.location.pathname);
         setMode("verified");
-      }, 3000);
-      // Clean up fallback if auth state change fires first (handled in App)
+      }, 4000);
       return () => clearTimeout(fallback);
     }
   }, []);
@@ -1998,23 +2015,24 @@ function App() {
       setUser(u);
       setAuthLoading(false);
       if (u) {
-        // Show local data immediately so there's never a loading screen
-        const local = loadLocal();
+        // Show user-scoped local cache immediately (empty array for new users / new devices)
+        const local = loadLocal(u.id);
         setDeals(local);
-        // Then sync from cloud in background and update if newer
+        // Always fetch from cloud — cloud is source of truth, local is just a cache
         setTimeout(() => {
           sbRead()
             .then(({ data: cloudDeals, updated_at }) => {
               lastCloudUpdate.current = updated_at;
               if (cloudDeals.length > 0) {
                 setDeals(cloudDeals);
-                saveLocal(cloudDeals);
+                saveLocal(cloudDeals, u.id);
               } else if (local.length > 0) {
-                // New user on new device — push local up to cloud
+                // First login on new device — push cached local up to cloud
                 sbWrite(local).catch(() => {});
               }
+              // New user with no data anywhere — stays as empty array, correct
             })
-            .catch(() => {}); // silently keep local data on cloud error
+            .catch(() => {}); // keep local cache on network error
         }, 300);
       }
     });
@@ -2026,20 +2044,20 @@ function App() {
         if (window.location.hash.includes("access_token")) {
           window.history.replaceState(null, "", window.location.pathname);
         }
-        // Load deals for newly signed-in user
-        const local = loadLocal();
+        // Use user-scoped local cache — never bleed another user's data
+        const local = loadLocal(u.id);
         setDeals(local);
         setTimeout(() => {
           sbRead()
             .then(({ data: cloudDeals, updated_at }) => {
               lastCloudUpdate.current = updated_at;
-              if (cloudDeals.length > 0) { setDeals(cloudDeals); saveLocal(cloudDeals); }
+              if (cloudDeals.length > 0) { setDeals(cloudDeals); saveLocal(cloudDeals, u.id); }
               else if (local.length > 0) { sbWrite(local).catch(() => {}); }
             })
             .catch(() => {});
         }, 300);
       }
-      if (!u) { setDeals([]); setActiveDealId(null); setShowProfile(false); saveLocal([]); }
+      if (!u) { setDeals([]); setActiveDealId(null); setShowProfile(false); }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -2054,7 +2072,7 @@ function App() {
           if (updated_at && updated_at === lastCloudUpdate.current) return;
           lastCloudUpdate.current = updated_at;
           setDeals(cloudDeals);
-          saveLocal(cloudDeals);
+          saveLocal(cloudDeals, user?.id);
           setSyncStatus("saved");
           setLastSyncedAt(new Date());
           setTimeout(() => setSyncStatus("idle"), 2000);
@@ -2072,7 +2090,7 @@ function App() {
 
   useEffect(() => {
     if (deals === null || !user) return;
-    saveLocal(deals);
+    saveLocal(deals, user?.id);
     if (!isOnline) { setSyncStatus("offline"); return; }
     clearTimeout(syncTimer.current);
     setSyncStatus("saving");
