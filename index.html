@@ -360,13 +360,10 @@ async function sbGetGroupDeals(groupId) {
 async function sbWriteGroupDeals(groupId, deals) {
   const { data: { user } } = await sbClient.auth.getUser();
   if (!user) return;
-  const { error: upErr } = await sbClient.from('group_deals')
-    .update({ deal_data: deals, updated_at: new Date().toISOString() })
-    .eq('group_id', groupId);
-  if (upErr) {
-    await sbClient.from('group_deals')
-      .insert({ group_id: groupId, deal_data: deals, updated_by: user.id });
-  }
+  const { error } = await sbClient.from('group_deals')
+    .upsert({ group_id: groupId, deal_data: deals, updated_by: user.id, updated_at: new Date().toISOString() },
+            { onConflict: 'group_id' });
+  if (error) throw error;
 }
 
 async function sbShareDealToGroup(deal, groupId) {
