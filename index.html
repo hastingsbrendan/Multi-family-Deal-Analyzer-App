@@ -2550,11 +2550,14 @@ function ShareDealModal({ deal, user, onClose, onShared }) {
   const [msg, setMsg]         = React.useState(null);
 
   React.useEffect(() => {
-    sbGetMyGroups().then(g => {
-      // Only groups where user can contribute (Owner or Editor)
-      setGroups(g.filter(gr => gr.status === 'active' && gr.role !== 'Viewer'));
-      setLoading(false);
-    });
+    sbGetMyGroups()
+      .then(g => {
+        setGroups(g.filter(gr => gr.status === 'active' && gr.role !== 'Viewer'));
+      })
+      .catch(e => {
+        setMsg('Could not load groups: ' + e.message);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const handleShare = async () => {
