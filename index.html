@@ -2638,7 +2638,7 @@ function ShareDealModal({ deal, user, onClose, onShared }) {
   );
 }
 
-function GroupsPage({ user, onBack, onSelectGroup }) {
+function GroupsPage({ user, dark, onBack, onSelectGroup }) {
   const [groups, setGroups]           = React.useState([]);
   const [pending, setPending]         = React.useState([]);
   const [loading, setLoading]         = React.useState(true);
@@ -2657,8 +2657,14 @@ function GroupsPage({ user, onBack, onSelectGroup }) {
 
   const reload = async () => {
     setLoading(true);
-    const [g, p] = await Promise.all([sbGetMyGroups(), sbGetPendingInvites()]);
-    setGroups(g); setPending(p); setLoading(false);
+    try {
+      const [g, p] = await Promise.all([sbGetMyGroups(), sbGetPendingInvites()]);
+      setGroups(g); setPending(p);
+    } catch(e) {
+      console.error('Groups load error:', e);
+      flash('Could not load groups — check Supabase tables are created.', false);
+    }
+    setLoading(false);
   };
   React.useEffect(() => { reload(); }, []);
 
@@ -3236,7 +3242,7 @@ function App() {
     </div>
   );
   if (showProfile) return (
-    <div style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
+    <div data-theme={dark?"dark":"light"} style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
       <style>{`*{box-sizing:border-box;margin:0;padding:0;}html,body{background:#0f172a;color:#e2e8f0;font-family:'DM Sans','Segoe UI',sans-serif;}input,select,textarea{font-family:inherit;outline:none;}input,select{font-size:16px!important;}:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--border-faint:#1e293b;--text:#e2e8f0;--muted:#94a3b8;--accent:#6366f1;--input-bg:#0f172a;--table-head:#1e293b;--row-hover:#6366f108;--row-sub:#1a2744;}`}</style>
       <div style={{padding:"0 16px"}}>
         <ProfilePage user={user} onBack={()=>setShowProfile(false)} onSignOut={handleSignOut} dark={dark} setDark={setDark}/>
@@ -3244,11 +3250,15 @@ function App() {
     </div>
   );
   if (showGroups) return (
-    <GroupsPage
-      user={user}
-      onBack={()=>setShowGroups(false)}
-      onSelectGroup={(group)=>{ setActiveGroup(group); setShowGroups(false); }}
-    />
+    <div style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
+      <style>{`*{box-sizing:border-box;margin:0;padding:0;}html,body{background:#0f172a;color:#e2e8f0;font-family:'DM Sans','Segoe UI',sans-serif;}input,select,textarea{font-family:inherit;outline:none;}input,select{font-size:16px!important;}:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--border-faint:#1e293b;--text:#e2e8f0;--muted:#94a3b8;--accent:#6366f1;--input-bg:#0f172a;--table-head:#1e293b;--row-hover:#6366f108;--row-sub:#1a2744;}`}</style>
+      <GroupsPage
+        user={user}
+        dark={dark}
+        onBack={()=>setShowGroups(false)}
+        onSelectGroup={(group)=>{ setActiveGroup(group); setShowGroups(false); }}
+      />
+    </div>
   );
   if (showAppSettings) return (
     <div style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
