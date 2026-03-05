@@ -1732,6 +1732,7 @@ function PortfolioPage({deals, onSelect, onAdd, onDelete, onExport, onReorder, d
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:28}}>
       <div><div style={{fontSize:28,fontWeight:800,color:"var(--text)",letterSpacing:"-0.02em"}}>Multi-family Deal Analyzer</div><div style={{fontSize:13,color:"var(--muted)"}}>2–4 Unit Multifamily · 10-Year Hold</div></div>
       <div style={{display:"flex",gap:10}}>
+        <button onClick={()=>onTour&&onTour()} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"8px 14px",color:"var(--muted)",fontSize:13,cursor:"pointer",fontWeight:600,display:"flex",alignItems:"center",gap:6}}>🗺️ Take a Tour</button>
         <button onClick={onExport} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 16px",color:"var(--text)",fontSize:13,fontWeight:700}}>⬇ Export</button>
         <button onClick={onAdd} style={{background:"var(--accent)",color:"#fff",border:"none",borderRadius:8,padding:"8px 18px",fontSize:13,fontWeight:800}}>+ New Deal</button>
       </div>
