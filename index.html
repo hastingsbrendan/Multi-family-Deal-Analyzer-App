@@ -2680,7 +2680,7 @@ function GroupsPage({ user, onBack, onSelectGroup }) {
     try {
       const res = await sbInviteMember(showInvite, inviteEmail.trim(), inviteRole);
       setInviteEmail('');
-      flash(res.pending ? 'Invite saved — they'll see it when they join.' : 'Invite sent!');
+      flash(res.pending ? "Invite saved — they'll see it when they join." : "Invite sent!");
       if (showMembers) {
         const m = await sbGetGroupMembers(showMembers.id);
         setMembers(m);
