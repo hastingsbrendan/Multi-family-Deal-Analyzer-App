@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Blog — RentHack</title>
+  <meta name="description" content="House hacking insights, deal analysis tips, and real estate investing guides from RentHack."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;0,9..144,900;1,9..144,400&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --cream: #FDFAF6; --sand: #F5EFE6; --amber: #D97706; --amber2: #F59E0B;
+      --teal: #0D9488; --teal-lt: #CCFBF1; --teal-dk: #0F766E;
+      --navy: #1E293B; --gray1: #F8FAFC; --gray2: #E2E8F0;
+      --gray3: #94A3B8; --gray4: #64748B; --white: #FFFFFF;
+    }
+    body { font-family: 'DM Sans', system-ui, sans-serif; color: var(--navy); background: var(--cream); -webkit-font-smoothing: antialiased; }
+
+    /* NAV */
+    nav {
+      background: rgba(253,250,246,0.92); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--gray2); padding: 0 48px; height: 68px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .logo { font-family: 'Fraunces', serif; font-size: 24px; font-weight: 900; color: var(--navy); text-decoration: none; letter-spacing: -0.5px; }
+    .logo .dot { color: var(--teal); }
+    .nav-links { display: flex; gap: 32px; list-style: none; }
+    .nav-links a { color: var(--gray4); text-decoration: none; font-size: 15px; font-weight: 500; transition: color 0.2s; }
+    .nav-links a:hover, .nav-links a.active { color: var(--navy); }
+    .nav-right { display: flex; align-items: center; gap: 16px; }
+    .nav-login { color: var(--gray4); font-size: 14px; font-weight: 600; text-decoration: none; transition: color 0.2s; }
+    .nav-login:hover { color: var(--navy); }
+    .nav-cta { background: var(--teal); color: #fff; border: none; padding: 10px 22px; border-radius: 100px; font-size: 14px; font-weight: 700; cursor: pointer; text-decoration: none; font-family: 'DM Sans', sans-serif; transition: background 0.2s; }
+    .nav-cta:hover { background: var(--teal-dk); }
+
+    /* HERO */
+    .blog-hero { background: var(--white); border-bottom: 1px solid var(--gray2); padding: 72px 48px; }
+    .blog-hero-inner { max-width: 1120px; margin: 0 auto; }
+    .eyebrow { display: inline-block; color: var(--teal); font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 14px; }
+    .blog-hero h1 { font-family: 'Fraunces', serif; font-size: clamp(36px, 4vw, 56px); font-weight: 900; letter-spacing: -2px; line-height: 1.05; margin-bottom: 16px; }
+    .blog-hero p { color: var(--gray4); font-size: 18px; line-height: 1.7; max-width: 520px; }
+
+    /* FILTER TABS */
+    .filter-bar { background: var(--white); border-bottom: 1px solid var(--gray2); padding: 0 48px; }
+    .filter-inner { max-width: 1120px; margin: 0 auto; display: flex; gap: 4px; overflow-x: auto; }
+    .filter-tab { padding: 16px 20px; font-size: 14px; font-weight: 600; color: var(--gray4); cursor: pointer; border: none; background: none; border-bottom: 2.5px solid transparent; white-space: nowrap; font-family: 'DM Sans', sans-serif; transition: all 0.2s; }
+    .filter-tab:hover { color: var(--navy); }
+    .filter-tab.active { color: var(--teal); border-bottom-color: var(--teal); }
+
+    /* MAIN CONTENT */
+    .blog-main { max-width: 1120px; margin: 0 auto; padding: 72px 48px; }
+
+    /* EMPTY STATE */
+    .empty-state {
+      text-align: center;
+      padding: 100px 24px;
+      background: var(--white);
+      border-radius: 24px;
+      border: 1.5px dashed var(--gray2);
+    }
+    .empty-icon { font-size: 56px; margin-bottom: 24px; display: block; }
+    .empty-state h2 { font-family: 'Fraunces', serif; font-size: 28px; font-weight: 900; letter-spacing: -0.5px; margin-bottom: 12px; }
+    .empty-state p { color: var(--gray4); font-size: 16px; line-height: 1.7; max-width: 440px; margin: 0 auto 32px; }
+    .notify-form { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    .notify-input {
+      padding: 13px 18px; border: 1.5px solid var(--gray2); border-radius: 100px;
+      font-size: 15px; font-family: 'DM Sans', sans-serif; color: var(--navy);
+      background: var(--gray1); width: 280px; outline: none; transition: border-color 0.2s;
+    }
+    .notify-input:focus { border-color: var(--teal); background: var(--teal-lt); }
+    .notify-btn {
+      padding: 13px 28px; background: var(--teal); color: #fff; border: none;
+      border-radius: 100px; font-size: 15px; font-weight: 700; cursor: pointer;
+      font-family: 'DM Sans', sans-serif; transition: background 0.2s;
+    }
+    .notify-btn:hover { background: var(--teal-dk); }
+    .notify-success { display: none; color: var(--teal-dk); font-weight: 600; font-size: 15px; }
+
+    /* UPCOMING TOPICS */
+    .topics-section { margin-top: 72px; }
+    .topics-section h3 { font-family: 'Fraunces', serif; font-size: 24px; font-weight: 900; letter-spacing: -0.5px; margin-bottom: 24px; }
+    .topics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .topic-card {
+      background: var(--white); border: 1.5px solid var(--gray2); border-radius: 16px;
+      padding: 24px; transition: transform 0.2s, border-color 0.2s;
+    }
+    .topic-card:hover { transform: translateY(-3px); border-color: var(--teal); }
+    .topic-tag {
+      display: inline-block; background: var(--teal-lt); color: var(--teal-dk);
+      font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+      padding: 4px 12px; border-radius: 100px; margin-bottom: 12px;
+    }
+    .topic-card h4 { font-size: 16px; font-weight: 700; margin-bottom: 8px; line-height: 1.4; }
+    .topic-card p { font-size: 13px; color: var(--gray4); line-height: 1.6; }
+    .topic-coming { font-size: 12px; color: var(--gray3); font-weight: 600; margin-top: 14px; display: flex; align-items: center; gap: 6px; }
+
+    /* FOOTER */
+    footer {
+      background: #111827; padding: 56px 48px 32px;
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 40px;
+    }
+    .footer-brand { max-width: 240px; }
+    .footer-logo { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 900; color: #fff; margin-bottom: 10px; }
+    .footer-logo .dot { color: var(--teal); }
+    .footer-tagline { color: rgba(255,255,255,0.3); font-size: 13px; line-height: 1.6; }
+    .footer-col h4 { color: rgba(255,255,255,0.45); font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 18px; }
+    .footer-col a { display: block; color: rgba(255,255,255,0.4); text-decoration: none; font-size: 14px; margin-bottom: 12px; transition: color 0.2s; }
+    .footer-col a:hover { color: rgba(255,255,255,0.85); }
+    .footer-bottom { width: 100%; padding-top: 32px; border-top: 1px solid rgba(255,255,255,0.06); color: rgba(255,255,255,0.2); font-size: 13px; text-align: center; }
+
+    @media (max-width: 860px) {
+      nav { padding: 0 24px; }
+      .nav-links { display: none; }
+      .blog-hero, .filter-bar { padding-left: 24px; padding-right: 24px; }
+      .blog-main { padding: 48px 24px; }
+      .topics-grid { grid-template-columns: 1fr; }
+      footer { padding: 48px 24px 28px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="logo">Rent<span class="dot">Hack</span></a>
+  <ul class="nav-links">
+    <li><a href="index.html#how">How it works</a></li>
+    <li><a href="index.html#pricing">Pricing</a></li>
+    <li><a href="blog.html" class="active">Blog</a></li>
+  </ul>
+  <div class="nav-right">
+    <a href="app.html" class="nav-login">Log in</a>
+    <a href="app.html" class="nav-cta">Try it free</a>
+  </div>
+</nav>
+
+<div class="blog-hero">
+  <div class="blog-hero-inner">
+    <span class="eyebrow">The RentHack Blog</span>
+    <h1>House hacking,<br><em style="color:var(--teal);font-style:italic;">demystified.</em></h1>
+    <p>Guides, deal breakdowns, and plain-English explainers for first-time multifamily buyers.</p>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <div class="filter-inner">
+    <button class="filter-tab active">All</button>
+    <button class="filter-tab">House Hacking</button>
+    <button class="filter-tab">Deal Analysis</button>
+    <button class="filter-tab">Financing</button>
+    <button class="filter-tab">Market Trends</button>
+    <button class="filter-tab">Beginner Guides</button>
+  </div>
+</div>
+
+<div class="blog-main">
+  <div class="empty-state">
+    <span class="empty-icon">✍️</span>
+    <h2>Content coming soon</h2>
+    <p>We're putting together practical guides for house hackers — no fluff, no Wall Street jargon. Just real numbers and real advice.</p>
+    <div class="notify-form" id="notify-form">
+      <input type="email" class="notify-input" placeholder="your@email.com" id="notify-email"/>
+      <button class="notify-btn" onclick="subscribeNotify()">Notify me when it's live</button>
+    </div>
+    <p class="notify-success" id="notify-success">🎉 You're on the list! We'll email you when the first post goes live.</p>
+  </div>
+
+  <div class="topics-section">
+    <h3>Topics we're working on</h3>
+    <div class="topics-grid">
+      <div class="topic-card">
+        <span class="topic-tag">Beginner Guide</span>
+        <h4>How to Analyze a Duplex: A Step-by-Step Walkthrough</h4>
+        <p>We'll walk through a real deal from asking price to annual return — using RentHack's exact inputs.</p>
+        <div class="topic-coming">🕐 Coming soon</div>
+      </div>
+      <div class="topic-card">
+        <span class="topic-tag">Deal Analysis</span>
+        <h4>What Is Break-Even Vacancy and Why It Matters More Than Cap Rate</h4>
+        <p>Most investors obsess over cap rate. House hackers should be obsessing over break-even vacancy instead.</p>
+        <div class="topic-coming">🕐 Coming soon</div>
+      </div>
+      <div class="topic-card">
+        <span class="topic-tag">House Hacking</span>
+        <h4>The Effective Mortgage: The Only Number That Matters for House Hackers</h4>
+        <p>Your effective mortgage is what you actually pay to live in your building after tenants cover their share.</p>
+        <div class="topic-coming">🕐 Coming soon</div>
+      </div>
+      <div class="topic-card">
+        <span class="topic-tag">Financing</span>
+        <h4>FHA vs Conventional for a 3.5% Down Duplex Purchase</h4>
+        <p>Owner-occupant loans have serious advantages for house hackers. Here's how to compare them.</p>
+        <div class="topic-coming">🕐 Coming soon</div>
+      </div>
+      <div class="topic-card">
+        <span class="topic-tag">Market Trends</span>
+        <h4>Best Cities for House Hacking in 2026: Where the Numbers Actually Work</h4>
+        <p>We ran the numbers on 50 metros. Here are the markets where rents cover a meaningful share of the mortgage.</p>
+        <div class="topic-coming">🕐 Coming soon</div>
+      </div>
+      <div class="topic-card">
+        <span class="topic-tag">Deal Analysis</span>
+        <h4>Red Flags in a Multifamily Deal (and How to Spot Them Before You Offer)</h4>
+        <p>From unrealistic rent assumptions to suspiciously low expense estimates — what to watch out for.</p>
+        <div class="topic-coming">🕐 Coming soon</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-brand">
+    <div class="footer-logo">Rent<span class="dot">Hack</span></div>
+    <p class="footer-tagline">The deal analyzer built for house hackers — not Wall Street.</p>
+  </div>
+  <div class="footer-col">
+    <h4>Product</h4>
+    <a href="index.html#how">How it works</a>
+    <a href="index.html#pricing">Pricing</a>
+    <a href="blog.html">Blog</a>
+  </div>
+  <div class="footer-col">
+    <h4>Account</h4>
+    <a href="app.html">Log in</a>
+    <a href="app.html">Sign up free</a>
+  </div>
+  <div class="footer-col">
+    <h4>Company</h4>
+    <a href="#">About</a>
+    <a href="#">Contact</a>
+    <a href="#">Privacy</a>
+  </div>
+  <p class="footer-bottom">© 2026 RentHack.io — Built for house hackers everywhere.</p>
+</footer>
+
+<script>
+  // Filter tabs (UI only for now)
+  document.querySelectorAll('.filter-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+    });
+  });
+
+  // Notify form
+  function subscribeNotify() {
+    const email = document.getElementById('notify-email').value.trim();
+    if (!email || !email.includes('@')) {
+      document.getElementById('notify-email').focus();
+      return;
+    }
+    document.getElementById('notify-form').style.display = 'none';
+    document.getElementById('notify-success').style.display = 'block';
+    // TODO: wire to Supabase or email service
+  }
+</script>
+
+</body>
+</html>
