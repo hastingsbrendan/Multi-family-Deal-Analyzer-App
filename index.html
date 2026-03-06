@@ -369,8 +369,11 @@ async function sbWriteGroupDeals(groupId, deals) {
 async function sbShareDealToGroup(deal, groupId) {
   const { data: { user } } = await sbClient.auth.getUser();
   const existing = await sbGetGroupDeals(groupId);
+  // Merge with a default deal so calcDeal never crashes on missing fields
   const sharedDeal = {
-    ...deal, id: Date.now(),
+    ...newDeal(DEFAULT_PREFS),
+    ...deal,
+    id: Date.now(),
     sharedFromUserId: user?.id,
     sharedAt: new Date().toISOString()
   };
@@ -389,6 +392,7 @@ function resolveExpenses(a, grossRentYear0) {
 }
 
 function calcDeal(deal) {
+  if (!deal?.assumptions) return {};
   const a = deal.assumptions;
   const pp=+a.purchasePrice||0, dpPct=(+a.downPaymentPct||25)/100, dp=pp*dpPct;
   const closingCostsTotal=Object.values(a.closingCosts).reduce((s,v)=>s+(+v||0),0);
