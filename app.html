@@ -1473,7 +1473,7 @@ function AssumptionsTab({deal,onChange}){
         if(isMobile){
           return(<ExpenseInputRow key={vk} lbl={lbl} modeToggle={modeToggle} isItemPct={isItemPct} rawVal={expRawVal} onChange={v=>upd(`expenses.${expKey}`,v)} mobile/>);
         }
-        return(<ExpenseInputRow key={vk} lbl={lbl} modeToggle={modeToggle} isItemPct={isItemPct} rawVal={expRawVal} onChange={v=>upd(`expenses.${expKey}`,v)}Source`]||""}Source`,v)}/>);
+        return(<ExpenseInputRow key={vk} lbl={lbl} modeToggle={modeToggle} isItemPct={isItemPct} rawVal={expRawVal} onChange={v=>upd(`expenses.${expKey}`,v)}/>);
       })}
       <div style={{fontSize:12,color:"var(--muted)",padding:"6px 0"}}>Year 1 computed total: <strong style={{color:"var(--text)"}}>{FMT_USD(resolveExpenses(a,grossRentYear0).total)}</strong></div>
     </Section>
