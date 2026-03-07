@@ -700,7 +700,10 @@ function DealSummaryTab({deal, result, onUpdate}) {
 
   // Alt rent comparison
   const altRent = result.ooAltRentMonthly||0;
-  const vsRent = altRent - effectiveMortgage; // positive = cheaper than renting
+  // vsRent: negative ooCF means you're paying out of pocket; altRent is also a cost.
+  // Positive = buying is cheaper than renting (your net cost of buying < alt rent)
+  const ooCFCost = ooCF != null ? -ooCF : 0; // flip sign: positive = monthly cost of owning
+  const vsRent = ooCFCost - altRent; // positive = owning costs MORE than renting (pricier to buy)
 
   // Property detail fields
   const beds = a.beds||"—", baths = a.baths||"—";
@@ -794,20 +797,20 @@ function DealSummaryTab({deal, result, onUpdate}) {
             ))}
           </div>
           {/* Alt Rent comparison — only when OO enabled and alt rent set */}
-          {result.ooEnabled&&altRent>0&&(<div style={{background:vsRent>=0?"rgba(13,148,136,0.08)":"rgba(217,119,6,0.08)",border:"1px solid "+(vsRent>=0?"rgba(13,148,136,0.25)":"rgba(217,119,6,0.3)"),borderRadius:8,padding:"9px 12px",marginTop:4}}>
+          {result.ooEnabled&&altRent>0&&(<div style={{background:vsRent<=0?"rgba(13,148,136,0.08)":"rgba(217,119,6,0.08)",border:"1px solid "+(vsRent<=0?"rgba(13,148,136,0.25)":"rgba(217,119,6,0.3)"),borderRadius:8,padding:"9px 12px",marginTop:4}}>
             <div style={{fontSize:10,fontFamily:"system-ui",fontWeight:800,letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--muted)",marginBottom:6}}>vs. Alternative Rent</div>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
               <div style={{fontFamily:"system-ui",fontSize:12}}>
                 <div style={{color:"var(--muted)",marginBottom:2}}>If you rented instead</div>
-                <div style={{fontWeight:800,fontSize:16,color:"var(--text)"}}>{FMT_USD(altRent)}<span style={{fontSize:11,fontWeight:400,color:"var(--muted)"}}>/mo</span></div>
+                <div style={{fontWeight:800,fontSize:16,color:"#dc2626"}}>−{FMT_USD(altRent)}<span style={{fontSize:11,fontWeight:400,color:"var(--muted)"}}>/mo</span></div>
               </div>
               <div style={{fontFamily:"system-ui",fontSize:12,textAlign:"right"}}>
                 <div style={{color:"var(--muted)",marginBottom:2}}>Owner-Occ. Cash Flow</div>
-                <div style={{fontWeight:800,fontSize:16,color:ooCF>=0?"#16a34a":"var(--accent2)"}}>{ooCF>=0?"+":"-"}{FMT_USD(Math.abs(ooCF))}<span style={{fontSize:11,fontWeight:400,color:"var(--muted)"}}>/mo</span></div>
+                <div style={{fontWeight:800,fontSize:16,color:ooCF>=0?"#16a34a":"#dc2626"}}>{ooCF>=0?"+":"-"}{FMT_USD(Math.abs(ooCF))}<span style={{fontSize:11,fontWeight:400,color:"var(--muted)"}}>/mo</span></div>
               </div>
-              <div style={{background:vsRent>=0?"var(--accent)":"var(--accent2)",color:"#fff",borderRadius:8,padding:"5px 10px",fontFamily:"system-ui",fontSize:12,fontWeight:800,textAlign:"center",whiteSpace:"nowrap"}}>
-                {vsRent>=0?"▼ ":"▲ "}{FMT_USD(Math.abs(vsRent))}/mo<br/>
-                <span style={{fontSize:10,fontWeight:600,opacity:0.85}}>{vsRent>=0?"cheaper to buy":"pricier than renting"}</span>
+              <div style={{background:vsRent<=0?"var(--accent)":"var(--accent2)",color:"#fff",borderRadius:8,padding:"5px 10px",fontFamily:"system-ui",fontSize:12,fontWeight:800,textAlign:"center",whiteSpace:"nowrap"}}>
+                {vsRent<=0?"▼ ":"▲ "}{FMT_USD(Math.abs(vsRent))}/mo<br/>
+                <span style={{fontSize:10,fontWeight:600,opacity:0.85}}>{vsRent<=0?"cheaper to buy":"pricier than renting"}</span>
               </div>
             </div>
           </div>)}
