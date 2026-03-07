@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { FMT_USD, FMT_PCT, mapsUrl, RENTCAST_KEY, sbClient, SB_BUCKET } from '../lib/constants';;
 import { resolveExpenses } from '../lib/calc';
 import { useIsMobile } from '../lib/hooks';
-import InputRow, { iSty, btnSm, srcSty } from './ui/InputRow';
+import InputRow, { iSty, btnSm, srcSty, fmtInputDisplay, parseInputValue } from './ui/InputRow';
 import Section from './ui/Section';
 
 function ExpenseInputRow({lbl, modeToggle, isItemPct, rawVal, onChange, mobile}) {
