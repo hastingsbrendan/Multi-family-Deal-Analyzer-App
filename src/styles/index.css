@@ -1,0 +1,52 @@
+
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;-webkit-text-size-adjust:100%;}
+body{overscroll-behavior-y:none;}
+input,select,textarea,button{font-family:'DM Sans','Segoe UI',sans-serif;} h1,h2,h3,.serif{font-family:'Fraunces',serif;}
+input[type=number]::-webkit-inner-spin-button{opacity:.4;}
+input[type=date],input[type=time]{-webkit-appearance:none;appearance:none;}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{border-radius:3px;}
+*{-webkit-tap-highlight-color:transparent;}
+button{cursor:pointer;}
+@keyframes slideIn{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes fadeOut{from{opacity:1}to{opacity:0}}
+
+/* ── RentHack Warm Light Theme (default) ── */
+[data-theme="light"] {
+  --bg:       #FDFAF6;
+  --bg2:      #F5EFE6;
+  --card:     #FFFFFF;
+  --border:   #E2E8F0;
+  --text:     #1E293B;
+  --muted:    #64748B;
+  --accent:   #0D9488;
+  --accent2:  #D97706;
+  --accentlt: #CCFBF1;
+  --accentdk: #0F766E;
+  --navy:     #1E293B;
+  --red:      #EF4444;
+  --green:    #10B981;
+  --scrollbar:#CBD5E1;
+  --input-bg: #F8FAFC;
+}
+/* ── Dark Theme ── */
+[data-theme="dark"] {
+  --bg:       #0f172a;
+  --bg2:      #1e293b;
+  --card:     #1e293b;
+  --border:   #334155;
+  --text:     #f1f5f9;
+  --muted:    #94a3b8;
+  --accent:   #0D9488;
+  --accent2:  #F59E0B;
+  --accentlt: #134e4a;
+  --accentdk: #5eead4;
+  --navy:     #f1f5f9;
+  --red:      #f87171;
+  --green:    #34d399;
+  --scrollbar:#334155;
+  --input-bg: #0f172a;
+}
+::-webkit-scrollbar-thumb{background:var(--scrollbar);}
