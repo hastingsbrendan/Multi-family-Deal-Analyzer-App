@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { iSty } from './ui/InputRow';
+import { iSty, srcSty } from './ui/InputRow';
 import { FMT_USD, RENTCAST_KEY, GMAPS_KEY } from '../lib/constants';;
 import { useIsMobile } from '../lib/hooks';
 
