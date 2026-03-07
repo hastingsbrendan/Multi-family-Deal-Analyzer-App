@@ -221,7 +221,7 @@ const DEFAULT_PREFS = {
   expenseGrowth:    3,
   appreciationRate: 3,
   taxBracket:       22,
-  closingCosts: { title:1500, transferTax:2000, inspection:500, attorney:1000, lenderFees:2000 },
+  closingCosts: { title:1500, transferTax:2000, inspection:500, attorney:1000, lenderFees:2000, discountPoints:0, appraisal:600, creditReport:50 },
   // Expense defaults
   propertyTaxPct:   1.5,
   insurancePct:     0.5,
@@ -241,14 +241,17 @@ const newDeal = (prefs) => {
   id: Date.now(), address: "", status: "Analyzing", notes: "", showingDate: "", showingTime: "", photos: [],
   assumptions: {
     purchasePrice: 450000, purchasePriceSource: "",
-    downPaymentPct: p.downPaymentPct, downPaymentSource: "",
+    downPaymentPct: p.downPaymentPct, downPaymentSource: "", downPaymentDollar: 0,
+    loanLimit: 0, loanAmount: 0,
     interestRate: p.interestRate, interestRateSource: "",
     amortYears: p.amortYears, amortSource: "",
     closingCosts: { ...p.closingCosts },
+    insuranceUpfront: false,
     sellerConcessions: 0, sellerConcessionsSource: "",
+    pmi: 0, pmiSource: "",
     units: Array(4).fill(null).map((_,i) => ({ rent: 0, rentSource:"", listedRent: 0, rentcastRent: 0 })),
     numUnits: 2,
-    beds: "", baths: "", yearBuilt: "", sqftTotal: "", lotSize: "", annualPropertyTax: "",
+    beds: "", baths: "", yearBuilt: "", sqftTotal: "", lotSize: "", annualPropertyTax: "", expectedCloseDate: "",
     vacancyRate: p.vacancyRate, vacancySource: "",
     expenseModes: { propertyTax:"pct", insurance:"pct", maintenance:"pct", capex:"pct", propertyMgmt:"pct", utilities:"value" },
     expenses: {
@@ -433,10 +436,13 @@ function resolveExpenses(a, grossRentYear0) {
 function calcDeal(deal) {
   if (!deal?.assumptions) return {};
   const a = deal.assumptions;
-  const pp=+a.purchasePrice||0, dpPct=(+a.downPaymentPct||25)/100, dp=pp*dpPct;
-  const closingCostsTotal=Object.values(a.closingCosts).reduce((s,v)=>s+(+v||0),0);
+  const pp=+a.purchasePrice||0, dpPct=(+a.downPaymentPct||25)/100, dp=pp>0?pp*dpPct:(+a.downPaymentDollar||0);
+  const insUpfront=a.insuranceUpfront?(+a.expenses?.insurance||0):0;
+  const closingCostsTotal=Object.values(a.closingCosts).reduce((s,v)=>s+(+v||0),0)+insUpfront;
   const totalCash=dp+closingCostsTotal-(+a.sellerConcessions||0);
-  const loanAmt=pp-dp, rate=(+a.interestRate||7)/100/12, n=(+a.amortYears||30)*12;
+  const naturalLoanCalc=Math.max(0,pp-dp-(+a.sellerConcessions||0));
+  const loanLimitCalc=+a.loanLimit||0;
+  const loanAmt=loanLimitCalc>0?Math.min(naturalLoanCalc,loanLimitCalc):pp-dp, rate=(+a.interestRate||7)/100/12, n=(+a.amortYears||30)*12;
   const monthlyPayment=loanAmt>0&&rate>0?loanAmt*(rate*Math.pow(1+rate,n))/(Math.pow(1+rate,n)-1):loanAmt/n;
   const annualDebtService=monthlyPayment*12;
   const grossRentYear0=a.units.slice(0,a.numUnits).reduce((s,u)=>s+(+(u.rent||u.listedRent)||0)*12,0);
@@ -974,7 +980,7 @@ function PropertyLookupPanel({deal, onChange}) {
     if (prop.yearBuilt != null)   a.yearBuilt       = prop.yearBuilt;
     if (prop.squareFootage != null) a.sqftTotal     = prop.squareFootage;
     if (prop.lotSize != null)     a.lotSize         = prop.lotSize;
-    if (annualTax != null)        a.annualPropertyTax = annualTax;
+    if (annualTax != null) { a.annualPropertyTax = annualTax; a.expenses = a.expenses||{}; a.expenses.propertyTax = annualTax; if(!a.expenseModes) a.expenseModes={}; a.expenseModes.propertyTax = "value"; }
     a.rentcastData = {
       fetchedAt: new Date().toLocaleDateString(),
       bedsPerUnit: preview.bedsPerUnit || null,
@@ -1105,79 +1111,286 @@ function AssumptionsTab({deal,onChange}){
   const isMobile=useIsMobile();
   const upd=(path,val)=>{const d=JSON.parse(JSON.stringify(deal));const parts=path.split(".");let obj=d.assumptions;for(let i=0;i<parts.length-1;i++){if(obj[parts[i]]==null||typeof obj[parts[i]]!=="object")obj[parts[i]]={};obj=obj[parts[i]];}obj[parts[parts.length-1]]=val;onChange(d);};
   const grossRentYear0=a.units.slice(0,a.numUnits).reduce((s,u)=>s+(+u.rent||0)*12,0);
-  const expFields=[["propertyTax","propertyTaxPct","Property Tax"],["insurance","insurancePct","Insurance"],["maintenance","maintenancePct","Maintenance"],["capex","capexPct","CapEx Reserve"],["propertyMgmt","propertyMgmtPct","Property Management"],["utilities","utilitiesPct","Utilities"]];
+  const expFields=[["propertyTax","propertyTaxPct","Property Tax"],["maintenance","maintenancePct","Maintenance"],["capex","capexPct","CapEx Reserve"],["propertyMgmt","propertyMgmtPct","Property Management"],["utilities","utilitiesPct","Utilities"]];
   return(<div style={{padding:"16px 0"}}>
     <PropertyLookupPanel deal={deal} onChange={onChange}/>
-    <Section title="Purchase">
-      <InputRow label="Purchase Price" value={a.purchasePrice} onChange={v=>upd("purchasePrice",v)} prefix="$" source={a.purchasePriceSource} onSourceChange={v=>upd("purchasePriceSource",v)}/>
-      <InputRow label="Down Payment" value={a.downPaymentPct} onChange={v=>upd("downPaymentPct",v)} suffix="%" source={a.downPaymentSource} onSourceChange={v=>upd("downPaymentSource",v)}/>
-      <InputRow label="Seller Concessions" value={a.sellerConcessions} onChange={v=>upd("sellerConcessions",v)} prefix="$" source={a.sellerConcessionsSource} onSourceChange={v=>upd("sellerConcessionsSource",v)}/>
-    </Section>
-        <Section title="Financing">
-      <InputRow label="Interest Rate" value={a.interestRate} onChange={v=>upd("interestRate",v)} suffix="%" source={a.interestRateSource} onSourceChange={v=>upd("interestRateSource",v)}/>
-      <InputRow label="Amortization" value={a.amortYears} onChange={v=>upd("amortYears",v)} suffix="yrs" source={a.amortSource} onSourceChange={v=>upd("amortSource",v)}/>
-    </Section>
     <Section title="Property Details">
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 12px"}}>
-        <div style={{marginBottom:10}}>
-          <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.08em",letterSpacing:"0.06em",marginBottom:4}}>Number of Units</div>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <button onClick={()=>{if(a.numUnits>2)upd("numUnits",a.numUnits-1);}} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:100,width:28,height:28,cursor:"pointer",color:"var(--text)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
-            <span style={{fontWeight:700,fontSize:15,minWidth:20,textAlign:"center"}}>{a.numUnits}</span>
-            <button onClick={()=>{if(a.numUnits<4)upd("numUnits",a.numUnits+1);}} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:100,width:28,height:28,cursor:"pointer",color:"var(--text)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
-          </div>
-        </div>
-        <div style={{marginBottom:10}}>
-          <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.08em",letterSpacing:"0.06em",marginBottom:4}}>Year Built</div>
-          <input type="number" value={a.yearBuilt||""} placeholder="e.g. 1985"
-            onChange={e=>upd("yearBuilt",e.target.value)}
-            style={{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"}}/>
-        </div>
-        <div style={{marginBottom:10}}>
-          <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.08em",letterSpacing:"0.06em",marginBottom:4}}>Bedrooms (total)</div>
-          <input type="number" value={a.beds||""} placeholder="e.g. 4"
-            onChange={e=>upd("beds",e.target.value)}
-            style={{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"}}/>
-        </div>
-        <div style={{marginBottom:10}}>
-          <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.08em",letterSpacing:"0.06em",marginBottom:4}}>Bathrooms (total)</div>
-          <input type="number" value={a.baths||""} placeholder="e.g. 2"
-            onChange={e=>upd("baths",e.target.value)}
-            style={{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"}}/>
-        </div>
-        <div style={{marginBottom:10}}>
-          <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.08em",letterSpacing:"0.06em",marginBottom:4}}>Sq. Footage (total)</div>
-          <input type="number" value={a.sqftTotal||""} placeholder="e.g. 2400"
-            onChange={e=>upd("sqftTotal",e.target.value)}
-            style={{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"}}/>
-        </div>
-        <div style={{marginBottom:10}}>
-          <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.08em",letterSpacing:"0.06em",marginBottom:4}}>Lot Size (sq ft)</div>
-          <input type="number" value={a.lotSize||""} placeholder="e.g. 5200"
-            onChange={e=>upd("lotSize",e.target.value)}
-            style={{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"}}/>
-        </div>
-        <div style={{marginBottom:10,gridColumn:"1 / -1"}}>
-          <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.08em",letterSpacing:"0.06em",marginBottom:4}}>Annual Property Tax ($)</div>
-          <input type="number" value={a.annualPropertyTax||""} placeholder="e.g. 6000"
-            onChange={e=>upd("annualPropertyTax",e.target.value)}
-            style={{maxWidth:200,width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"}}/>
-          {a.rentcastData?.annualTax && !a.annualPropertyTax &&
-            <div style={{fontSize:11,color:"var(--muted)",marginTop:3}}>
-              Rentcast: ${(+a.rentcastData.annualTax).toLocaleString()}/yr
-              <button onClick={()=>upd("annualPropertyTax", a.rentcastData.annualTax)}
-                style={{marginLeft:6,fontSize:11,color:"var(--accent)",background:"none",border:"none",cursor:"pointer",padding:0,fontFamily:"inherit"}}>
-                Use this
-              </button>
+      {(()=>{
+        // Comma-formatted integer inputs (sqft, lot)
+        const FmtInt = ({value, onChange, placeholder, style}) => {
+          const [focused, setFocused] = React.useState(false);
+          const raw = +value || 0;
+          const display = focused ? (raw || "") : (raw ? raw.toLocaleString() : "");
+          return (
+            <input
+              type="text"
+              inputMode="numeric"
+              value={display}
+              placeholder={placeholder}
+              onFocus={()=>setFocused(true)}
+              onBlur={()=>setFocused(false)}
+              onChange={e=>onChange(e.target.value.replace(/,/g,""))}
+              style={style}/>
+          );
+        };
+        // Property Tax mode toggle (mirrors Expenses section)
+        const ptMode = (a.expenseModes?.propertyTax) || "value";
+        const isPtPct = ptMode === "pct";
+        const togglePtMode = () => {
+          const d = JSON.parse(JSON.stringify(deal));
+          if (!d.assumptions.expenseModes) d.assumptions.expenseModes = {};
+          d.assumptions.expenseModes.propertyTax = isPtPct ? "value" : "pct";
+          onChange(d);
+        };
+        const ptVal = isPtPct ? (a.expenses?.propertyTaxPct||"") : (a.expenses?.propertyTax||"");
+        const ptKey = isPtPct ? "expenses.propertyTaxPct" : "expenses.propertyTax";
+        const ptAnnual = isPtPct
+          ? null  // can't show annual without gross rent context
+          : (+a.expenses?.propertyTax||0);
+        return (
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 12px"}}>
+            {/* Number of Units */}
+            <div style={{marginBottom:10}}>
+              <div style={fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}>Number of Units</div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <button onClick={()=>{if(a.numUnits>2)upd("numUnits",a.numUnits-1);}} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:100,width:28,height:28,cursor:"pointer",color:"var(--text)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                <span style={{fontWeight:700,fontSize:15,minWidth:20,textAlign:"center"}}>{a.numUnits}</span>
+                <button onClick={()=>{if(a.numUnits<4)upd("numUnits",a.numUnits+1);}} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:100,width:28,height:28,cursor:"pointer",color:"var(--text)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+              </div>
             </div>
-          }
-        </div>
-      </div>
+            {/* Purchase Price */}
+            <div style={{marginBottom:10}}>
+              <div style={fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}>Purchase Price</div>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <span style={{color:"var(--muted)",fontSize:13}}>$</span>
+                <input type="number" value={a.purchasePrice||""} placeholder="450000"
+                  onChange={e=>upd("purchasePrice",+e.target.value)}
+                  style={{...{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"},flex:1}}/>
+              </div>
+            </div>
+            {/* Bedrooms */}
+            <div style={{marginBottom:10}}>
+              <div style={fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}>Bedrooms (total)</div>
+              <input type="number" value={a.beds||""} placeholder="e.g. 4"
+                onChange={e=>upd("beds",e.target.value)}
+                style={width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"}/>
+            </div>
+            {/* Bathrooms */}
+            <div style={{marginBottom:10}}>
+              <div style={fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}>Bathrooms (total)</div>
+              <input type="number" value={a.baths||""} placeholder="e.g. 2"
+                onChange={e=>upd("baths",e.target.value)}
+                style={width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"}/>
+            </div>
+            {/* Sq Footage — comma formatted */}
+            <div style={{marginBottom:10}}>
+              <div style={fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}>Sq. Footage (total)</div>
+              <FmtInt value={a.sqftTotal} onChange={v=>upd("sqftTotal",v)} placeholder="e.g. 2,400" style={width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"}/>
+            </div>
+            {/* Lot Size — comma formatted */}
+            <div style={{marginBottom:10}}>
+              <div style={fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}>Lot Size (sq ft)</div>
+              <FmtInt value={a.lotSize} onChange={v=>upd("lotSize",v)} placeholder="e.g. 5,200" style={width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"}/>
+            </div>
+            {/* Property Tax — mirrors Expenses section, spans full width */}
+            <div style={{marginBottom:10,gridColumn:"1 / -1"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                <div style={fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}>Property Tax</div>
+                <div style={{display:"flex",background:"var(--input-bg)",borderRadius:4,border:"1px solid var(--border)",overflow:"hidden",flexShrink:0}}>
+                  {[["value","$"],["pct","%"]].map(([k,l2])=>(
+                    <button key={k} onClick={togglePtMode} style={{padding:"3px 9px",fontSize:12,fontWeight:700,border:"none",cursor:"pointer",
+                      background:ptMode===k?"var(--accent)":"transparent",
+                      color:ptMode===k?"#fff":"var(--muted)"}}>
+                      {l2}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                {!isPtPct && <span style={{color:"var(--muted)",fontSize:13}}>$</span>}
+                <input type="number" value={ptVal} placeholder={isPtPct?"e.g. 1.5":"e.g. 6000"}
+                  onChange={e=>upd(ptKey, +e.target.value)}
+                  style={{...{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"},flex:1,maxWidth:200}}/>
+                {isPtPct && <span style={{color:"var(--muted)",fontSize:13}}>% of rent</span>}
+              </div>
+              {!isPtPct && ptAnnual>0 && (
+                <div style={{fontSize:11,color:"var(--muted)",marginTop:3}}>
+                  {FMT_USD(ptAnnual)}/yr · {FMT_USD(ptAnnual/12)}/mo
+                </div>
+              )}
+              {a.rentcastData?.annualTax && !ptAnnual &&
+                <div style={{fontSize:11,color:"var(--muted)",marginTop:3}}>
+                  Rentcast: ${(+a.rentcastData.annualTax).toLocaleString()}/yr
+                  <button onClick={()=>{upd("expenses.propertyTax", a.rentcastData.annualTax); upd("expenseModes.propertyTax","value");}}
+                    style={{marginLeft:6,fontSize:11,color:"var(--accent)",background:"none",border:"none",cursor:"pointer",padding:0,fontFamily:"inherit"}}>
+                    Use this
+                  </button>
+                </div>
+              }
+            </div>
+            {/* Expected Close Date — bottom left */}
+            <div style={{marginBottom:10}}>
+              <div style={fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}>Expected Close Date</div>
+              <input type="date" value={a.expectedCloseDate||""}
+                onChange={e=>upd("expectedCloseDate",e.target.value)}
+                style={{...{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"},colorScheme:"light dark"}}/>
+            </div>
+            {/* Year Built — bottom right */}
+            <div style={{marginBottom:10}}>
+              <div style={fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}>Year Built</div>
+              <input type="number" value={a.yearBuilt||""} placeholder="e.g. 1985"
+                onChange={e=>upd("yearBuilt",e.target.value)}
+                style={width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"}/>
+            </div>
+          </div>
+        );
+      })()}
       {a.rentcastData && (
         <div style={{fontSize:11,color:"var(--muted)",marginTop:4}}>
           ℹ️ Fields pre-filled from Rentcast data fetched {a.rentcastData.fetchedAt}
         </div>
       )}
+    </Section>
+    <Section title="Financing">
+      {(()=>{
+        const pp=+a.purchasePrice||0;
+        const dpPct=(+a.downPaymentPct||25)/100;
+        const dp=pp>0?pp*dpPct:(+a.downPaymentDollar||0);
+        const naturalLoan=Math.max(0, pp-dp-(+a.sellerConcessions||0));
+        const loanLimit=+a.loanLimit||0;
+        const loanAmt=loanLimit>0?Math.min(naturalLoan,loanLimit):naturalLoan;
+        const loanCapActive=loanLimit>0&&naturalLoan>loanLimit;
+        const extraDownNeeded=loanCapActive?naturalLoan-loanLimit:0;
+        const rate=(+a.interestRate||0)/100/12;
+        const n=(+a.amortYears||30)*12;
+        const pi=loanAmt>0&&rate>0?loanAmt*(rate*Math.pow(1+rate,n))/(Math.pow(1+rate,n)-1):loanAmt/n;
+        // Property tax: use dollar value directly, or % of gross rent yr0 estimate
+        const ptMode=(a.expenseModes?.propertyTax)||"value";
+        const grossRentEst=a.units.slice(0,a.numUnits).reduce((s,u)=>s+(+(u.rent||u.listedRent)||0),0)*12;
+        const annualPT=ptMode==="pct"?(grossRentEst*((+a.expenses?.propertyTaxPct||0)/100)):(+a.expenses?.propertyTax||0);
+        const monthlyTax=annualPT/12;
+        const ins=(+a.expenses?.insurance||0)/12;
+        const pmi=+a.pmi||0;
+        const piti=pi+monthlyTax+ins+pmi;
+        return(<>
+          <InputRow label="Interest Rate" value={a.interestRate} onChange={v=>upd("interestRate",v)} suffix="%" source={a.interestRateSource} onSourceChange={v=>upd("interestRateSource",v)}/>
+          <InputRow label="Amortization" value={a.amortYears} onChange={v=>upd("amortYears",v)} suffix="yrs" source={a.amortSource} onSourceChange={v=>upd("amortSource",v)}/>
+          {/* ── Down Payment + Loan Limit / Loan Amount — bidirectional ── */}
+          {(()=>{
+            const pp = +a.purchasePrice || 0;
+            const dpPct = +a.downPaymentPct || 0;
+            const dpDollar = pp > 0 ? Math.round(pp * dpPct / 100) : (+a.downPaymentDollar || 0);
+            const natLoan = Math.max(0, pp - dpDollar - (+a.sellerConcessions||0));
+            const loanLimitVal = +a.loanLimit || 0;
+            const loanAmtVal = loanLimitVal > 0 ? Math.min(natLoan, loanLimitVal) : natLoan;
+            const capActive = loanLimitVal > 0 && natLoan > loanLimitVal;
+            const extraDP = capActive ? natLoan - loanLimitVal : 0;
+            const inputSt = {flex:1,background:"var(--input-bg)",border:"1.5px solid var(--border)",borderRadius:10,padding:"8px 10px",fontSize:14,color:"var(--text)",fontFamily:"inherit",minWidth:0};
+            const labelSt = {fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4,display:"block"};
+            const dividerSt = {borderTop:"1px solid var(--border)",margin:"14px 0 12px"};
+            return(
+              <div style={{marginBottom:2}}>
+
+                {/* — Down Payment — */}
+                <div style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:6}}>Down Payment</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                  <div>
+                    <label style={labelSt}>Percentage</label>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <input type="number" min="0" max="100" step="0.5"
+                        value={dpPct||""}
+                        placeholder="25"
+                        onChange={e=>{
+                          const pct = +e.target.value;
+                          upd("downPaymentPct", pct);
+                          if(pp>0) upd("downPaymentDollar", Math.round(pp*pct/100));
+                        }}
+                        style={inputSt}/>
+                      <span style={{color:"var(--muted)",fontSize:14,fontWeight:700,flexShrink:0}}>%</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label style={labelSt}>Cash Amount</label>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <span style={{color:"var(--muted)",fontSize:14,fontWeight:700,flexShrink:0}}>$</span>
+                      <input type="number" min="0" step="1000"
+                        value={dpDollar||""}
+                        placeholder={pp>0?Math.round(pp*0.25):""}
+                        onChange={e=>{
+                          const dollar = +e.target.value;
+                          upd("downPaymentDollar", dollar);
+                          if(pp>0) upd("downPaymentPct", Math.round(dollar/pp*1000)/10);
+                        }}
+                        style={inputSt}/>
+                    </div>
+                  </div>
+                </div>
+
+                {/* — Loan Limit + Loan Amount — */}
+                <div style={dividerSt}/>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                  <div>
+                    <label style={labelSt}>Loan Limit <span style={{fontWeight:400,textTransform:"none",fontSize:9}}>(optional cap)</span></label>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <span style={{color:"var(--muted)",fontSize:14,fontWeight:700,flexShrink:0}}>$</span>
+                      <input type="number" min="0" step="1000"
+                        value={a.loanLimit||""}
+                        placeholder="e.g. 806500"
+                        onChange={e=>upd("loanLimit", +e.target.value||0)}
+                        style={{...inputSt, borderColor: loanLimitVal>0?"var(--accent)":"var(--border)"}}/>
+                    </div>
+                    {loanLimitVal>0&&<div style={{fontSize:10,color:"var(--muted)",marginTop:3}}>Conforming limit, FHA max, etc.</div>}
+                  </div>
+                  <div>
+                    <label style={labelSt}>Loan Amount <span style={{fontWeight:400,textTransform:"none",fontSize:9}}>(calculated)</span></label>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <span style={{color:"var(--muted)",fontSize:14,fontWeight:700,flexShrink:0}}>$</span>
+                      <div style={{...inputSt,
+                        background: capActive?"#fef3c7":"var(--input-bg)",
+                        border: capActive?"1.5px solid #D97706":"1.5px solid var(--border)",
+                        color: capActive?"#92400e":"var(--text)",
+                        fontWeight:700,
+                        display:"flex", alignItems:"center",
+                        userSelect:"none", cursor:"default"}}>
+                        {loanAmtVal>0 ? loanAmtVal.toLocaleString() : <span style={{color:"var(--muted)",fontWeight:400}}>—</span>}
+                      </div>
+                    </div>
+                    {capActive&&<div style={{fontSize:10,color:"#D97706",marginTop:3,fontWeight:600}}>⚠ Capped by loan limit</div>}
+                  </div>
+                </div>
+
+                {/* — Summary row — */}
+                {pp>0 && dpPct>0 && (
+                  <div style={{marginTop:10,padding:"10px 12px",background:"var(--bg2, var(--bg))",borderRadius:10,border:"1px solid var(--border)"}}>
+                    <div style={{display:"flex",gap:16,flexWrap:"wrap",fontSize:11,color:"var(--muted)"}}>
+                      <span>Loan: <strong style={{color:capActive?"#D97706":"var(--text)"}}>{FMT_USD(loanAmtVal)}</strong></span>
+                      <span>LTV: <strong style={{color:"var(--text)"}}>{pp>0?(loanAmtVal/pp*100).toFixed(1):0}%</strong></span>
+                      <span>Down: <strong style={{color:"var(--text)"}}>{FMT_USD(dpDollar)}</strong></span>
+                      {capActive && <span style={{color:"#D97706",fontWeight:700}}>+{FMT_USD(extraDP)} extra down needed</span>}
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            );
+          })()}
+          <InputRow label="Seller Concessions" value={a.sellerConcessions} onChange={v=>upd("sellerConcessions",v)} prefix="$" source={a.sellerConcessionsSource} onSourceChange={v=>upd("sellerConcessionsSource",v)}/>
+          <InputRow label="Property Insurance ($/yr)" value={a.expenses?.insurance} onChange={v=>upd("expenses.insurance",v)} prefix="$"/>
+          <InputRow label="PMI ($/mo)" value={a.pmi} onChange={v=>upd("pmi",+v)} prefix="$"/>
+          {piti>0&&<div style={{marginTop:8,padding:"14px 16px",background:"var(--accent-soft)",border:"1.5px solid var(--accent)",borderRadius:12,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+            <div>
+              <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Est. Monthly PITI Payment</div>
+              <div style={{fontFamily:"'Fraunces',serif",fontSize:28,fontWeight:900,color:"var(--accent)",letterSpacing:"-0.5px"}}>{FMT_USD(piti)}<span style={{fontSize:13,fontWeight:500,color:"var(--muted)",fontFamily:"'DM Sans',sans-serif"}}>/mo</span></div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"4px 16px",fontSize:11,color:"var(--muted)"}}>
+              <span>P&I: <strong style={{color:"var(--text)"}}>{FMT_USD(pi)}</strong></span>
+              <span>Tax: <strong style={{color:"var(--text)"}}>{FMT_USD(monthlyTax)}</strong></span>
+              <span>Insurance: <strong style={{color:"var(--text)"}}>{FMT_USD(ins)}</strong></span>
+              {pmi>0&&<span>PMI: <strong style={{color:"var(--text)"}}>{FMT_USD(pmi)}</strong></span>}
+            </div>
+          </div>}
+        </>);
+      })()}
     </Section>
     <Section title={`Units & Rent (${a.numUnits} units)`} action={<div style={{display:"flex",gap:8}}><button onClick={()=>{if(a.numUnits>2)upd("numUnits",a.numUnits-1);}} style={btnSm}>−</button><button onClick={()=>{if(a.numUnits<4)upd("numUnits",a.numUnits+1);}} style={btnSm}>+</button></div>}>
       {Array.from({length:a.numUnits}).map((_,i)=>{
@@ -1239,22 +1452,101 @@ function AssumptionsTab({deal,onChange}){
     </Section>
     {(()=>{
       const [ccOpen, setCcOpen] = React.useState(false);
-      const ccTotal = Object.values(a.closingCosts||{}).reduce((s,v)=>s+(+v||0),0);
+      // Compute all closing costs including optional insurance upfront
+      const insUpfrontAmt = a.insuranceUpfront ? (+a.expenses?.insurance||0) : 0;
+      const ccLineTotal = Object.values(a.closingCosts||{}).reduce((s,v)=>s+(+v||0),0);
+      const ccTotal = ccLineTotal + insUpfrontAmt;
+      // Down payment (mirrors Financing section logic)
+      const ccPP = +a.purchasePrice||0;
+      const ccDpPct = (+a.downPaymentPct||25)/100;
+      const ccDp = ccPP>0 ? ccPP*ccDpPct : (+a.downPaymentDollar||0);
+      const totalDueAtClosing = ccTotal + ccDp;
+      const roSt = {
+        flex:1, background:"var(--bg)", border:"1.5px solid var(--border)",
+        borderRadius:10, padding:"8px 12px", fontSize:14, fontWeight:700,
+        color:"var(--text)", display:"flex", alignItems:"center",
+        userSelect:"none", cursor:"default"
+      };
+      const CC_FIELDS = [
+        ["title","Title"],["transferTax","Transfer Tax"],["inspection","Inspection"],
+        ["attorney","Attorney"],["lenderFees","Lender Fees"],
+        ["discountPoints","Discount Points"],["appraisal","Appraisal"],["creditReport","Credit Report"]
+      ];
       return (
         <div style={{marginBottom:24}}>
+          {/* ── Collapsible header ── */}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-            borderBottom:"2px solid var(--accent)",paddingBottom:6,marginBottom:ccOpen?10:0,cursor:"pointer"}}
+            borderBottom:"2px solid var(--accent)",paddingBottom:6,marginBottom:ccOpen?12:0,cursor:"pointer"}}
             onClick={()=>setCcOpen(v=>!v)}>
             <div style={{fontSize:12,fontWeight:800,letterSpacing:"0.1em",color:"var(--accent)",textTransform:"uppercase"}}>
-              Closing Costs <span style={{fontWeight:400,color:"var(--muted)",fontSize:11,textTransform:"none",letterSpacing:0}}>({FMT_USD(ccTotal)} total)</span>
+              Closing Costs <span style={{fontWeight:400,color:"var(--muted)",fontSize:11,textTransform:"none",letterSpacing:0}}>({FMT_USD(ccTotal)} total · {FMT_USD(totalDueAtClosing)} due at closing)</span>
             </div>
             <div style={{fontSize:14,color:"var(--muted)",transform:ccOpen?"rotate(180deg)":"none",transition:"transform 0.2s"}}>▾</div>
           </div>
           {ccOpen && (
             <div>
-              {[["title","Title"],["transferTax","Transfer Tax"],["inspection","Inspection"],["attorney","Attorney"],["lenderFees","Lender Fees"]].map(([k,lbl])=>(
+              {/* ── Editable line items ── */}
+              {CC_FIELDS.map(([k,lbl])=>(
                 <InputRow key={k} label={lbl} value={a.closingCosts[k]} onChange={v=>upd(`closingCosts.${k}`,v)} prefix="$"/>
               ))}
+
+              {/* ── 1 Year Insurance Upfront checkbox ── */}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
+                padding:"10px 0",borderTop:"1px solid var(--border)",marginTop:4}}>
+                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,color:"var(--text)",fontWeight:500}}>
+                  <input type="checkbox" checked={!!a.insuranceUpfront}
+                    onChange={e=>upd("insuranceUpfront", e.target.checked)}
+                    style={{width:15,height:15,accentColor:"var(--accent)",cursor:"pointer"}}/>
+                  1 Year of Insurance Upfront
+                </label>
+                <span style={{fontSize:13,fontWeight:700,color:a.insuranceUpfront?"var(--accent)":"var(--muted)"}}>
+                  {a.insuranceUpfront ? FMT_USD(insUpfrontAmt) : "—"}
+                </span>
+              </div>
+              {a.insuranceUpfront && insUpfrontAmt===0 && (
+                <div style={{fontSize:11,color:"#D97706",marginBottom:8,paddingLeft:2}}>
+                  ⚠ Set Property Insurance ($/yr) in Financing to populate this value.
+                </div>
+              )}
+
+              {/* ── Summary rows ── */}
+              <div style={{marginTop:12,borderTop:"2px solid var(--border)",paddingTop:12,display:"flex",flexDirection:"column",gap:8}}>
+
+                {/* Total Closing Costs */}
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+                  <span style={{fontSize:12,fontWeight:700,color:"var(--text)",whiteSpace:"nowrap"}}>Total Closing Costs</span>
+                  <div style={{...roSt,maxWidth:160,justifyContent:"flex-end",
+                    background:"var(--accent-soft)",border:"1.5px solid var(--accent)",
+                    color:"var(--accent)",fontFamily:"'Fraunces',serif",fontSize:16,letterSpacing:"-0.3px"}}>
+                    {FMT_USD(ccTotal)}
+                  </div>
+                </div>
+
+                {/* Down Payment (read-only) */}
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+                  <span style={{fontSize:12,fontWeight:600,color:"var(--muted)",whiteSpace:"nowrap"}}>
+                    Down Payment <span style={{fontSize:10,fontWeight:400}}>(from Financing)</span>
+                  </span>
+                  <div style={{...roSt,maxWidth:160,justifyContent:"flex-end",color:"var(--muted)"}}>
+                    {ccDp>0 ? FMT_USD(ccDp) : <span style={{color:"var(--muted)",fontWeight:400,fontSize:12}}>Set in Financing</span>}
+                  </div>
+                </div>
+
+                {/* Total Due at Closing */}
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,
+                  background:"var(--card)",borderRadius:12,padding:"12px 14px",
+                  border:"2px solid var(--accent)",marginTop:2}}>
+                  <div>
+                    <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Total Due at Closing</div>
+                    <div style={{fontSize:11,color:"var(--muted)"}}>Closing Costs + Down Payment</div>
+                  </div>
+                  <div style={{fontFamily:"'Fraunces',serif",fontSize:26,fontWeight:900,
+                    color:"var(--accent)",letterSpacing:"-0.5px",whiteSpace:"nowrap"}}>
+                    {FMT_USD(totalDueAtClosing)}
+                  </div>
+                </div>
+
+              </div>
             </div>
           )}
         </div>
@@ -1294,7 +1586,7 @@ function AssumptionsTab({deal,onChange}){
 // ─── CASH FLOW TAB ────────────────────────────────────────────────────────────
 function CashFlowTab({result,deal}){
   const [showExpDetail,setShowExpDetail]=useState(false);
-  const EXP_KEYS=[["propertyTax","Property Tax"],["insurance","Insurance"],["maintenance","Maintenance"],["capex","CapEx Reserve"],["propertyMgmt","Prop. Mgmt"],["utilities","Utilities"]];
+  const EXP_KEYS=[["propertyTax","Property Tax"],["insurance","Property Insurance"],["maintenance","Maintenance"],["capex","CapEx Reserve"],["propertyMgmt","Prop. Mgmt"],["utilities","Utilities"]];
   const tdR=(bold,color)=>({padding:"6px 8px",textAlign:"right",fontSize:11,fontWeight:bold?700:400,whiteSpace:"nowrap",color:color==="accent"?"var(--accent)":color==="red"?"#ef4444":"var(--text)"});
   const tdL=(bold,indent,col)=>({padding:`6px 8px 6px ${indent?20:8}px`,color:col||(bold?"var(--text)":"var(--muted)"),fontWeight:bold?700:400,fontSize:indent?10:11,whiteSpace:"nowrap",position:"sticky",left:0,background:"var(--bg)",zIndex:1});
   const Yr=({children,bold,color})=>result.years.map(y=>(<td key={y.yr} style={tdR(bold,color)}>{children(y)}</td>));
