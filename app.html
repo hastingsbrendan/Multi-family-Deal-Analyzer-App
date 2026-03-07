@@ -552,19 +552,17 @@ const btnSm={background:"var(--accent)",color:"#fff",border:"none",borderRadius:
 function fmtInputDisplay(value) {
   const n = parseFloat(String(value).replace(/,/g,""));
   if (isNaN(n) || n === 0) return "";
-  // If it's a whole number show no decimal; otherwise preserve up to 2 decimals
-  return Number.isInteger(n) ? n.toLocaleString() : parseFloat(n.toFixed(2)).toLocaleString();
+  // If it's a whole number show no decimal; otherwise preserve up to 3 decimals
+  return Number.isInteger(n) ? n.toLocaleString() : parseFloat(n.toFixed(3)).toLocaleString();
 }
 // Strip commas before passing back to state
 function parseInputValue(str) {
   return str.replace(/,/g,"");
 }
 
-function InputRow({label,value,onChange,type="number",prefix,suffix,source,onSourceChange}){
+function InputRow({label,value,onChange,type="number",prefix,suffix}){
   const isMobile=useIsMobile();
-  const [showSrc,setShowSrc]=useState(false);
   const [focused,setFocused]=useState(false);
-  // While focused show raw value; while blurred show formatted with commas (and blank for 0)
   const isNumeric = type==="number";
   const displayVal = isNumeric
     ? (focused ? (String(value)==="0"||value===0?"":String(value).replace(/,/g,"")) : fmtInputDisplay(value))
@@ -579,11 +577,11 @@ function InputRow({label,value,onChange,type="number",prefix,suffix,source,onSou
       onFocus={()=>setFocused(true)}
       onBlur={()=>setFocused(false)}
       placeholder={isNumeric?"0":""}
-      style={{...iSty,fontSize:mobile?14:14}}
+      style={{...iSty,fontSize:14}}
     />
   );
-  if(isMobile){return(<div style={{padding:"10px 0",borderBottom:"1px solid var(--border-faint)"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><label style={{fontSize:13,color:"var(--muted)",fontWeight:600}}>{label}</label>{onSourceChange&&<button onClick={()=>setShowSrc(v=>!v)} style={{background:"none",border:"1px solid var(--border-faint)",borderRadius:4,color:"var(--muted)",fontSize:10,padding:"2px 6px"}}>{showSrc?"hide":"+ src"}</button>}</div><div style={{display:"flex",alignItems:"center",gap:4}}>{prefix&&<span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap",flexShrink:0}}>{prefix}</span>}{inputEl(true)}{suffix&&<span style={{fontSize:12,color:"var(--muted)",whiteSpace:"nowrap",flexShrink:0,marginLeft:2}}>{suffix}</span>}</div>{showSrc&&onSourceChange&&<input type="text" placeholder="Source (optional)" value={source||""} onChange={e=>onSourceChange(e.target.value)} style={{...srcSty,marginTop:6}}/>}</div>);}
-  return(<div style={{display:"grid",gridTemplateColumns:"200px 1fr 1fr",gap:8,alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--border-faint)"}}><label style={{fontSize:13,color:"var(--muted)",fontWeight:500}}>{label}</label><div style={{display:"flex",alignItems:"center",gap:4}}>{prefix&&<span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap"}}>{prefix}</span>}{inputEl(false)}{suffix&&<span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap"}}>{suffix}</span>}</div><input type="text" placeholder="Source (optional)" value={source||""} onChange={e=>onSourceChange&&onSourceChange(e.target.value)} style={srcSty}/></div>);
+  if(isMobile){return(<div style={{padding:"10px 0",borderBottom:"1px solid var(--border-faint)"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><label style={{fontSize:13,color:"var(--muted)",fontWeight:600}}>{label}</label></div><div style={{display:"flex",alignItems:"center",gap:4}}>{prefix&&<span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap",flexShrink:0}}>{prefix}</span>}{inputEl(true)}{suffix&&<span style={{fontSize:12,color:"var(--muted)",whiteSpace:"nowrap",flexShrink:0,marginLeft:2}}>{suffix}</span>}</div></div>);}
+  return(<div style={{display:"grid",gridTemplateColumns:"200px 1fr",gap:8,alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--border-faint)"}}><label style={{fontSize:13,color:"var(--muted)",fontWeight:500}}>{label}</label><div style={{display:"flex",alignItems:"center",gap:4}}>{prefix&&<span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap"}}>{prefix}</span>}{inputEl(false)}{suffix&&<span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap"}}>{suffix}</span>}</div></div>);
 }
 
 function Section({title,children,action}){return(<div style={{marginBottom:24}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"2px solid var(--accent)",paddingBottom:6,marginBottom:10,gap:8,flexWrap:"wrap"}}><div style={{fontSize:12,fontWeight:800,letterSpacing:"0.1em",color:"var(--accent)",textTransform:"uppercase"}}>{title}</div>{action}</div>{children}</div>);}
@@ -804,7 +802,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
 }
 
 // ─── EXPENSE INPUT ROW ────────────────────────────────────────────────────────
-function ExpenseInputRow({lbl, modeToggle, isItemPct, rawVal, onChange, srcVal, onSrcChange, mobile}) {
+function ExpenseInputRow({lbl, modeToggle, isItemPct, rawVal, onChange, mobile}) {
   const [focused, setFocused] = useState(false);
   const displayVal = focused
     ? (String(rawVal)==="0"||rawVal===0?"":String(rawVal).replace(/,/g,""))
@@ -823,7 +821,7 @@ function ExpenseInputRow({lbl, modeToggle, isItemPct, rawVal, onChange, srcVal, 
     </div>
   );}
   return(
-    <div style={{display:"grid",gridTemplateColumns:"200px auto 1fr 1fr",gap:8,alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--border-faint)"}}>
+    <div style={{display:"grid",gridTemplateColumns:"200px auto 1fr",gap:8,alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--border-faint)"}}>
       <label style={{fontSize:13,color:"var(--muted)",fontWeight:500}}>{lbl}</label>
       {modeToggle}
       <div style={{display:"flex",alignItems:"center",gap:4}}>
@@ -831,7 +829,6 @@ function ExpenseInputRow({lbl, modeToggle, isItemPct, rawVal, onChange, srcVal, 
         <input type="text" inputMode="decimal" value={displayVal} onChange={handleChange} onFocus={()=>setFocused(true)} onBlur={()=>setFocused(false)} placeholder="0" style={iSty}/>
         <span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap"}}>{isItemPct?"% of rent":"/yr"}</span>
       </div>
-      <input type="text" placeholder="Source (optional)" value={srcVal||""} onChange={e=>onSrcChange&&onSrcChange(e.target.value)} style={srcSty}/>
     </div>
   );
 }
@@ -1163,8 +1160,12 @@ function AssumptionsTab({deal,onChange}){
               <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Purchase Price</div>
               <div style={{display:"flex",alignItems:"center",gap:6}}>
                 <span style={{color:"var(--muted)",fontSize:13}}>$</span>
-                <input type="number" value={a.purchasePrice||""} placeholder="450000"
-                  onChange={e=>upd("purchasePrice",+e.target.value)}
+                <input type="text" inputMode="numeric" value={
+                    (() => { const v = +a.purchasePrice||0; return v ? v.toLocaleString() : ""; })()
+                  } placeholder="450,000"
+                  onFocus={e=>{const v=+a.purchasePrice||0;e.target.value=v?String(v):"";}}
+                  onBlur={e=>{const v=+e.target.value.replace(/,/g,"")||0;e.target.value=v?v.toLocaleString():"";}}
+                  onChange={e=>upd("purchasePrice",+e.target.value.replace(/,/g,"")||0)}
                   style={{...{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"},flex:1}}/>
               </div>
             </div>
@@ -1197,8 +1198,12 @@ function AssumptionsTab({deal,onChange}){
               <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Property Tax ($/yr)</div>
               <div style={{display:"flex",alignItems:"center",gap:6}}>
                 <span style={{color:"var(--muted)",fontSize:13}}>$</span>
-                <input type="number" value={a.expenses?.propertyTax||""} placeholder="e.g. 6000"
-                  onChange={e=>{upd("expenses.propertyTax", +e.target.value); upd("expenseModes.propertyTax","value");}}
+                <input type="text" inputMode="numeric" value={
+                    (() => { const v = +a.expenses?.propertyTax||0; return v ? v.toLocaleString() : ""; })()
+                  } placeholder="e.g. 23,707"
+                  onFocus={e=>{const v=+a.expenses?.propertyTax||0;e.target.value=v?String(v):"";}}
+                  onBlur={e=>{const v=+e.target.value.replace(/,/g,"")||0;e.target.value=v?v.toLocaleString():"";}}
+                  onChange={e=>{const v=+e.target.value.replace(/,/g,"")||0;upd("expenses.propertyTax",v);upd("expenseModes.propertyTax","value");}}
                   style={{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit",flex:1,maxWidth:200}}/>
               </div>
               {(+a.expenses?.propertyTax||0)>0 && (
@@ -1261,8 +1266,8 @@ function AssumptionsTab({deal,onChange}){
         const pmi=+a.pmi||0;
         const piti=pi+monthlyTax+ins+pmi;
         return(<>
-          <InputRow label="Interest Rate" value={a.interestRate} onChange={v=>upd("interestRate",v)} suffix="%" source={a.interestRateSource} onSourceChange={v=>upd("interestRateSource",v)}/>
-          <InputRow label="Amortization" value={a.amortYears} onChange={v=>upd("amortYears",v)} suffix="yrs" source={a.amortSource} onSourceChange={v=>upd("amortSource",v)}/>
+          <InputRow label="Interest Rate" value={a.interestRate} onChange={v=>upd("interestRate",v)} suffix="%"/>
+          <InputRow label="Amortization" value={a.amortYears} onChange={v=>upd("amortYears",v)} suffix="yrs"/>
           {/* ── Down Payment + Loan Limit / Loan Amount — bidirectional ── */}
           {(()=>{
             const pp = +a.purchasePrice || 0;
@@ -1286,10 +1291,12 @@ function AssumptionsTab({deal,onChange}){
                     <label style={labelSt}>Loan Limit <span style={{fontWeight:400,textTransform:"none",fontSize:9}}>(optional cap)</span></label>
                     <div style={{display:"flex",alignItems:"center",gap:6}}>
                       <span style={{color:"var(--muted)",fontSize:14,fontWeight:700,flexShrink:0}}>$</span>
-                      <input type="number" min="0" step="1000"
-                        value={a.loanLimit||""}
-                        placeholder="e.g. 806500"
-                        onChange={e=>upd("loanLimit", +e.target.value||0)}
+                      <input type="text" inputMode="numeric"
+                        value={loanLimitVal ? loanLimitVal.toLocaleString() : ""}
+                        placeholder="e.g. 806,500"
+                        onFocus={e=>{e.target.value=loanLimitVal?String(loanLimitVal):"";}}
+                        onBlur={e=>{const v=+e.target.value.replace(/,/g,"")||0;e.target.value=v?v.toLocaleString():"";}}
+                        onChange={e=>upd("loanLimit", +e.target.value.replace(/,/g,"")||0)}
                         style={{...inputSt, borderColor: loanLimitVal>0?"var(--accent)":"var(--border)"}}/>
                     </div>
                     {loanLimitVal>0&&<div style={{fontSize:10,color:"var(--muted)",marginTop:3}}>Conforming limit, FHA max, etc.</div>}
@@ -1366,7 +1373,7 @@ function AssumptionsTab({deal,onChange}){
               </div>
             );
           })()}
-          <InputRow label="Seller Concessions" value={a.sellerConcessions} onChange={v=>upd("sellerConcessions",v)} prefix="$" source={a.sellerConcessionsSource} onSourceChange={v=>upd("sellerConcessionsSource",v)}/>
+          <InputRow label="Seller Concessions" value={a.sellerConcessions} onChange={v=>upd("sellerConcessions",v)} prefix="$"/>
           <InputRow label="Property Insurance ($/yr)" value={a.expenses?.insurance} onChange={v=>upd("expenses.insurance",v)} prefix="$"/>
           <InputRow label="PMI ($/mo)" value={a.pmi} onChange={v=>upd("pmi",+v)} prefix="$"/>
           {piti>0&&<div style={{marginTop:8,padding:"14px 16px",background:"var(--accent-soft)",border:"1.5px solid var(--accent)",borderRadius:12,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
@@ -1395,8 +1402,12 @@ function AssumptionsTab({deal,onChange}){
             <label style={{fontSize:12,color:"var(--muted)",fontWeight:600}}>Listed Rent</label>
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
               <span style={{color:"var(--muted)",fontSize:13}}>$</span>
-              <input type="number" value={u.listedRent||""} placeholder="0"
-                onChange={e=>{const d=JSON.parse(JSON.stringify(deal));d.assumptions.units[i]={...d.assumptions.units[i],listedRent:+e.target.value};onChange(d);}}
+              <input type="text" inputMode="numeric"
+                value={(+u.listedRent||0) ? (+u.listedRent).toLocaleString() : ""}
+                placeholder="0"
+                onFocus={e=>{const v=+u.listedRent||0;e.target.value=v?String(v):"";}}
+                onBlur={e=>{const v=+e.target.value.replace(/,/g,"")||0;e.target.value=v?v.toLocaleString():"";}}
+                onChange={e=>{const d=JSON.parse(JSON.stringify(deal));d.assumptions.units[i]={...d.assumptions.units[i],listedRent:+e.target.value.replace(/,/g,"")};onChange(d);}}
                 style={{...iSty,flex:1}}/>
               <span style={{fontSize:11,color:"var(--muted)"}}>/mo</span>
             </div>
@@ -1414,8 +1425,12 @@ function AssumptionsTab({deal,onChange}){
             <label style={{fontSize:12,color:"var(--text)",fontWeight:700}}>Adjusted Rent <span style={{fontSize:10,color:"var(--muted)",fontWeight:400}}>(used in model)</span></label>
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
               <span style={{color:"var(--muted)",fontSize:13}}>$</span>
-              <input type="number" value={u.rent||""} placeholder={effRent||"0"}
-                onChange={e=>{const d=JSON.parse(JSON.stringify(deal));d.assumptions.units[i]={...d.assumptions.units[i],rent:+e.target.value};onChange(d);}}
+              <input type="text" inputMode="numeric"
+                value={(+u.rent||0) ? (+u.rent).toLocaleString() : ""}
+                placeholder={effRent ? (+effRent).toLocaleString() : "0"}
+                onFocus={e=>{const v=+u.rent||0;e.target.value=v?String(v):"";}}
+                onBlur={e=>{const v=+e.target.value.replace(/,/g,"")||0;e.target.value=v?v.toLocaleString():"";}}
+                onChange={e=>{const d=JSON.parse(JSON.stringify(deal));d.assumptions.units[i]={...d.assumptions.units[i],rent:+e.target.value.replace(/,/g,"")};onChange(d);}}
                 style={{...iSty,flex:1,borderColor:"var(--accent)"}}/>
               <span style={{fontSize:11,color:"var(--muted)"}}>/mo</span>
             </div>
@@ -1426,7 +1441,7 @@ function AssumptionsTab({deal,onChange}){
         </div>);
       })}
       <div style={{fontSize:13,color:"var(--accent)",fontWeight:700,padding:"6px 0"}}>Blended Monthly Avg: {FMT_USD(a.units.slice(0,a.numUnits).reduce((s,u)=>s+(+(u.rent||u.listedRent)||0),0)/a.numUnits)} / unit</div>
-      <InputRow label="Vacancy Rate" value={a.vacancyRate} onChange={v=>upd("vacancyRate",v)} suffix="%" source={a.vacancySource} onSourceChange={v=>upd("vacancySource",v)}/>
+      <InputRow label="Vacancy Rate" value={a.vacancyRate} onChange={v=>upd("vacancyRate",v)} suffix="%"/>
     </Section>
     <Section title="Expenses" action={<label style={{fontSize:12,color:"var(--muted)",display:"flex",gap:6,alignItems:"center",cursor:"pointer"}}><input type="checkbox" checked={a.selfManage} onChange={e=>upd("selfManage",e.target.checked)}/> Self-manage</label>}>
       {expFields.map(([vk,pk,lbl])=>{
@@ -1458,7 +1473,7 @@ function AssumptionsTab({deal,onChange}){
         if(isMobile){
           return(<ExpenseInputRow key={vk} lbl={lbl} modeToggle={modeToggle} isItemPct={isItemPct} rawVal={expRawVal} onChange={v=>upd(`expenses.${expKey}`,v)} mobile/>);
         }
-        return(<ExpenseInputRow key={vk} lbl={lbl} modeToggle={modeToggle} isItemPct={isItemPct} rawVal={expRawVal} onChange={v=>upd(`expenses.${expKey}`,v)} srcVal={a.expenses[`${vk}Source`]||""} onSrcChange={v=>upd(`expenses.${vk}Source`,v)}/>);
+        return(<ExpenseInputRow key={vk} lbl={lbl} modeToggle={modeToggle} isItemPct={isItemPct} rawVal={expRawVal} onChange={v=>upd(`expenses.${expKey}`,v)}Source`]||""}Source`,v)}/>);
       })}
       <div style={{fontSize:12,color:"var(--muted)",padding:"6px 0"}}>Year 1 computed total: <strong style={{color:"var(--text)"}}>{FMT_USD(resolveExpenses(a,grossRentYear0).total)}</strong></div>
     </Section>
@@ -1590,7 +1605,7 @@ function AssumptionsTab({deal,onChange}){
       {a.refi.enabled?<><InputRow label="Refi Year" value={a.refi.year} onChange={v=>upd("refi.year",v)}/><InputRow label="New Rate" value={a.refi.newRate} onChange={v=>upd("refi.newRate",v)} suffix="%"/><InputRow label="New LTV" value={a.refi.newLTV} onChange={v=>upd("refi.newLTV",v)} suffix="%"/></>:<div style={{fontSize:13,color:"var(--muted)",padding:"8px 0"}}>Enable to model a cash-out refinance during the hold period.</div>}
     </Section>
     <Section title="Value Add" action={<label style={{fontSize:12,color:"var(--muted)",display:"flex",gap:8,alignItems:"center",cursor:"pointer"}}><input type="checkbox" checked={!!(a.valueAdd?.enabled)} onChange={e=>upd("valueAdd.enabled",e.target.checked)}/> Enable</label>}>
-      {a.valueAdd?.enabled?<><InputRow label="Total Remodel Cost" value={a.valueAdd.reModelCost} onChange={v=>upd("valueAdd.reModelCost",v)} prefix="$" source="" onSourceChange={()=>{}}/><InputRow label="Rent Bump / Unit / Mo" value={a.valueAdd.rentBumpPerUnit} onChange={v=>upd("valueAdd.rentBumpPerUnit",v)} prefix="$"/><InputRow label="Units Renovated" value={a.valueAdd.unitsRenovated} onChange={v=>upd("valueAdd.unitsRenovated",Math.min(+v,a.numUnits))} suffix={`of ${a.numUnits}`}/><InputRow label="Completion Year" value={a.valueAdd.completionYear} onChange={v=>upd("valueAdd.completionYear",v)} suffix="yr"/><div style={{fontSize:12,color:"var(--muted)",padding:"6px 0",borderTop:"1px solid var(--border-faint)",marginTop:4}}>Annual rent lift: <strong style={{color:"var(--text)"}}>{FMT_USD((+a.valueAdd.rentBumpPerUnit||0)*Math.min(+a.valueAdd.unitsRenovated||0,a.numUnits)*12)}</strong> · Value implied via NOI/cap rate from Year {a.valueAdd.completionYear}</div></>:<div style={{fontSize:13,color:"var(--muted)",padding:"8px 0"}}>Enable to model remodeling costs and post-renovation rent uplift.</div>}
+      {a.valueAdd?.enabled?<><InputRow label="Total Remodel Cost" value={a.valueAdd.reModelCost} onChange={v=>upd("valueAdd.reModelCost",v)} prefix="$" source=""}/><InputRow label="Rent Bump / Unit / Mo" value={a.valueAdd.rentBumpPerUnit} onChange={v=>upd("valueAdd.rentBumpPerUnit",v)} prefix="$"/><InputRow label="Units Renovated" value={a.valueAdd.unitsRenovated} onChange={v=>upd("valueAdd.unitsRenovated",Math.min(+v,a.numUnits))} suffix={`of ${a.numUnits}`}/><InputRow label="Completion Year" value={a.valueAdd.completionYear} onChange={v=>upd("valueAdd.completionYear",v)} suffix="yr"/><div style={{fontSize:12,color:"var(--muted)",padding:"6px 0",borderTop:"1px solid var(--border-faint)",marginTop:4}}>Annual rent lift: <strong style={{color:"var(--text)"}}>{FMT_USD((+a.valueAdd.rentBumpPerUnit||0)*Math.min(+a.valueAdd.unitsRenovated||0,a.numUnits)*12)}</strong> · Value implied via NOI/cap rate from Year {a.valueAdd.completionYear}</div></>:<div style={{fontSize:13,color:"var(--muted)",padding:"8px 0"}}>Enable to model remodeling costs and post-renovation rent uplift.</div>}
     </Section>
   </div>);
 }
