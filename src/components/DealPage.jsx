@@ -16,7 +16,7 @@ import { DEFAULT_PREFS } from '../lib/calc';
 const TABS_MOBILE=["Summary","Assumptions","Cash Flow","Comps","Showing","Red Flags","Sensitivity"];
 const TABS_DESK  =["Deal Summary","Assumptions","Cash Flow","Rent Comps","Showing","Red Flags","Sensitivity"];
 
-function DealPage({deal, onUpdate, onBack, onExport, onShare, groupRole}) {
+function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, groupRole}) {
   const [tab, setTab] = useState(0);
   const isMobile = useIsMobile();
   const result = useMemo(() => calcDeal(deal), [deal]);
@@ -30,6 +30,7 @@ function DealPage({deal, onUpdate, onBack, onExport, onShare, groupRole}) {
         </select>
         {onShare&&<button onClick={onShare} style={{background:"var(--accentlt, #CCFBF1)",border:"1px solid rgba(13,148,136,0.25)",borderRadius:6,padding:"7px 14px",cursor:"pointer",fontSize:13,color:"var(--accentdk, #0F766E)",fontWeight:700}}>👥 Share</button>}
         {groupRole==="Viewer"&&<div style={{fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:20,background:"var(--teal-lt, #CCFBF1)",color:"var(--accentdk, #0F766E)",border:"1px solid rgba(13,148,136,0.35)"}}>👁 View Only</div>}
+        {groupRole!=="Viewer"&&<button onClick={onExportPDF} style={{background:"var(--card)",color:"var(--accent)",border:"1px solid var(--accent)",borderRadius:100,padding:"7px 14px",cursor:"pointer",fontSize:13,fontWeight:700}}>⬇ PDF</button>}
         <button onClick={onExport} style={{background:"var(--accent)",color:"#fff",border:"none",borderRadius:100,padding:"7px 14px",cursor:"pointer",fontSize:13,fontWeight:700}}>⬇ CSV</button>
       </div>
     </div>

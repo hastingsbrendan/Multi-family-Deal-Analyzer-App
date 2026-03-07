@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/react';
 import { iSty } from './ui/InputRow';
 import { sbClient, STORAGE_KEY, STATUS_OPTIONS, FMT_USD, loadLocal, saveLocal, sbRead, sbWrite, sbWritePrefs, authGetSession, authSignOut } from '../lib/constants';
 import { calcDeal, DEFAULT_PREFS, newDeal, sbGetGroupDeals, sbWriteGroupDeals } from '../lib/calc';
-import { dlFile, exportDealCSV, exportPortfolioCSV } from '../lib/export';
+import { dlFile, exportDealCSV, exportDealPDF, exportPortfolioCSV } from '../lib/export';
 import { useIsMobile, useOnlineStatus } from '../lib/hooks';
 import AuthScreen from './AuthScreen';
 import PortfolioPage from './PortfolioPage';
@@ -479,6 +479,7 @@ function App() {
                 : updateDeal}
               onBack={()=>setActiveDealId(null)}
               onExport={()=>exportDealCSV(activeDeal)}
+              onExportPDF={()=>exportDealPDF(activeDeal)}
               onShare={()=>setShowShareModal(activeDeal)}
               groupRole={activeGroup?.role}
             />
