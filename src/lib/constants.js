@@ -7,9 +7,12 @@ const SB_ANON_KEY = import.meta.env.VITE_SB_ANON_KEY;
 const SB_BUCKET   = "deal-photos";
 
 // Supabase JS client — handles JWT storage, auto token refresh, session persistence
-const sbClient = createClient(SB_URL, SB_ANON_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
-});
+// Guard: createClient throws synchronously if URL is undefined, which crashes React
+const sbClient = (SB_URL && SB_ANON_KEY)
+  ? createClient(SB_URL, SB_ANON_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+    })
+  : null;
 
 // Key local cache by user ID so different users on same device never see each other's data
 const loadLocal = (uid) => {
@@ -27,6 +30,7 @@ const saveLocal = (d, uid) => {
 
 // Reads deals for the currently authenticated user (RLS enforces user_id = auth.uid())
 async function sbRead() {
+  if (!sbClient) return;
   const { data: { user } } = await sbClient.auth.getUser();
   if (!user) throw new Error("Not authenticated");
   const { data, error } = await sbClient
@@ -41,6 +45,7 @@ async function sbRead() {
 }
 
 async function sbWritePrefs(prefs) {
+  if (!sbClient) return;
   const { data: { user } } = await sbClient.auth.getUser();
   if (!user) throw new Error("Not authenticated");
   const { error: updateErr } = await sbClient
@@ -57,6 +62,7 @@ async function sbWritePrefs(prefs) {
 
 // Writes deals for the current user — upserts on user_id (one row per user)
 async function sbWrite(deals) {
+  if (!sbClient) return;
   const { data: { user } } = await sbClient.auth.getUser();
   if (!user) throw new Error("Not authenticated");
   // Try update first (existing user), then insert (new user)
@@ -74,25 +80,28 @@ async function sbWrite(deals) {
 }
 
 // Auth convenience wrappers
-const authSignInWithGoogle = () => sbClient.auth.signInWithOAuth({
+const _noSb = () => Promise.reject(new Error('Supabase not configured — set VITE_SB_URL and VITE_SB_ANON_KEY'));
+const authSignInWithGoogle = () => sbClient ? sbClient.auth.signInWithOAuth({
   provider: "google",
   options: { redirectTo: window.location.origin + window.location.pathname }
-});
-const authSignUp          = (email, pw)  => sbClient.auth.signUp({ email, password: pw });
-const authSignIn          = (email, pw)  => sbClient.auth.signInWithPassword({ email, password: pw });
-const authSignOut         = ()           => sbClient.auth.signOut();
-const authResetPassword   = (email)      => sbClient.auth.resetPasswordForEmail(email, {
+}) : _noSb();
+const authSignUp          = (email, pw)  => sbClient ? sbClient.auth.signUp({ email, password: pw }) : _noSb();
+const authSignIn          = (email, pw)  => sbClient ? sbClient.auth.signInWithPassword({ email, password: pw }) : _noSb();
+const authSignOut         = ()           => sbClient ? sbClient.auth.signOut() : _noSb();
+const authResetPassword   = (email)      => sbClient ? sbClient.auth.resetPasswordForEmail(email, {
   redirectTo: window.location.origin + window.location.pathname
-});
-const authUpdatePassword  = (newPw)      => sbClient.auth.updateUser({ password: newPw });
-const authUpdateProfile   = (meta)       => sbClient.auth.updateUser({ data: meta });
-const authGetSession      = ()           => sbClient.auth.getSession();
+}) : _noSb();
+const authUpdatePassword  = (newPw)      => sbClient ? sbClient.auth.updateUser({ password: newPw }) : _noSb();
+const authUpdateProfile   = (meta)       => sbClient ? sbClient.auth.updateUser({ data: meta }) : _noSb();
+const authGetSession      = ()           => sbClient ? sbClient.auth.getSession() : Promise.resolve({ data: { session: null } });
 
 // Upload photo to Supabase Storage — path scoped to user folder
 async function sbUploadPhoto(dealId, file) {
+  if (!sbClient) return;
   const { data: { user } } = await sbClient.auth.getUser();
   const ext  = file.name.split(".").pop();
   const path = `${user?.id || "anon"}/${dealId}/${Date.now()}.${ext}`;
+  if (!sbClient) return null;
   const { data: { session } } = await sbClient.auth.getSession();
   const token = session?.access_token || SB_ANON_KEY;
   const res = await fetch(`${SB_URL}/storage/v1/object/${SB_BUCKET}/${path}`, {
@@ -106,6 +115,7 @@ async function sbUploadPhoto(dealId, file) {
 async function sbDeletePhoto(url) {
   const path = url.split(`/object/public/${SB_BUCKET}/`)[1];
   if (!path) return;
+  if (!sbClient) return null;
   const { data: { session } } = await sbClient.auth.getSession();
   const token = session?.access_token || SB_ANON_KEY;
   await fetch(`${SB_URL}/storage/v1/object/${SB_BUCKET}/${path}`, {
