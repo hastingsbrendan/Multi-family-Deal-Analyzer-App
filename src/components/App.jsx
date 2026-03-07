@@ -51,9 +51,9 @@ function App() {
         // Always fetch from cloud — cloud is source of truth, local is just a cache
         setTimeout(() => {
           sbRead()
-            .then(({ data: cloudDeals, updated_at }) => {
+            .then(({ data: cloudDeals, prefs: cloudPrefs, updated_at }) => {
               lastCloudUpdate.current = updated_at;
-              if (data.prefs) { const p = { ...DEFAULT_PREFS, ...data.prefs }; setPrefs(p); window.__userPrefs = p; }
+              if (cloudPrefs) { const p = { ...DEFAULT_PREFS, ...cloudPrefs }; setPrefs(p); window.__userPrefs = p; }
               if (cloudDeals.length > 0) {
                 setDeals(cloudDeals);
                 saveLocal(cloudDeals, u.id);
