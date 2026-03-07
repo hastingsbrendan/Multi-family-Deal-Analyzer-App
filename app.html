@@ -1173,24 +1173,24 @@ function AssumptionsTab({deal,onChange}){
               <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Bedrooms (total)</div>
               <input type="number" value={a.beds||""} placeholder="e.g. 4"
                 onChange={e=>upd("beds",e.target.value)}
-                style={{{m.group(1)}}}/>
+                style={{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"}}/>
             </div>
             {/* Bathrooms */}
             <div style={{marginBottom:10}}>
               <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Bathrooms (total)</div>
               <input type="number" value={a.baths||""} placeholder="e.g. 2"
                 onChange={e=>upd("baths",e.target.value)}
-                style={{{m.group(1)}}}/>
+                style={{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"}}/>
             </div>
             {/* Sq Footage — comma formatted */}
             <div style={{marginBottom:10}}>
               <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Sq. Footage (total)</div>
-              <FmtInt value={a.sqftTotal} onChange={v=>upd("sqftTotal",v)} placeholder="e.g. 2,400" style={{{m.group(1)}}}/>
+              <FmtInt value={a.sqftTotal} onChange={v=>upd("sqftTotal",v)} placeholder="e.g. 2,400" style={{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"}}/>
             </div>
             {/* Lot Size — comma formatted */}
             <div style={{marginBottom:10}}>
               <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Lot Size (sq ft)</div>
-              <FmtInt value={a.lotSize} onChange={v=>upd("lotSize",v)} placeholder="e.g. 5,200" style={{{m.group(1)}}}/>
+              <FmtInt value={a.lotSize} onChange={v=>upd("lotSize",v)} placeholder="e.g. 5,200" style={{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"}}/>
             </div>
             {/* Property Tax — mirrors Expenses section, spans full width */}
             <div style={{marginBottom:10,gridColumn:"1 / -1"}}>
@@ -1240,7 +1240,7 @@ function AssumptionsTab({deal,onChange}){
               <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Year Built</div>
               <input type="number" value={a.yearBuilt||""} placeholder="e.g. 1985"
                 onChange={e=>upd("yearBuilt",e.target.value)}
-                style={{{m.group(1)}}}/>
+                style={{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"}}/>
             </div>
           </div>
         );
