@@ -1194,28 +1194,16 @@ function AssumptionsTab({deal,onChange}){
             </div>
             {/* Property Tax — mirrors Expenses section, spans full width */}
             <div style={{marginBottom:10,gridColumn:"1 / -1"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-                <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Property Tax</div>
-                <div style={{display:"flex",background:"var(--input-bg)",borderRadius:4,border:"1px solid var(--border)",overflow:"hidden",flexShrink:0}}>
-                  {[["value","$"],["pct","%"]].map(([k,l2])=>(
-                    <button key={k} onClick={togglePtMode} style={{padding:"3px 9px",fontSize:12,fontWeight:700,border:"none",cursor:"pointer",
-                      background:ptMode===k?"var(--accent)":"transparent",
-                      color:ptMode===k?"#fff":"var(--muted)"}}>
-                      {l2}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Property Tax ($/yr)</div>
               <div style={{display:"flex",alignItems:"center",gap:6}}>
-                {!isPtPct && <span style={{color:"var(--muted)",fontSize:13}}>$</span>}
-                <input type="number" value={ptVal} placeholder={isPtPct?"e.g. 1.5":"e.g. 6000"}
-                  onChange={e=>upd(ptKey, +e.target.value)}
-                  style={{...{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"},flex:1,maxWidth:200}}/>
-                {isPtPct && <span style={{color:"var(--muted)",fontSize:13}}>% of rent</span>}
+                <span style={{color:"var(--muted)",fontSize:13}}>$</span>
+                <input type="number" value={a.expenses?.propertyTax||""} placeholder="e.g. 6000"
+                  onChange={e=>{upd("expenses.propertyTax", +e.target.value); upd("expenseModes.propertyTax","value");}}
+                  style={{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit",flex:1,maxWidth:200}}/>
               </div>
-              {!isPtPct && ptAnnual>0 && (
+              {(+a.expenses?.propertyTax||0)>0 && (
                 <div style={{fontSize:11,color:"var(--muted)",marginTop:3}}>
-                  {FMT_USD(ptAnnual)}/yr · {FMT_USD(ptAnnual/12)}/mo
+                  {FMT_USD(+a.expenses.propertyTax)}/yr · {FMT_USD((+a.expenses.propertyTax)/12)}/mo
                 </div>
               )}
               {a.rentcastData?.annualTax && !ptAnnual &&
@@ -1291,41 +1279,6 @@ function AssumptionsTab({deal,onChange}){
             return(
               <div style={{marginBottom:2}}>
 
-                {/* — Down Payment — */}
-                <div style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:6}}>Down Payment</div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                  <div>
-                    <label style={labelSt}>Percentage</label>
-                    <div style={{display:"flex",alignItems:"center",gap:6}}>
-                      <input type="number" min="0" max="100" step="0.5"
-                        value={dpPct||""}
-                        placeholder="25"
-                        onChange={e=>{
-                          const pct = +e.target.value;
-                          upd("downPaymentPct", pct);
-                          if(pp>0) upd("downPaymentDollar", Math.round(pp*pct/100));
-                        }}
-                        style={inputSt}/>
-                      <span style={{color:"var(--muted)",fontSize:14,fontWeight:700,flexShrink:0}}>%</span>
-                    </div>
-                  </div>
-                  <div>
-                    <label style={labelSt}>Cash Amount</label>
-                    <div style={{display:"flex",alignItems:"center",gap:6}}>
-                      <span style={{color:"var(--muted)",fontSize:14,fontWeight:700,flexShrink:0}}>$</span>
-                      <input type="number" min="0" step="1000"
-                        value={dpDollar||""}
-                        placeholder={pp>0?Math.round(pp*0.25):""}
-                        onChange={e=>{
-                          const dollar = +e.target.value;
-                          upd("downPaymentDollar", dollar);
-                          if(pp>0) upd("downPaymentPct", Math.round(dollar/pp*1000)/10);
-                        }}
-                        style={inputSt}/>
-                    </div>
-                  </div>
-                </div>
-
                 {/* — Loan Limit + Loan Amount — */}
                 <div style={dividerSt}/>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
@@ -1356,6 +1309,45 @@ function AssumptionsTab({deal,onChange}){
                       </div>
                     </div>
                     {capActive&&<div style={{fontSize:10,color:"#D97706",marginTop:3,fontWeight:600}}>⚠ Capped by loan limit</div>}
+                  </div>
+                </div>
+
+                {/* — Down Payment — */}
+                <div style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:6}}>Down Payment</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                  <div>
+                    <label style={labelSt}>Percentage</label>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <input type="number" min="0" max="100" step="0.5"
+                        value={dpPct||""}
+                        placeholder="25"
+                        onChange={e=>{
+                          const pct = +e.target.value;
+                          const d=JSON.parse(JSON.stringify(deal));
+                          d.assumptions.downPaymentPct=pct;
+                          if(pp>0) d.assumptions.downPaymentDollar=Math.round(pp*pct/100);
+                          onChange(d);
+                        }}
+                        style={inputSt}/>
+                      <span style={{color:"var(--muted)",fontSize:14,fontWeight:700,flexShrink:0}}>%</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label style={labelSt}>Cash Amount</label>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <span style={{color:"var(--muted)",fontSize:14,fontWeight:700,flexShrink:0}}>$</span>
+                      <input type="number" min="0" step="1000"
+                        value={dpDollar||""}
+                        placeholder={pp>0?Math.round(pp*0.25):""}
+                        onChange={e=>{
+                          const dollar = +e.target.value;
+                          const d=JSON.parse(JSON.stringify(deal));
+                          d.assumptions.downPaymentDollar=dollar;
+                          if(pp>0) d.assumptions.downPaymentPct=Math.round(dollar/pp*1000)/10;
+                          onChange(d);
+                        }}
+                        style={inputSt}/>
+                    </div>
                   </div>
                 </div>
 
@@ -1438,6 +1430,26 @@ function AssumptionsTab({deal,onChange}){
     </Section>
     <Section title="Expenses" action={<label style={{fontSize:12,color:"var(--muted)",display:"flex",gap:6,alignItems:"center",cursor:"pointer"}}><input type="checkbox" checked={a.selfManage} onChange={e=>upd("selfManage",e.target.checked)}/> Self-manage</label>}>
       {expFields.map(([vk,pk,lbl])=>{
+        // Property Tax is edited in Property Details — show read-only here
+        if(vk==="propertyTax"){
+          const ptVal = +a.expenses?.propertyTax||0;
+          const roLabel = {fontSize:12,fontWeight:600,color:"var(--muted)"};
+          const roVal = {fontSize:13,fontWeight:700,color:"var(--text)"};
+          if(isMobile){return(
+            <div key={vk} style={{padding:"10px 0",borderBottom:"1px solid var(--border-faint)"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={roLabel}>Property Tax <span style={{fontSize:10,fontWeight:400,fontStyle:"italic"}}>(set in Property Details)</span></span>
+                <span style={roVal}>{ptVal>0?FMT_USD(ptVal)+"/yr":"—"}</span>
+              </div>
+            </div>
+          );}
+          return(
+            <div key={vk} style={{display:"flex",alignItems:"center",padding:"9px 0",borderBottom:"1px solid var(--border-faint)"}}>
+              <span style={{...roLabel,flex:"0 0 160px"}}>Property Tax <span style={{fontSize:10,fontWeight:400,fontStyle:"italic"}}>(set in Property Details)</span></span>
+              <span style={{...roVal,marginLeft:"auto"}}>{ptVal>0?FMT_USD(ptVal)+"/yr":"—"}</span>
+            </div>
+          );
+        }
         const modes=a.expenseModes||{}, isItemPct=modes[vk]==="pct";
         const toggleMode=()=>{const d=JSON.parse(JSON.stringify(deal));if(!d.assumptions.expenseModes)d.assumptions.expenseModes={};d.assumptions.expenseModes[vk]=isItemPct?"value":"pct";onChange(d);};
         const modeToggle=(<div style={{display:"flex",background:"var(--input-bg)",borderRadius:4,border:"1px solid var(--border)",overflow:"hidden",flexShrink:0}}>{[["value","$"],["pct","%"]].map(([k,l2])=>(<button key={k} onClick={toggleMode} style={{padding:"3px 9px",fontSize:12,fontWeight:700,border:"none",cursor:"pointer",background:(modes[vk]||"value")===k?"var(--accent)":"transparent",color:(modes[vk]||"value")===k?"#fff":"var(--muted)"}}>{l2}</button>))}</div>);
