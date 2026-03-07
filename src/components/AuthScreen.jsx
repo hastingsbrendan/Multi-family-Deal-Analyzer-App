@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { iSty, btnSm, srcSty } from './ui/InputRow';
-import { sbClient } from '../lib/constants';
+import { sbClient, authSignInWithGoogle, authSignUp, authSignIn, authResetPassword, authUpdatePassword } from '../lib/constants';
 
 function AuthScreen({ onAuth }) {
   const [mode, setMode] = useState("login"); // login | signup | forgot | verify | reset

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { iSty, btnSm, srcSty } from './ui/InputRow';
-import { sbClient } from '../lib/constants';
+import { sbClient, authUpdatePassword, authUpdateProfile } from '../lib/constants';
 
 function ProfilePage({ user, onBack, onSignOut, dark, setDark }) {
   const [displayName, setDisplayName] = useState(user?.user_metadata?.display_name || "");

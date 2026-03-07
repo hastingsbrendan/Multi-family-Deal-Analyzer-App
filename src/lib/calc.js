@@ -1,4 +1,5 @@
 // ─── Financial calculation engine ────────────────────────────────────────────
+import { sbClient } from './constants';
 const DEFAULT_PREFS = {
   // Default assumptions applied to every new deal
   downPaymentPct:   25,

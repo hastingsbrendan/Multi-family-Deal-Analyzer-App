@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { iSty } from './ui/InputRow';
-import { sbClient, STORAGE_KEY, STATUS_OPTIONS, FMT_USD } from '../lib/constants';;
+import { sbClient, STORAGE_KEY, STATUS_OPTIONS, FMT_USD, loadLocal, saveLocal, authGetSession, authSignOut } from '../lib/constants';
 import { calcDeal, DEFAULT_PREFS } from '../lib/calc';
 import { dlFile, exportDealCSV, exportPortfolioCSV } from '../lib/export';
 import { useIsMobile, useOnlineStatus } from '../lib/hooks';
