@@ -738,7 +738,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
       <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:10,overflow:"hidden",marginBottom:14}}>
         <a href={maps} target="_blank" rel="noreferrer" style={{display:"block",textDecoration:"none"}}>
           <img
-            src={`https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(addr)}&zoom=15&size=800x600&scale=2&maptype=roadmap&markers=color:red%7C${encodeURIComponent(addr)}&key=AIzaSyAg90J2ZmwbAwPwlRHTeREfAWfiOwR1hiQ`}
+            src={"https://maps.googleapis.com/maps/api/staticmap?center="+encodeURIComponent(addr)+"&zoom=15&size=800x600&scale=2&maptype=roadmap&markers=color:red%7C"+encodeURIComponent(addr)+"&key=AIzaSyAg90J2ZmwbAwPwlRHTeREfAWfiOwR1hiQ"}
             alt="Map"
             style={{width:"100%",height:360,objectFit:"cover",display:"block"}}
           />
@@ -1391,7 +1391,7 @@ function AssumptionsTab({deal,onChange}){
         </>);
       })()}
     </Section>
-    <Section title={`Units & Rent (${a.numUnits} units)`} action={<div style={{display:"flex",gap:8}}><button onClick={()=>{if(a.numUnits>2)upd("numUnits",a.numUnits-1);}} style={btnSm}>−</button><button onClick={()=>{if(a.numUnits<4)upd("numUnits",a.numUnits+1);}} style={btnSm}>+</button></div>}>
+    <Section title={"Units & Rent ("+a.numUnits+" units)"} action={<div style={{display:"flex",gap:8}}><button onClick={()=>{if(a.numUnits>2)upd("numUnits",a.numUnits-1);}} style={btnSm}>−</button><button onClick={()=>{if(a.numUnits<4)upd("numUnits",a.numUnits+1);}} style={btnSm}>+</button></div>}>
       {Array.from({length:a.numUnits}).map((_,i)=>{
         const u=a.units[i]||{};
         const effRent=+u.rent||+u.listedRent||0;
@@ -1605,7 +1605,7 @@ function AssumptionsTab({deal,onChange}){
       {a.refi.enabled?<><InputRow label="Refi Year" value={a.refi.year} onChange={v=>upd("refi.year",v)}/><InputRow label="New Rate" value={a.refi.newRate} onChange={v=>upd("refi.newRate",v)} suffix="%"/><InputRow label="New LTV" value={a.refi.newLTV} onChange={v=>upd("refi.newLTV",v)} suffix="%"/></>:<div style={{fontSize:13,color:"var(--muted)",padding:"8px 0"}}>Enable to model a cash-out refinance during the hold period.</div>}
     </Section>
     <Section title="Value Add" action={<label style={{fontSize:12,color:"var(--muted)",display:"flex",gap:8,alignItems:"center",cursor:"pointer"}}><input type="checkbox" checked={!!(a.valueAdd?.enabled)} onChange={e=>upd("valueAdd.enabled",e.target.checked)}/> Enable</label>}>
-      {a.valueAdd?.enabled?<><InputRow label="Total Remodel Cost" value={a.valueAdd.reModelCost} onChange={v=>upd("valueAdd.reModelCost",v)} prefix="$"}/><InputRow label="Rent Bump / Unit / Mo" value={a.valueAdd.rentBumpPerUnit} onChange={v=>upd("valueAdd.rentBumpPerUnit",v)} prefix="$"/><InputRow label="Units Renovated" value={a.valueAdd.unitsRenovated} onChange={v=>upd("valueAdd.unitsRenovated",Math.min(+v,a.numUnits))} suffix={`of ${a.numUnits}`}/><InputRow label="Completion Year" value={a.valueAdd.completionYear} onChange={v=>upd("valueAdd.completionYear",v)} suffix="yr"/><div style={{fontSize:12,color:"var(--muted)",padding:"6px 0",borderTop:"1px solid var(--border-faint)",marginTop:4}}>Annual rent lift: <strong style={{color:"var(--text)"}}>{FMT_USD((+a.valueAdd.rentBumpPerUnit||0)*Math.min(+a.valueAdd.unitsRenovated||0,a.numUnits)*12)}</strong> · Value implied via NOI/cap rate from Year {a.valueAdd.completionYear}</div></>:<div style={{fontSize:13,color:"var(--muted)",padding:"8px 0"}}>Enable to model remodeling costs and post-renovation rent uplift.</div>}
+      {a.valueAdd?.enabled?<><InputRow label="Total Remodel Cost" value={a.valueAdd.reModelCost} onChange={v=>upd("valueAdd.reModelCost",v)} prefix="$"}/><InputRow label="Rent Bump / Unit / Mo" value={a.valueAdd.rentBumpPerUnit} onChange={v=>upd("valueAdd.rentBumpPerUnit",v)} prefix="$"/><InputRow label="Units Renovated" value={a.valueAdd.unitsRenovated} onChange={v=>upd("valueAdd.unitsRenovated",Math.min(+v,a.numUnits))} suffix={"of "+a.numUnits}/><InputRow label="Completion Year" value={a.valueAdd.completionYear} onChange={v=>upd("valueAdd.completionYear",v)} suffix="yr"/><div style={{fontSize:12,color:"var(--muted)",padding:"6px 0",borderTop:"1px solid var(--border-faint)",marginTop:4}}>Annual rent lift: <strong style={{color:"var(--text)"}}>{FMT_USD((+a.valueAdd.rentBumpPerUnit||0)*Math.min(+a.valueAdd.unitsRenovated||0,a.numUnits)*12)}</strong> · Value implied via NOI/cap rate from Year {a.valueAdd.completionYear}</div></>:<div style={{fontSize:13,color:"var(--muted)",padding:"8px 0"}}>Enable to model remodeling costs and post-renovation rent uplift.</div>}
     </Section>
   </div>);
 }
@@ -1688,7 +1688,7 @@ function RentCompsTab({deal,onChange}){
   if(isMobile){return(<div style={{padding:"16px 0"}}>
     <div style={{display:"flex",gap:10,marginBottom:20,flexWrap:"wrap"}}>
       <MetricCard label="In-Place Avg/Unit" value={FMT_USD(inPlaceAvg)} sub="per month"/>
-      <MetricCard label="Comp Avg/Unit" value={overallAvg?FMT_USD(overallAvg):"—"} sub={`${compAvgs.filter(v=>v>0).length} comps`} highlight={overallAvg>0}/>
+      <MetricCard label="Comp Avg/Unit" value={overallAvg?FMT_USD(overallAvg):"—"} sub={compAvgs.filter(v=>v>0).length+" comps"} highlight={overallAvg>0}/>
       {overallAvg>0&&<MetricCard label="Spread vs Market" value={FMT_USD(overallAvg-inPlaceAvg)} sub={overallAvg>inPlaceAvg?"↑ upside":"✓ at market"}/>}
     </div>
     {deal.comps.map((c,ci)=>(<div key={ci} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:10,padding:14,marginBottom:12}}>
@@ -1704,7 +1704,7 @@ function RentCompsTab({deal,onChange}){
   return(<div style={{padding:"16px 0"}}>
     <div style={{display:"flex",gap:12,marginBottom:20,flexWrap:"wrap"}}>
       <MetricCard label="In-Place Avg Rent/Unit" value={FMT_USD(inPlaceAvg)} sub="per month"/>
-      <MetricCard label="Comp Avg Rent/Unit" value={overallAvg?FMT_USD(overallAvg):"—"} sub={`${compAvgs.filter(v=>v>0).length} active comps`} highlight={overallAvg>0}/>
+      <MetricCard label="Comp Avg Rent/Unit" value={overallAvg?FMT_USD(overallAvg):"—"} sub={compAvgs.filter(v=>v>0).length+" active comps"} highlight={overallAvg>0}/>
       {overallAvg>0&&<MetricCard label="Spread vs. Market" value={FMT_USD(overallAvg-inPlaceAvg)} sub={overallAvg>inPlaceAvg?"↑ rent upside":"✓ at/above market"}/>}
     </div>
     <div style={{overflowX:"auto"}}><table style={{borderCollapse:"collapse",fontSize:12,minWidth:900}}>
@@ -1712,7 +1712,7 @@ function RentCompsTab({deal,onChange}){
       <tbody>
         <tr><td style={LC}>Address</td><td style={{padding:"6px 10px",fontSize:12,color:"var(--text)",fontWeight:600}}>{deal.address||<em style={{color:"var(--muted)"}}>Subject property</em>}</td>{deal.comps.map((c,ci)=><td key={ci} style={{padding:"4px 6px"}}><AddressAutocomplete value={c.address||""} onChange={v=>updComp(ci,"address",v)} placeholder="123 Main St" inputStyle={{...iSty,fontSize:12}}/></td>)}</tr>
         <tr style={{background:"var(--row-sub)"}}><td style={{...LC,fontSize:11,fontStyle:"italic"}}>↳ Source</td><td style={{padding:"3px 6px"}}/>{deal.comps.map((c,ci)=>(<td key={ci} style={{padding:"3px 6px"}}><input value={c.source||""} onChange={e=>updComp(ci,"source",e.target.value)} placeholder="Zillow, MLS, broker" style={{...srcSty,fontSize:11}}/></td>))}</tr>
-        {Array.from({length:numUnits}).map((_,ui)=>(<tr key={`u${ui}`}><td style={LC}>Unit {ui+1} Rent/mo</td><td style={{padding:"6px 10px",color:"var(--accent)",fontWeight:800}}>{FMT_USD(inPlaceRents[ui])}</td>{deal.comps.map((c,ci)=>(<td key={ci} style={{padding:"4px 6px"}}><div style={{display:"flex",alignItems:"center",gap:3}}><span style={{color:"var(--muted)",fontSize:12}}>$</span><input type="number" value={c.units[ui]?.rent||0} onChange={e=>updUnit(ci,ui,"rent",e.target.value)} style={{...iSty,fontSize:12}}/></div></td>))}</tr>))}
+        {Array.from({length:numUnits}).map((_,ui)=>(<tr key={"u"+ui}><td style={LC}>Unit {ui+1} Rent/mo</td><td style={{padding:"6px 10px",color:"var(--accent)",fontWeight:800}}>{FMT_USD(inPlaceRents[ui])}</td>{deal.comps.map((c,ci)=>(<td key={ci} style={{padding:"4px 6px"}}><div style={{display:"flex",alignItems:"center",gap:3}}><span style={{color:"var(--muted)",fontSize:12}}>$</span><input type="number" value={c.units[ui]?.rent||0} onChange={e=>updUnit(ci,ui,"rent",e.target.value)} style={{...iSty,fontSize:12}}/></div></td>))}</tr>))}
         <tr style={{background:"var(--accent-soft)",borderTop:"2px solid var(--accent)"}}><td style={{...LC,color:"var(--accent)"}}>Avg Rent / Unit</td><td style={{padding:"7px 10px",color:"var(--accent)",fontWeight:800,fontSize:13}}>{FMT_USD(inPlaceAvg)}</td>{deal.comps.map((_,ci)=><td key={ci} style={{padding:"7px 10px",color:"var(--accent)",fontWeight:800,fontSize:13}}>{compAvgs[ci]>0?FMT_USD(compAvgs[ci]):"—"}</td>)}</tr>
         <tr><td style={LC}>Distance from Subject</td><td style={{padding:"6px 10px",color:"var(--muted)",fontSize:12}}>—</td>{deal.comps.map((c,ci)=><td key={ci} style={{padding:"4px 6px"}}><input value={c.distance||""} onChange={e=>updComp(ci,"distance",e.target.value)} placeholder="0.5 mi" style={{...iSty,fontSize:12}}/></td>)}</tr>
       </tbody>
