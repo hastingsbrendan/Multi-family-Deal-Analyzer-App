@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { iSty, btnSm, srcSty } from './ui/InputRow';
 import { sbClient } from '../lib/constants';
+import { sbGetMyGroups, sbShareDealToGroup } from '../lib/calc';
 
 function ShareDealModal({ deal, user, onClose, onShared }) {
   const [groups, setGroups]   = React.useState([]);

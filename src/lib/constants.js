@@ -125,4 +125,4 @@ const mapsUrl = (addr) => addr ? `https://maps.google.com/?q=${encodeURIComponen
 const GMAPS_KEY    = import.meta.env.VITE_GMAPS_KEY    || "AIzaSyAg90J2ZmwbAwPwlRHTeREfAWfiOwR1hiQ";
 const RENTCAST_KEY = import.meta.env.VITE_RENTCAST_KEY || "ba391816691449ada9dea5b9151ff4d5";
 
-export { STORAGE_KEY, GMAPS_KEY, RENTCAST_KEY, SB_URL, SB_ANON_KEY, SB_BUCKET, sbClient, loadLocal, saveLocal, authSignInWithGoogle, authSignUp, authSignIn, authSignOut, authResetPassword, authUpdatePassword, authUpdateProfile, authGetSession, STATUS_OPTIONS, STATUS_COLORS, FMT_USD, FMT_PCT, FMT_X, mapsUrl };
+export { STORAGE_KEY, GMAPS_KEY, RENTCAST_KEY, SB_URL, SB_ANON_KEY, SB_BUCKET, sbClient, loadLocal, saveLocal, sbRead, sbWrite, sbWritePrefs, sbUploadPhoto, sbDeletePhoto, authSignInWithGoogle, authSignUp, authSignIn, authSignOut, authResetPassword, authUpdatePassword, authUpdateProfile, authGetSession, STATUS_OPTIONS, STATUS_COLORS, FMT_USD, FMT_PCT, FMT_X, mapsUrl };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { SB_BUCKET, sbClient } from '../lib/constants';
+import { SB_BUCKET, sbClient, sbUploadPhoto, sbDeletePhoto } from '../lib/constants';
 
 function PhotoGallery({deal, onUpdate}) {
   const [uploading, setUploading] = useState(false);

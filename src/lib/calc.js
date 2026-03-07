@@ -318,4 +318,4 @@ function calcSensitivity(deal) {
 
 // ─── CSV EXPORT ───────────────────────────────────────────────────────────────
 
-export { DEFAULT_PREFS, resolveExpenses, calcDeal, calcSensitivity };
+export { DEFAULT_PREFS, newDeal, resolveExpenses, calcDeal, calcSensitivity, sbGetMyGroups, sbGetPendingInvites, sbCreateGroup, sbInviteMember, sbRespondToInvite, sbLeaveGroup, sbGetGroupMembers, sbUpdateMemberRole, sbRemoveMember, sbGetGroupDeals, sbWriteGroupDeals, sbShareDealToGroup };
