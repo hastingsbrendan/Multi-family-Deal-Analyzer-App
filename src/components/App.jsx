@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import * as Sentry from '@sentry/react';
 import { iSty } from './ui/InputRow';
 import { sbClient, STORAGE_KEY, STATUS_OPTIONS, FMT_USD, loadLocal, saveLocal, sbRead, sbWrite, sbWritePrefs, authGetSession, authSignOut } from '../lib/constants';
 import { calcDeal, DEFAULT_PREFS, newDeal, sbGetGroupDeals, sbWriteGroupDeals } from '../lib/calc';
@@ -45,6 +46,7 @@ function App() {
       setUser(u);
       setAuthLoading(false);
       if (u) {
+        Sentry.setUser({ id: u.id, email: u.email });
         // Show user-scoped local cache immediately (empty array for new users / new devices)
         const local = loadLocal(u.id);
         setDeals(local);
@@ -73,6 +75,8 @@ function App() {
     const { data: { subscription } } = sbClient.auth.onAuthStateChange((evt, session) => {
       const u = session?.user || false;
       setUser(u);
+      if (u) Sentry.setUser({ id: u.id, email: u.email });
+      else Sentry.setUser(null);
       if (u && (evt === "SIGNED_IN" || evt === "USER_UPDATED")) {
         // Clean up hash after Supabase has processed it
         if (window.location.hash.includes("access_token")) {
@@ -156,6 +160,7 @@ function App() {
 
   const handleSignOut = async () => {
     await authSignOut();
+    Sentry.setUser(null);
     setDeals(null); setActiveDealId(null);
     setShowProfile(false); setShowSettings(false); setShowAppSettings(false); setShowGroups(false); setActiveGroup(null); setGroupDeals([]); setProfileMenuOpen(false);
     setPrefs(DEFAULT_PREFS);
