@@ -19,6 +19,14 @@ import UndoToast from './ui/UndoToast';
 
 function App() {
   const [dark, setDark] = useState(() => localStorage.getItem("rh_dark") === "true");
+  const [showUpgradeSuccess, setShowUpgradeSuccess] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("upgraded") === "true") {
+      window.history.replaceState({}, "", window.location.pathname); // clean URL
+      return true;
+    }
+    return false;
+  });
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [showProfile, setShowProfile] = useState(false);
@@ -421,6 +429,23 @@ function App() {
       </div>
       <div style={{padding:"18px 16px 0"}}>
         <TrialBanner userEmail={user?.email}/>
+        {showUpgradeSuccess && (
+          <div style={{
+            background:"rgba(13,148,136,0.12)",
+            border:"1px solid rgba(13,148,136,0.35)",
+            borderRadius:10,
+            padding:"12px 18px",
+            display:"flex",
+            alignItems:"center",
+            justifyContent:"space-between",
+            gap:12,
+            marginBottom:16,
+            fontSize:14,
+          }}>
+            <span style={{color:"var(--text)",fontWeight:700}}>🎉 Welcome to RentHack Pro! You now have full access.</span>
+            <button onClick={()=>setShowUpgradeSuccess(false)} style={{background:"none",border:"none",color:"var(--muted)",cursor:"pointer",fontSize:18,padding:"0 4px"}}>×</button>
+          </div>
+        )}
         {!activeDeal
           ?(!deals ? <div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:"var(--muted)",fontSize:14}}>Loading…</div></div> : <PortfolioPage
               deals={activeGroup ? groupDeals : deals}
