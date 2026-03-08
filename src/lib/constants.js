@@ -20,6 +20,7 @@ const loadLocal = (uid) => {
 };
 const saveLocal = (d, uid) => {
   try {
+    if (!Array.isArray(d) || d.length === 0) return; // never overwrite with empty
     const key = uid ? STORAGE_KEY + "_" + uid : STORAGE_KEY;
     localStorage.setItem(key, JSON.stringify(d));
   } catch {}
