@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RentHack — Will your tenants pay your mortgage?</title>
+  <meta name="description" content="RentHack does the math for you — step by step — so you know if a 2–4 unit property actually works before you make an offer."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;0,9..144,900;1,9..144,400&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream:   #FDFAF6;
+      --sand:    #F5EFE6;
+      --amber:   #D97706;
+      --amber2:  #F59E0B;
+      --teal:    #0D9488;
+      --teal-lt: #CCFBF1;
+      --teal-dk: #0F766E;
+      --navy:    #1E293B;
+      --gray1:   #F8FAFC;
+      --gray2:   #E2E8F0;
+      --gray3:   #94A3B8;
+      --gray4:   #64748B;
+      --white:   #FFFFFF;
+    }
+
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      color: var(--navy);
+      background: var(--cream);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── UTILITY ── */
+    .eyebrow {
+      display: inline-block;
+      color: var(--teal);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+    .section-max { max-width: 1120px; margin: 0 auto; padding: 0 48px; }
+
+    /* ── NAV ── */
+    nav {
+      background: rgba(253,250,246,0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--gray2);
+      padding: 0 48px;
+      height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo {
+      font-family: 'Fraunces', serif;
+      font-size: 24px;
+      font-weight: 900;
+      color: var(--navy);
+      text-decoration: none;
+      letter-spacing: -0.5px;
+    }
+    .logo .dot { color: var(--teal); }
+    .nav-links { display: flex; gap: 32px; list-style: none; }
+    .nav-links a {
+      color: var(--gray4);
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--navy); }
+    .nav-right { display: flex; align-items: center; gap: 16px; }
+    .nav-login {
+      color: var(--gray4);
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .nav-login:hover { color: var(--navy); }
+    .nav-cta {
+      background: var(--teal);
+      color: #fff;
+      border: none;
+      padding: 10px 22px;
+      border-radius: 100px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.15s;
+      text-decoration: none;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .nav-cta:hover { background: var(--teal-dk); transform: translateY(-1px); }
+
+    /* ── HERO ── */
+    .hero {
+      padding: 90px 48px 0;
+      overflow: hidden;
+    }
+    .hero-inner {
+      max-width: 1120px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 72px;
+      align-items: center;
+    }
+    .hero-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--teal-lt);
+      color: var(--teal-dk);
+      border-radius: 100px;
+      padding: 6px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 28px;
+    }
+    .hero h1 {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(38px, 4.5vw, 62px);
+      font-weight: 900;
+      line-height: 1.05;
+      letter-spacing: -2px;
+      color: var(--navy);
+      margin-bottom: 24px;
+    }
+    .hero h1 .accent { color: var(--teal); }
+    .hero h1 em { font-style: italic; color: var(--amber); }
+    .hero p {
+      color: var(--gray4);
+      font-size: 18px;
+      line-height: 1.75;
+      margin-bottom: 36px;
+      max-width: 480px;
+    }
+    .hero-cta-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 40px;
+    }
+    .btn-teal {
+      background: var(--teal);
+      color: #fff;
+      border: none;
+      padding: 16px 32px;
+      border-radius: 100px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .btn-teal:hover { background: var(--teal-dk); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(13,148,136,0.3); }
+    .btn-soft {
+      background: var(--white);
+      color: var(--navy);
+      border: 1.5px solid var(--gray2);
+      padding: 15px 28px;
+      border-radius: 100px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .btn-soft:hover { border-color: var(--teal); color: var(--teal); background: var(--teal-lt); }
+
+    /* social proof */
+    .hero-social-proof { display: flex; align-items: center; gap: 14px; }
+    .avatars { display: flex; }
+    .avatar {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      border: 2.5px solid var(--white);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 800;
+      margin-left: -10px;
+    }
+    .avatar:first-child { margin-left: 0; }
+    .a1{background:#FDE68A;color:#92400E;}
+    .a2{background:#BBF7D0;color:#14532D;}
+    .a3{background:#BFDBFE;color:#1E40AF;}
+    .a4{background:#FECdCA;color:#991B1B;}
+    .proof-text { font-size: 14px; color: var(--gray4); line-height: 1.45; }
+    .proof-text strong { color: var(--navy); }
+
+    /* ── HERO CARD ── */
+    .hero-right { position: relative; }
+    .hero-card {
+      background: var(--white);
+      border-radius: 24px;
+      box-shadow: 0 24px 72px rgba(0,0,0,0.1), 0 4px 16px rgba(0,0,0,0.06);
+      overflow: hidden;
+      animation: cardFloat 4s ease-in-out infinite;
+    }
+    @keyframes cardFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+    .card-header {
+      background: linear-gradient(135deg, var(--teal) 0%, var(--teal-dk) 100%);
+      padding: 24px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .card-header-text h3 { color: #fff; font-size: 15px; font-weight: 700; margin-bottom: 3px; }
+    .card-header-text p { color: rgba(255,255,255,0.65); font-size: 12px; }
+    .card-step-badge {
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      padding: 5px 14px;
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .card-body { padding: 24px 28px; }
+    .field-group { margin-bottom: 16px; }
+    .field-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--gray3);
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .fake-input {
+      background: var(--gray1);
+      border: 1.5px solid var(--gray2);
+      border-radius: 10px;
+      padding: 11px 14px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--navy);
+    }
+    .fake-input.active {
+      border-color: var(--teal);
+      background: var(--teal-lt);
+      color: var(--teal-dk);
+    }
+    .progress-wrap { margin: 16px 0 6px; }
+    .progress-bar { background: var(--gray2); border-radius: 100px; height: 5px; }
+    .progress-fill { background: var(--teal); height: 5px; border-radius: 100px; width: 60%; transition: width 1s ease; }
+    .progress-label { font-size: 11px; color: var(--gray3); text-align: right; margin-top: 4px; }
+    .result-preview {
+      margin-top: 16px;
+      background: linear-gradient(135deg, var(--sand) 0%, #EEE8DD 100%);
+      border-radius: 14px;
+      padding: 18px 20px;
+      display: grid;
+      grid-template-columns: repeat(3,1fr);
+      gap: 12px;
+    }
+    .rp-stat { text-align: center; }
+    .rp-stat .v { display: block; font-family: 'Fraunces', serif; font-size: 26px; font-weight: 900; color: var(--teal); line-height: 1; }
+    .rp-stat .l { font-size: 10px; font-weight: 700; color: var(--gray3); letter-spacing: 0.4px; text-transform: uppercase; margin-top: 4px; display: block; }
+
+    /* hero bottom wave */
+    .hero-wave {
+      margin-top: -2px;
+      line-height: 0;
+    }
+    .hero-wave svg { display: block; width: 100%; }
+
+    /* ── FEATURES ── */
+    .features {
+      background: var(--white);
+      padding: 100px 48px;
+    }
+    .feat-inner { max-width: 1120px; margin: 0 auto; }
+    .feat-header { text-align: center; margin-bottom: 72px; }
+    .feat-header h2 {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(30px, 3.5vw, 46px);
+      font-weight: 900;
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 18px;
+    }
+    .feat-header p { color: var(--gray4); font-size: 18px; max-width: 520px; margin: 0 auto; line-height: 1.7; }
+
+    .feat-top {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+      align-items: center;
+      margin-bottom: 80px;
+    }
+    .feat-list { display: flex; flex-direction: column; gap: 24px; }
+    .feat-item { display: flex; gap: 18px; align-items: flex-start; }
+    .feat-icon {
+      width: 46px; height: 46px;
+      border-radius: 12px;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+    .feat-icon-teal { background: var(--teal-lt); }
+    .feat-icon-amber { background: #FEF3C7; }
+    .feat-item-text h4 { font-size: 16px; font-weight: 700; margin-bottom: 5px; }
+    .feat-item-text p { color: var(--gray4); font-size: 14px; line-height: 1.6; }
+
+    /* Showcase card */
+    .showcase-card {
+      background: var(--cream);
+      border-radius: 24px;
+      padding: 32px;
+      border: 1.5px solid var(--gray2);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.06);
+    }
+    .sc-address {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--gray3);
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    .sc-big {
+      font-family: 'Fraunces', serif;
+      font-size: 76px;
+      font-weight: 900;
+      color: var(--teal);
+      line-height: 1;
+      letter-spacing: -3px;
+    }
+    .sc-big-label { color: var(--gray4); font-size: 14px; margin-bottom: 24px; margin-top: 6px; }
+    .sc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .sc-item {
+      background: var(--white);
+      border-radius: 12px;
+      padding: 14px 18px;
+      border: 1px solid var(--gray2);
+    }
+    .sc-item .v { font-size: 22px; font-weight: 800; color: var(--navy); }
+    .sc-item .l { font-size: 11px; color: var(--gray3); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.3px; }
+    .sc-banner {
+      margin-top: 14px;
+      background: var(--teal-lt);
+      border-radius: 10px;
+      padding: 12px 16px;
+      color: var(--teal-dk);
+      font-size: 13px;
+      font-weight: 700;
+      border: 1px solid rgba(13,148,136,0.15);
+    }
+
+    /* ── TESTIMONIALS ── */
+    .testimonials { padding: 100px 48px; background: var(--sand); }
+    .test-inner { max-width: 1120px; margin: 0 auto; }
+    .test-header { margin-bottom: 52px; }
+    .test-header h2 {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(28px, 3.5vw, 42px);
+      font-weight: 900;
+      letter-spacing: -1px;
+      margin-top: 8px;
+    }
+    .test-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    .test-card {
+      background: var(--white);
+      border-radius: 20px;
+      padding: 32px 28px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .test-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.1); }
+    .stars { color: var(--amber2); font-size: 15px; margin-bottom: 18px; letter-spacing: 2px; }
+    .test-quote { font-size: 15px; line-height: 1.75; color: var(--navy); margin-bottom: 24px; font-style: italic; }
+    .test-author { display: flex; align-items: center; gap: 12px; }
+    .test-avatar { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; }
+    .ta1{background:#FDE68A;color:#92400E;}
+    .ta2{background:#BBF7D0;color:#14532D;}
+    .ta3{background:#BFDBFE;color:#1E40AF;}
+    .test-name { font-size: 14px; font-weight: 700; color: var(--navy); }
+    .test-role { font-size: 12px; color: var(--gray4); margin-top: 1px; }
+
+    /* ── HOW IT WORKS ── */
+    .how { padding: 100px 48px; background: var(--white); }
+    .how-inner { max-width: 900px; margin: 0 auto; }
+    .how-header { margin-bottom: 64px; }
+    .how-header h2 {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(28px, 3.5vw, 42px);
+      font-weight: 900;
+      letter-spacing: -1px;
+      margin-top: 8px;
+    }
+    .how-steps { display: flex; flex-direction: column; }
+    .how-step { display: grid; grid-template-columns: 80px 1fr; gap: 32px; padding-bottom: 52px; }
+    .how-step:last-child { padding-bottom: 0; }
+    .how-num-col { display: flex; flex-direction: column; align-items: center; }
+    .how-num {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--teal) 0%, var(--teal-dk) 100%);
+      color: #fff;
+      font-family: 'Fraunces', serif;
+      font-size: 22px;
+      font-weight: 900;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 6px 20px rgba(13,148,136,0.35);
+    }
+    .how-line { flex: 1; width: 2px; background: var(--gray2); margin-top: 10px; }
+    .how-step:last-child .how-line { display: none; }
+    .how-content { padding-top: 12px; }
+    .how-content h3 { font-size: 20px; font-weight: 800; margin-bottom: 10px; }
+    .how-content p { color: var(--gray4); font-size: 16px; line-height: 1.7; }
+    .how-tip {
+      display: inline-flex; align-items: center; gap: 8px;
+      margin-top: 14px;
+      background: var(--teal-lt);
+      color: var(--teal-dk);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    /* ── PRICING ── */
+    .pricing { padding: 100px 48px; background: var(--cream); }
+    .pricing-inner { max-width: 960px; margin: 0 auto; }
+    .pricing-header { margin-bottom: 64px; }
+    .pricing-header h2 {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(28px, 3.5vw, 42px);
+      font-weight: 900;
+      letter-spacing: -1px;
+      margin-top: 8px;
+    }
+    .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .price-card {
+      background: var(--white);
+      border: 1.5px solid var(--gray2);
+      border-radius: 22px;
+      padding: 36px 28px;
+      position: relative;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .price-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.08); }
+    .price-card.featured {
+      border-color: var(--teal);
+      background: linear-gradient(160deg, var(--teal) 0%, var(--teal-dk) 100%);
+      transform: translateY(-8px);
+      box-shadow: 0 16px 48px rgba(13,148,136,0.3);
+    }
+    .price-card.featured:hover { transform: translateY(-12px); }
+    .popular-chip {
+      position: absolute;
+      top: -14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--amber2);
+      color: var(--white);
+      padding: 4px 18px;
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .plan-name {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--gray4);
+      margin-bottom: 20px;
+    }
+    .price-card.featured .plan-name { color: rgba(255,255,255,0.65); }
+    .price-num {
+      font-family: 'Fraunces', serif;
+      font-size: 56px;
+      font-weight: 900;
+      letter-spacing: -2px;
+      color: var(--navy);
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .price-card.featured .price-num { color: #fff; }
+    .price-num sup { font-size: 24px; vertical-align: super; font-family: 'DM Sans', sans-serif; }
+    .price-num sub { font-size: 16px; font-weight: 500; color: var(--gray3); font-family: 'DM Sans', sans-serif; }
+    .price-card.featured sub { color: rgba(255,255,255,0.5); }
+    .price-period { color: var(--gray4); font-size: 13px; margin-bottom: 28px; }
+    .price-card.featured .price-period { color: rgba(255,255,255,0.6); }
+    .feat-check-list { list-style: none; display: flex; flex-direction: column; gap: 13px; margin-bottom: 32px; }
+    .feat-check-list li { font-size: 14px; display: flex; gap: 10px; align-items: flex-start; color: var(--navy); }
+    .chk { color: var(--teal); font-weight: 900; flex-shrink: 0; font-size: 15px; }
+    .price-card.featured .feat-check-list li { color: rgba(255,255,255,0.88); }
+    .price-card.featured .chk { color: rgba(255,255,255,0.9); }
+    .price-btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 100px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .price-btn-outline {
+      background: transparent;
+      border: 2px solid var(--gray2);
+      color: var(--navy);
+    }
+    .price-btn-outline:hover { border-color: var(--teal); color: var(--teal); background: var(--teal-lt); }
+    .price-btn-white { background: #fff; color: var(--teal-dk); border: none; }
+    .price-btn-white:hover { background: var(--teal-lt); }
+
+    /* ── FAQ ── */
+    .faq { padding: 100px 48px; background: var(--white); }
+    .faq-inner { max-width: 720px; margin: 0 auto; }
+    .faq-header { margin-bottom: 48px; }
+    .faq-header h2 {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(26px, 3vw, 38px);
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      margin-top: 8px;
+    }
+    .faq-list { display: flex; flex-direction: column; }
+    .faq-item {
+      border-bottom: 1px solid var(--gray2);
+      overflow: hidden;
+    }
+    .faq-q {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--navy);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24px 0;
+      gap: 16px;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .faq-q:hover { color: var(--teal); }
+    .faq-icon {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: var(--gray1);
+      border: 1.5px solid var(--gray2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      color: var(--teal);
+      flex-shrink: 0;
+      transition: transform 0.3s;
+    }
+    .faq-item.open .faq-icon { transform: rotate(45deg); background: var(--teal-lt); border-color: var(--teal); }
+    .faq-a {
+      color: var(--gray4);
+      font-size: 15px;
+      line-height: 1.75;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.35s ease, padding-bottom 0.35s ease;
+    }
+    .faq-item.open .faq-a { max-height: 300px; padding-bottom: 24px; }
+
+    /* ── FINAL CTA ── */
+    .final-cta {
+      background: var(--navy);
+      padding: 100px 48px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .final-cta::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 30% 50%, rgba(13,148,136,0.25) 0%, transparent 65%),
+                  radial-gradient(ellipse at 70% 50%, rgba(217,119,6,0.12) 0%, transparent 65%);
+      pointer-events: none;
+    }
+    .final-cta-inner { position: relative; z-index: 1; }
+    .final-cta h2 {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(30px, 4vw, 52px);
+      font-weight: 900;
+      letter-spacing: -1.5px;
+      color: #fff;
+      margin-bottom: 18px;
+      line-height: 1.1;
+    }
+    .final-cta h2 .accent { color: var(--teal-lt); }
+    .final-cta p { color: rgba(255,255,255,0.55); font-size: 18px; max-width: 440px; margin: 0 auto 40px; line-height: 1.65; }
+    .final-cta-btn {
+      font-size: 18px;
+      padding: 18px 44px;
+    }
+    .final-cta-note { color: rgba(255,255,255,0.3); font-size: 13px; margin-top: 20px; }
+
+    /* ── FOOTER ── */
+    footer {
+      background: #111827;
+      padding: 56px 48px 32px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 40px;
+    }
+    .footer-brand { max-width: 240px; }
+    .footer-logo {
+      font-family: 'Fraunces', serif;
+      font-size: 22px;
+      font-weight: 900;
+      color: #fff;
+      margin-bottom: 10px;
+    }
+    .footer-logo .dot { color: var(--teal); }
+    .footer-tagline { color: rgba(255,255,255,0.3); font-size: 13px; line-height: 1.6; }
+    .footer-col h4 {
+      color: rgba(255,255,255,0.45);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 18px;
+    }
+    .footer-col a {
+      display: block;
+      color: rgba(255,255,255,0.4);
+      text-decoration: none;
+      font-size: 14px;
+      margin-bottom: 12px;
+      transition: color 0.2s;
+    }
+    .footer-col a:hover { color: rgba(255,255,255,0.85); }
+    .footer-bottom {
+      width: 100%;
+      padding-top: 32px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.2);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 860px) {
+      .hero-inner, .feat-top, .test-grid, .pricing-grid { grid-template-columns: 1fr; }
+      .nav-links { display: none; }
+      nav { padding: 0 24px; }
+      .hero { padding: 60px 24px 0; }
+      .features, .testimonials, .how, .pricing, .faq, .final-cta { padding: 72px 24px; }
+      footer { padding: 48px 24px 28px; }
+      .section-max { padding: 0 24px; }
+      .price-card.featured { transform: none; }
+      .how-step { grid-template-columns: 60px 1fr; }
+    }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp 0.65s ease both; }
+    .fade-up-1 { animation-delay: 0.1s; }
+    .fade-up-2 { animation-delay: 0.22s; }
+    .fade-up-3 { animation-delay: 0.34s; }
+    .fade-up-4 { animation-delay: 0.46s; }
+  </style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav>
+  <a href="/" class="logo">Rent<span class="dot">Hack</span></a>
+  <ul class="nav-links">
+    <li><a href="#how">How it works</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+    <li><a href="/blog">Blog</a></li>
+  </ul>
+  <div class="nav-right">
+    <a href="/#app" class="nav-login">Log in</a>
+    <a href="/#app" class="nav-cta">Try it free</a>
+  </div>
+</nav>
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="hero-inner">
+    <div class="hero-left">
+      <div class="hero-tag fade-up fade-up-1">🏠 Built for house hackers</div>
+      <h1 class="fade-up fade-up-2">Will your <span class="accent">tenants</span> pay your <em>mortgage?</em></h1>
+      <p class="fade-up fade-up-3">RentHack does the math for you — step by step — so you know if a 2–4 unit property actually works before you make an offer.</p>
+      <div class="hero-cta-row fade-up fade-up-4">
+        <a href="/#app" class="btn-teal">Analyze a deal free <span>→</span></a>
+        <a href="#how" class="btn-soft">▶ See how it works</a>
+      </div>
+      <div class="hero-social-proof fade-up fade-up-4">
+        <div class="avatars">
+          <div class="avatar a1">J</div>
+          <div class="avatar a2">M</div>
+          <div class="avatar a3">S</div>
+          <div class="avatar a4">K</div>
+        </div>
+        <div class="proof-text">
+          <strong id="user-count">500+</strong> house hackers have analyzed<br>their first deal on RentHack
+        </div>
+      </div>
+    </div>
+    <div class="hero-right fade-up fade-up-3">
+      <div class="hero-card">
+        <div class="card-header">
+          <div class="card-header-text">
+            <h3>123 Maple St — Duplex</h3>
+            <p>Analyzing your deal...</p>
+          </div>
+          <div class="card-step-badge">Step 3 of 4</div>
+        </div>
+        <div class="card-body">
+          <div class="progress-wrap">
+            <div class="progress-bar"><div class="progress-fill"></div></div>
+            <p class="progress-label">75% complete</p>
+          </div>
+          <div class="field-group">
+            <span class="field-label">Monthly Rent by Unit</span>
+            <div class="field-row">
+              <div class="fake-input">Unit 1 — $1,450</div>
+              <div class="fake-input active">Unit 2 — $1,200 ✓</div>
+            </div>
+          </div>
+          <div class="field-group">
+            <span class="field-label">Estimated Monthly Expenses</span>
+            <div class="field-row">
+              <div class="fake-input">Insurance — $180</div>
+              <div class="fake-input">Maintenance — $150</div>
+            </div>
+          </div>
+          <div class="result-preview">
+            <div class="rp-stat"><span class="v">$847</span><span class="l">Eff. Mortgage</span></div>
+            <div class="rp-stat"><span class="v">7.2%</span><span class="l">Cap Rate</span></div>
+            <div class="rp-stat"><span class="v">68%</span><span class="l">Break-Even Vac.</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- wave transition -->
+  <div class="hero-wave" style="margin-top:80px;">
+    <svg viewBox="0 0 1440 60" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+      <path d="M0,40 C360,70 1080,10 1440,40 L1440,60 L0,60 Z" fill="#ffffff"/>
+    </svg>
+  </div>
+</section>
+
+<!-- ── FEATURES ── -->
+<section class="features">
+  <div class="feat-inner">
+    <div class="feat-header">
+      <span class="eyebrow">Why RentHack</span>
+      <h2>Built for the math-averse<br>first-time buyer</h2>
+      <p>Every other tool assumes you know what cap rate means. RentHack explains every number as you enter it — so you learn while you analyze.</p>
+    </div>
+    <div class="feat-top">
+      <div>
+        <div class="feat-list">
+          <div class="feat-item">
+            <div class="feat-icon feat-icon-teal">🧭</div>
+            <div class="feat-item-text">
+              <h4>Guided step-by-step flow</h4>
+              <p>No blank spreadsheet staring back at you. We ask the right questions in the right order.</p>
+            </div>
+          </div>
+          <div class="feat-item">
+            <div class="feat-icon feat-icon-teal">💡</div>
+            <div class="feat-item-text">
+              <h4>Plain-English explanations</h4>
+              <p>Hover over any metric and we'll tell you exactly what it means and why it matters.</p>
+            </div>
+          </div>
+          <div class="feat-item">
+            <div class="feat-icon feat-icon-amber">📊</div>
+            <div class="feat-item-text">
+              <h4>The metrics that matter most</h4>
+              <p>Effective mortgage cost, break-even vacancy, and cash flow — the three numbers every house hacker needs.</p>
+            </div>
+          </div>
+          <div class="feat-item">
+            <div class="feat-icon feat-icon-teal">🤝</div>
+            <div class="feat-item-text">
+              <h4>Share deals with partners</h4>
+              <p>Invite a co-buyer, spouse, or agent to view and collaborate on your analysis in real time.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="showcase-card">
+        <p class="sc-address">📍 123 Maple St — 2-unit</p>
+        <div class="sc-big">$847</div>
+        <p class="sc-big-label">Your monthly housing cost after rent</p>
+        <div class="sc-grid">
+          <div class="sc-item"><div class="v">7.2%</div><div class="l">Cap Rate</div></div>
+          <div class="sc-item"><div class="v">$380</div><div class="l">Monthly Cash Flow</div></div>
+          <div class="sc-item"><div class="v">68%</div><div class="l">Break-Even Vacancy</div></div>
+          <div class="sc-item"><div class="v">12.4%</div><div class="l">Cash-on-Cash Return</div></div>
+        </div>
+        <div class="sc-banner">✓ Even with one unit vacant, you cover your mortgage</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── TESTIMONIALS ── -->
+<section class="testimonials">
+  <div class="test-inner">
+    <div class="test-header">
+      <span class="eyebrow">Testimonials</span>
+      <h2>From people who used RentHack<br>to buy their first property</h2>
+    </div>
+    <div class="test-grid">
+      <div class="test-card">
+        <div class="stars">★★★★★</div>
+        <p class="test-quote">"I ran 8 deals in a weekend before making an offer. The effective mortgage number made it so clear which properties actually worked for my situation."</p>
+        <div class="test-author">
+          <div class="test-avatar ta1">J</div>
+          <div><div class="test-name">James R.</div><div class="test-role">Bought a triplex in Phoenix, AZ</div></div>
+        </div>
+      </div>
+      <div class="test-card">
+        <div class="stars">★★★★★</div>
+        <p class="test-quote">"I'm not a numbers person at all. The fact that it explains every term as you go made this the only tool I could actually use without a spreadsheet course first."</p>
+        <div class="test-author">
+          <div class="test-avatar ta2">M</div>
+          <div><div class="test-name">Maria K.</div><div class="test-role">First-time buyer, Denver CO</div></div>
+        </div>
+      </div>
+      <div class="test-card">
+        <div class="stars">★★★★★</div>
+        <p class="test-quote">"The break-even vacancy rate is something I'd never even thought about. Now it's the first thing I look at. Absolute game-changer for a duplex buyer."</p>
+        <div class="test-author">
+          <div class="test-avatar ta3">S</div>
+          <div><div class="test-name">Sam T.</div><div class="test-role">House hacking a fourplex in Chicago</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── HOW IT WORKS ── -->
+<section class="how" id="how">
+  <div class="how-inner">
+    <div class="how-header">
+      <span class="eyebrow">How it works</span>
+      <h2>Done in under 5 minutes</h2>
+    </div>
+    <div class="how-steps">
+      <div class="how-step">
+        <div class="how-num-col"><div class="how-num">1</div><div class="how-line"></div></div>
+        <div class="how-content">
+          <h3>Enter the property details</h3>
+          <p>Add the asking price, down payment, and loan terms. We fill in smart defaults so you're never staring at a blank field.</p>
+          <div class="how-tip">💡 We explain what each field means as you go</div>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="how-num-col"><div class="how-num">2</div><div class="how-line"></div></div>
+        <div class="how-content">
+          <h3>Add the rents and expenses</h3>
+          <p>Enter the rent for each unit, plus estimated costs like insurance, taxes, and maintenance. We'll flag anything that looks unusual.</p>
+          <div class="how-tip">💡 Typical ranges shown for your property type</div>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="how-num-col"><div class="how-num">3</div><div class="how-line"></div></div>
+        <div class="how-content">
+          <h3>See your result instantly</h3>
+          <p>Your effective monthly mortgage cost, cash flow, cap rate, and break-even vacancy — all in one clean summary you can share with your partner or agent.</p>
+          <div class="how-tip">✓ Export to PDF or share a link (Starter plan)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── PRICING ── -->
+<section class="pricing" id="pricing">
+  <div class="pricing-inner">
+    <div class="pricing-header">
+      <span class="eyebrow">Pricing</span>
+      <h2>Start free. Pay when it clicks.</h2>
+    </div>
+    <div class="pricing-grid">
+      <div class="price-card">
+        <p class="plan-name">Free</p>
+        <div class="price-num"><sup>$</sup>0</div>
+        <p class="price-period">Forever free</p>
+        <ul class="feat-check-list">
+          <li><span class="chk">✓</span> Full guided analysis</li>
+          <li><span class="chk">✓</span> All key metrics explained</li>
+          <li><span class="chk">✓</span> 1 saved deal</li>
+          <li><span class="chk">✓</span> No credit card needed</li>
+        </ul>
+        <a href="/#app" class="price-btn price-btn-outline" style="text-decoration:none;display:block;text-align:center;">Start for free</a>
+      </div>
+      <div class="price-card featured">
+        <div class="popular-chip">Most popular</div>
+        <p class="plan-name">Starter</p>
+        <div class="price-num"><sup>$</sup>9<sub>/mo</sub></div>
+        <p class="price-period">For active shoppers</p>
+        <ul class="feat-check-list">
+          <li><span class="chk">✓</span> Unlimited saved deals</li>
+          <li><span class="chk">✓</span> PDF export &amp; share links</li>
+          <li><span class="chk">✓</span> Scenario modeling</li>
+          <li><span class="chk">✓</span> Email support</li>
+        </ul>
+        <a href="/#app" class="price-btn price-btn-white" style="text-decoration:none;display:block;text-align:center;">Get Starter</a>
+      </div>
+      <div class="price-card">
+        <p class="plan-name">Pro</p>
+        <div class="price-num"><sup>$</sup>19<sub>/mo</sub></div>
+        <p class="price-period">For buyers &amp; agents</p>
+        <ul class="feat-check-list">
+          <li><span class="chk">✓</span> Everything in Starter</li>
+          <li><span class="chk">✓</span> Side-by-side deal comparison</li>
+          <li><span class="chk">✓</span> Lender-ready report format</li>
+          <li><span class="chk">✓</span> Priority support</li>
+        </ul>
+        <a href="/#app" class="price-btn price-btn-outline" style="text-decoration:none;display:block;text-align:center;">Get Pro</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FAQ ── -->
+<section class="faq">
+  <div class="faq-inner">
+    <div class="faq-header">
+      <span class="eyebrow">FAQ</span>
+      <h2>Common questions</h2>
+    </div>
+    <div class="faq-list">
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">Do I need real estate experience to use this? <span class="faq-icon">+</span></button>
+        <p class="faq-a">Not at all. RentHack is designed specifically for first-time buyers who are considering a 2–4 unit property. Every term is explained in plain English as you go.</p>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">What kind of properties does RentHack work for? <span class="faq-icon">+</span></button>
+        <p class="faq-a">RentHack is purpose-built for 2–4 unit residential properties — duplexes, triplexes, and fourplexes — which are the most common house hack properties.</p>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">What is "effective mortgage"? <span class="faq-icon">+</span></button>
+        <p class="faq-a">Your effective mortgage is your actual monthly housing cost after the rental income from your tenants is subtracted from your mortgage payment. It's the number that tells you: what will I actually pay to live here?</p>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">Can I try it before paying? <span class="faq-icon">+</span></button>
+        <p class="faq-a">Yes — the free plan lets you run a full analysis with no credit card required. You only need to upgrade if you want to save multiple deals or export a PDF report.</p>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">Is my data secure? <span class="faq-icon">+</span></button>
+        <p class="faq-a">Yes. All data is stored in Supabase with row-level security — only you can see your deals. We never sell your data and you can delete your account at any time.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FINAL CTA ── -->
+<section class="final-cta">
+  <div class="final-cta-inner">
+    <h2>Know your number<br>before you <span class="accent">make an offer</span></h2>
+    <p>Free to use. Takes 5 minutes. No spreadsheets required.</p>
+    <a href="/#app" class="btn-teal final-cta-btn">Analyze your first deal →</a>
+    <p class="final-cta-note">No credit card needed to start · Sign up only to save</p>
+  </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-brand">
+    <div class="footer-logo">Rent<span class="dot">Hack</span></div>
+    <p class="footer-tagline">The deal analyzer built for house hackers — not Wall Street.</p>
+  </div>
+  <div class="footer-col">
+    <h4>Product</h4>
+    <a href="#how">How it works</a>
+    <a href="#pricing">Pricing</a>
+    <a href="/blog">Blog</a>
+  </div>
+  <div class="footer-col">
+    <h4>Account</h4>
+    <a href="/#app">Log in</a>
+    <a href="/#app">Sign up free</a>
+  </div>
+  <div class="footer-col">
+    <h4>Company</h4>
+    <a href="#">About</a>
+    <a href="#">Contact</a>
+    <a href="#">Privacy</a>
+  </div>
+  <p class="footer-bottom">© 2026 RentHack.io — Built for house hackers everywhere.</p>
+</footer>
+
+<script>
+  // ── FAQ accordion ──
+  function toggleFaq(btn) {
+    const item = btn.closest('.faq-item');
+    const isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item.open').forEach(el => el.classList.remove('open'));
+    if (!isOpen) item.classList.add('open');
+  }
+
+  // ── Live user counter from Supabase ──
+  const SB_URL     = 'https://lxkwvayalxuoryuwxtsq.supabase.co';
+  const SB_ANON    = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4a3d2YXlhbHh1b3J5dXd4dHNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyOTAxMTAsImV4cCI6MjA4Nzg2NjExMH0.pcja3-H81ghs9EEoigwAb7HsVBtYsc2tO0DlLX6cAo8';
+
+  async function loadUserCount() {
+    try {
+      const res = await fetch(`${SB_URL}/rest/v1/user_stats?select=total_users`, {
+        headers: { 'apikey': SB_ANON, 'Authorization': `Bearer ${SB_ANON}` }
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const count = data?.[0]?.total_users;
+      if (count && count > 0) {
+        const el = document.getElementById('user-count');
+        if (el) {
+          const display = count < 10 ? 'early members' : count + '+';
+          el.textContent = typeof display === 'number' ? display + '+' : display;
+        }
+      }
+    } catch(e) {
+      // Silently fail — placeholder text stays
+    }
+  }
+  loadUserCount();
+
+  // ── Smooth scroll for anchor links ──
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) {
+        e.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  });
+</script>
+
+</body>
+</html>

@@ -219,11 +219,33 @@ function App() {
       <div style={{color:"var(--accent)",fontSize:15,fontWeight:700}}>Loading…</div>
     </div>
   );
-  if (!user) return (
-    <div data-theme="dark" style={{minHeight:"100vh"}}>
-      <AuthScreen onAuth={setUser}/>
-    </div>
-  );
+  if (!user) {
+    // #app hash = user clicked a CTA on the landing page, go straight to auth
+    const wantsApp = window.location.hash === '#app';
+    if (wantsApp) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      return (
+        <div data-theme="dark" style={{minHeight:"100vh"}}>
+          <AuthScreen onAuth={setUser}/>
+        </div>
+      );
+    }
+    // Auth callback params (email verify, password reset) must NOT redirect to landing
+    const hasAuthParams = window.location.search.includes('code=') ||
+                          window.location.search.includes('type=') ||
+                          window.location.hash.includes('access_token') ||
+                          window.location.hash.includes('type=recovery');
+    if (hasAuthParams) {
+      return (
+        <div data-theme="dark" style={{minHeight:"100vh"}}>
+          <AuthScreen onAuth={setUser}/>
+        </div>
+      );
+    }
+    // No hash, no auth params = first visit, redirect to landing page
+    window.location.replace('/landing.html');
+    return null;
+  }
   if (showProfile) return (
     <div data-theme={theme} style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
       <div style={{padding:"0 16px"}}>
