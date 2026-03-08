@@ -7,10 +7,14 @@ import { useIsMobile } from '../lib/hooks';
 
 function RentCompsTab({deal,onChange}){
   const isMobile=useIsMobile();
-  const numUnits=deal.assumptions.numUnits;
-  const inPlaceRents=deal.assumptions.units.slice(0,numUnits).map(u=>+u.rent||0);
+  // Guard against missing assumptions data (e.g. recovered/migrated deals)
+  const assumptions = deal?.assumptions || {};
+  const numUnits = assumptions.numUnits || assumptions.units?.length || 2;
+  const units = assumptions.units || Array(4).fill(null).map(()=>({rent:0}));
+  const comps = deal?.comps || Array(5).fill(null).map(()=>({address:'',source:'',units:Array(4).fill(null).map(()=>({rent:0})),numUnits:2,distance:''}));
+  const inPlaceRents=units.slice(0,numUnits).map(u=>+u.rent||0);
   const inPlaceAvg=inPlaceRents.reduce((s,v)=>s+v,0)/numUnits;
-  const compAvgs=deal.comps.map(c=>{const rents=Array.from({length:numUnits},(_,i)=>+(c.units[i]?.rent)||0).filter(r=>r>0);return rents.length?rents.reduce((s,v)=>s+v,0)/rents.length:0;});
+  const compAvgs=comps.map(c=>{const rents=Array.from({length:numUnits},(_,i)=>+(c.units[i]?.rent)||0).filter(r=>r>0);return rents.length?rents.reduce((s,v)=>s+v,0)/rents.length:0;});
   const overallAvg=compAvgs.filter(v=>v>0).length?compAvgs.filter(v=>v>0).reduce((s,v)=>s+v,0)/compAvgs.filter(v=>v>0).length:0;
   const updComp=(ci,field,val)=>{const d=JSON.parse(JSON.stringify(deal));d.comps[ci][field]=val;onChange(d);};
   const updUnit=(ci,ui,field,val)=>{const d=JSON.parse(JSON.stringify(deal));if(!d.comps[ci].units[ui])d.comps[ci].units[ui]={rent:0};d.comps[ci].units[ui][field]=val;onChange(d);};
@@ -20,7 +24,7 @@ function RentCompsTab({deal,onChange}){
       <MetricCard label="Comp Avg/Unit" value={overallAvg?FMT_USD(overallAvg):"—"} sub={compAvgs.filter(v=>v>0).length+" comps"} highlight={overallAvg>0}/>
       {overallAvg>0&&<MetricCard label="Spread vs Market" value={FMT_USD(overallAvg-inPlaceAvg)} sub={overallAvg>inPlaceAvg?"↑ upside":"✓ at market"}/>}
     </div>
-    {deal.comps.map((c,ci)=>(<div key={ci} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:10,padding:14,marginBottom:12}}>
+    {comps.map((c,ci)=>(<div key={ci} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:10,padding:14,marginBottom:12}}>
       <div style={{fontSize:11,fontWeight:800,color:"var(--muted)",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Comp {ci+1}</div>
       <div style={{marginBottom:8}}><div style={{fontSize:11,color:"var(--muted)",marginBottom:3}}>Address</div><AddressAutocomplete value={c.address||""} onChange={v=>updComp(ci,"address",v)} placeholder="123 Main St" inputStyle={iSty}/></div>
       <div style={{marginBottom:8}}><div style={{fontSize:11,color:"var(--muted)",marginBottom:3}}>Source</div><input value={c.source||""} onChange={e=>updComp(ci,"source",e.target.value)} placeholder="Zillow, MLS, broker" style={{...iSty,fontSize:12}}/></div>
@@ -37,13 +41,13 @@ function RentCompsTab({deal,onChange}){
       {overallAvg>0&&<MetricCard label="Spread vs. Market" value={FMT_USD(overallAvg-inPlaceAvg)} sub={overallAvg>inPlaceAvg?"↑ rent upside":"✓ at/above market"}/>}
     </div>
     <div style={{overflowX:"auto"}}><table style={{borderCollapse:"collapse",fontSize:12,minWidth:900}}>
-      <thead><tr><th style={{...TH,textAlign:"left",minWidth:150}}>Field</th><th style={{...TH,textAlign:"left",minWidth:160}}>Subject Property</th>{deal.comps.map((_,i)=><th key={i} style={{...TH,textAlign:"left",minWidth:190}}>Comp {i+1}</th>)}</tr></thead>
+      <thead><tr><th style={{...TH,textAlign:"left",minWidth:150}}>Field</th><th style={{...TH,textAlign:"left",minWidth:160}}>Subject Property</th>{comps.map((_,i)=><th key={i} style={{...TH,textAlign:"left",minWidth:190}}>Comp {i+1}</th>)}</tr></thead>
       <tbody>
-        <tr><td style={LC}>Address</td><td style={{padding:"6px 10px",fontSize:12,color:"var(--text)",fontWeight:600}}>{deal.address||<em style={{color:"var(--muted)"}}>Subject property</em>}</td>{deal.comps.map((c,ci)=><td key={ci} style={{padding:"4px 6px"}}><AddressAutocomplete value={c.address||""} onChange={v=>updComp(ci,"address",v)} placeholder="123 Main St" inputStyle={{...iSty,fontSize:12}}/></td>)}</tr>
-        <tr style={{background:"var(--row-sub)"}}><td style={{...LC,fontSize:11,fontStyle:"italic"}}>↳ Source</td><td style={{padding:"3px 6px"}}/>{deal.comps.map((c,ci)=>(<td key={ci} style={{padding:"3px 6px"}}><input value={c.source||""} onChange={e=>updComp(ci,"source",e.target.value)} placeholder="Zillow, MLS, broker" style={{...srcSty,fontSize:11}}/></td>))}</tr>
-        {Array.from({length:numUnits}).map((_,ui)=>(<tr key={"u"+ui}><td style={LC}>Unit {ui+1} Rent/mo</td><td style={{padding:"6px 10px",color:"var(--accent)",fontWeight:800}}>{FMT_USD(inPlaceRents[ui])}</td>{deal.comps.map((c,ci)=>(<td key={ci} style={{padding:"4px 6px"}}><div style={{display:"flex",alignItems:"center",gap:3}}><span style={{color:"var(--muted)",fontSize:12}}>$</span><input type="number" value={c.units[ui]?.rent||0} onChange={e=>updUnit(ci,ui,"rent",e.target.value)} style={{...iSty,fontSize:12}}/></div></td>))}</tr>))}
-        <tr style={{background:"var(--accent-soft)",borderTop:"2px solid var(--accent)"}}><td style={{...LC,color:"var(--accent)"}}>Avg Rent / Unit</td><td style={{padding:"7px 10px",color:"var(--accent)",fontWeight:800,fontSize:13}}>{FMT_USD(inPlaceAvg)}</td>{deal.comps.map((_,ci)=><td key={ci} style={{padding:"7px 10px",color:"var(--accent)",fontWeight:800,fontSize:13}}>{compAvgs[ci]>0?FMT_USD(compAvgs[ci]):"—"}</td>)}</tr>
-        <tr><td style={LC}>Distance from Subject</td><td style={{padding:"6px 10px",color:"var(--muted)",fontSize:12}}>—</td>{deal.comps.map((c,ci)=><td key={ci} style={{padding:"4px 6px"}}><input value={c.distance||""} onChange={e=>updComp(ci,"distance",e.target.value)} placeholder="0.5 mi" style={{...iSty,fontSize:12}}/></td>)}</tr>
+        <tr><td style={LC}>Address</td><td style={{padding:"6px 10px",fontSize:12,color:"var(--text)",fontWeight:600}}>{deal.address||<em style={{color:"var(--muted)"}}>Subject property</em>}</td>{comps.map((c,ci)=><td key={ci} style={{padding:"4px 6px"}}><AddressAutocomplete value={c.address||""} onChange={v=>updComp(ci,"address",v)} placeholder="123 Main St" inputStyle={{...iSty,fontSize:12}}/></td>)}</tr>
+        <tr style={{background:"var(--row-sub)"}}><td style={{...LC,fontSize:11,fontStyle:"italic"}}>↳ Source</td><td style={{padding:"3px 6px"}}/>{comps.map((c,ci)=>(<td key={ci} style={{padding:"3px 6px"}}><input value={c.source||""} onChange={e=>updComp(ci,"source",e.target.value)} placeholder="Zillow, MLS, broker" style={{...srcSty,fontSize:11}}/></td>))}</tr>
+        {Array.from({length:numUnits}).map((_,ui)=>(<tr key={"u"+ui}><td style={LC}>Unit {ui+1} Rent/mo</td><td style={{padding:"6px 10px",color:"var(--accent)",fontWeight:800}}>{FMT_USD(inPlaceRents[ui])}</td>{comps.map((c,ci)=>(<td key={ci} style={{padding:"4px 6px"}}><div style={{display:"flex",alignItems:"center",gap:3}}><span style={{color:"var(--muted)",fontSize:12}}>$</span><input type="number" value={c.units[ui]?.rent||0} onChange={e=>updUnit(ci,ui,"rent",e.target.value)} style={{...iSty,fontSize:12}}/></div></td>))}</tr>))}
+        <tr style={{background:"var(--accent-soft)",borderTop:"2px solid var(--accent)"}}><td style={{...LC,color:"var(--accent)"}}>Avg Rent / Unit</td><td style={{padding:"7px 10px",color:"var(--accent)",fontWeight:800,fontSize:13}}>{FMT_USD(inPlaceAvg)}</td>{comps.map((_,ci)=><td key={ci} style={{padding:"7px 10px",color:"var(--accent)",fontWeight:800,fontSize:13}}>{compAvgs[ci]>0?FMT_USD(compAvgs[ci]):"—"}</td>)}</tr>
+        <tr><td style={LC}>Distance from Subject</td><td style={{padding:"6px 10px",color:"var(--muted)",fontSize:12}}>—</td>{comps.map((c,ci)=><td key={ci} style={{padding:"4px 6px"}}><input value={c.distance||""} onChange={e=>updComp(ci,"distance",e.target.value)} placeholder="0.5 mi" style={{...iSty,fontSize:12}}/></td>)}</tr>
       </tbody>
     </table></div>
   </div>);
