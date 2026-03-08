@@ -15,7 +15,8 @@ const sbClient = createClient(SB_URL, SB_ANON_KEY, {
 const loadLocal = (uid) => {
   try {
     const key = uid ? STORAGE_KEY + "_" + uid : STORAGE_KEY;
-    return JSON.parse(localStorage.getItem(key)) || [];
+    const deals = JSON.parse(localStorage.getItem(key)) || [];
+    return deals.map(d => (!d.numUnits && d.units?.length) ? { ...d, numUnits: d.units.length } : d);
   } catch { return []; }
 };
 const saveLocal = (d, uid) => {
@@ -49,7 +50,12 @@ async function sbRead() {
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  const deals = (data || []).map(row => ({ ...row.deal_data, _deal_id: row.deal_id }));
+  const deals = (data || []).map(row => {
+    const d = { ...row.deal_data, _deal_id: row.deal_id };
+    // Backfill numUnits if missing (guards against recovered/migrated deals)
+    if (!d.numUnits && d.units?.length) d.numUnits = d.units.length;
+    return d;
+  });
   const latestAt = data?.[0]?.updated_at || prefsRow?.updated_at || null;
   return { data: deals, prefs: prefsRow?.prefs || null, updated_at: latestAt };
 }
