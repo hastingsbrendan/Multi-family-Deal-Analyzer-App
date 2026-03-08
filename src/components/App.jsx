@@ -15,10 +15,12 @@ import GroupsPage from './GroupsPage';
 import ShareDealModal from './ShareDealModal';
 import GuidedTour, { TOUR_STEPS } from './GuidedTour';
 import { TrialBanner } from './UpgradeModal';
+import { FeedbackModal } from './FeedbackModal';
 import UndoToast from './ui/UndoToast';
 
 function App() {
   const [dark, setDark] = useState(() => localStorage.getItem("rh_dark") === "true");
+  const [showFeedback, setShowFeedback] = useState(false);
   const [showUpgradeSuccess, setShowUpgradeSuccess] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("upgraded") === "true") {
@@ -354,6 +356,10 @@ function App() {
                 {!syncBadge && "✓ "}{lastSyncedAt.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit",second:"2-digit"})}
               </div>
             )}
+            <button onClick={()=>setShowFeedback(true)}
+              title="Send feedback"
+              style={{background:"none",border:"1px solid var(--border)",borderRadius:4,padding:"2px 7px",fontSize:11,color:"var(--muted)",cursor:"pointer",lineHeight:1.4,flexShrink:0}}>
+              💬</button>
             <button onClick={forceRefresh} disabled={syncStatus==="saving"}
               title="Pull latest from cloud"
               style={{background:"none",border:"1px solid var(--border)",borderRadius:4,padding:"2px 7px",fontSize:11,color:"var(--muted)",cursor:syncStatus==="saving"?"not-allowed":"pointer",lineHeight:1.4,flexShrink:0}}>
@@ -477,6 +483,7 @@ function App() {
             />
         }
         {tourActive && <GuidedTour step={tourStep} onNext={tourNext} onBack={tourBack} onClose={closeTour}/>}
+        {showFeedback && <FeedbackModal user={user} onClose={()=>setShowFeedback(false)}/>}
         {showShareModal && (
           <ShareDealModal
             deal={showShareModal}
