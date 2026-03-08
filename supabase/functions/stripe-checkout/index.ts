@@ -28,8 +28,8 @@ Deno.serve(async (req) => {
       payment_method_types: ['card'],
       customer_email: email,
       line_items: [{ price: price_id, quantity: 1 }],
-      success_url: success_url || 'https://multi-family-deal-analyzer-app.pages.dev/?upgraded=true',
-      cancel_url:  cancel_url  || 'https://multi-family-deal-analyzer-app.pages.dev/',
+      success_url: success_url || 'https://renthack.io/?upgraded=true',
+      cancel_url:  cancel_url  || 'https://renthack.io/',
       metadata: { source: 'renthack' },
     });
 

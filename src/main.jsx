@@ -8,11 +8,11 @@ import { SubscriptionProvider } from './contexts/SubscriptionContext';
 
 Sentry.init({
   dsn: 'https://1427d8f17bc8fb78a755d240cdf1741f@o4511005787357184.ingest.us.sentry.io/4511005788930048',
-  environment: window.location.hostname.includes('pages.dev') && !window.location.hostname.startsWith('multi-family-deal-analyzer-app.pages')
-    ? 'preview'
-    : window.location.hostname === 'localhost'
+  environment: window.location.hostname === 'localhost'
     ? 'development'
-    : 'production',
+    : window.location.hostname === 'renthack.io'
+    ? 'production'
+    : 'preview',
   sendDefaultPii: false,
   tracesSampleRate: 0.2,       // 20% of sessions get performance traces
   replaysSessionSampleRate: 0, // no blanket session replay (privacy)
