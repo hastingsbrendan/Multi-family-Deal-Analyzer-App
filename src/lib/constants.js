@@ -2,8 +2,9 @@
 import { createClient } from '@supabase/supabase-js';
 
 const STORAGE_KEY = "re_deal_analyzer_v2";
-const SB_URL      = import.meta.env.VITE_SB_URL      || "https://lxkwvayalxuoryuwxtsq.supabase.co";
-const SB_ANON_KEY = import.meta.env.VITE_SB_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4a3d2YXlhbHh1b3J5dXd4dHNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyOTAxMTAsImV4cCI6MjA4Nzg2NjExMH0.pcja3-H81ghs9EEoigwAb7HsVBtYsc2tO0DlLX6cAo8";
+const SB_URL      = import.meta.env.VITE_SB_URL;
+const SB_ANON_KEY = import.meta.env.VITE_SB_ANON_KEY;
+if (!SB_URL || !SB_ANON_KEY) console.error("[RentHack] Missing VITE_SB_URL or VITE_SB_ANON_KEY env vars — check your .env file");
 const SB_BUCKET   = "deal-photos";
 
 // Supabase JS client — handles JWT storage, auto token refresh, session persistence
@@ -176,7 +177,7 @@ const FMT_X   = (v) => v == null || isNaN(v) ? "—" : v.toFixed(2) + "x";
 const mapsUrl = (addr) => addr ? `https://maps.google.com/?q=${encodeURIComponent(addr)}` : null;
 
 // ─── External API keys ────────────────────────────────────────────────────────
-const GMAPS_KEY    = import.meta.env.VITE_GMAPS_KEY    || "AIzaSyAg90J2ZmwbAwPwlRHTeREfAWfiOwR1hiQ";
-const RENTCAST_KEY = import.meta.env.VITE_RENTCAST_KEY || "ba391816691449ada9dea5b9151ff4d5";
+const GMAPS_KEY    = import.meta.env.VITE_GMAPS_KEY;
+const RENTCAST_KEY = import.meta.env.VITE_RENTCAST_KEY;
 
 export { STORAGE_KEY, GMAPS_KEY, RENTCAST_KEY, SB_URL, SB_ANON_KEY, SB_BUCKET, sbClient, loadLocal, saveLocal, sbRead, sbWrite, sbWriteDeal, sbDeleteDeal, sbWritePrefs, sbUploadPhoto, sbDeletePhoto, authSignInWithGoogle, authSignUp, authSignIn, authSignOut, authResetPassword, authUpdatePassword, authUpdateProfile, authGetSession, STATUS_OPTIONS, STATUS_COLORS, FMT_USD, FMT_PCT, FMT_X, mapsUrl };

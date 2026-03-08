@@ -55,7 +55,7 @@ function App() {
           sbRead()
             .then(({ data: cloudDeals, prefs: cloudPrefs, updated_at }) => {
               lastCloudUpdate.current = updated_at;
-              if (cloudPrefs) { const p = { ...DEFAULT_PREFS, ...cloudPrefs }; setPrefs(p); window.__userPrefs = p; }
+              if (cloudPrefs) { const p = { ...DEFAULT_PREFS, ...cloudPrefs }; setPrefs(p); }
               if (cloudDeals.length > 0) {
                 setDeals(cloudDeals);
                 saveLocal(cloudDeals, u.id);
@@ -330,7 +330,6 @@ function App() {
       <div style={{padding:"0 16px"}}>
         <SettingsPage prefs={prefs} onSave={(newPrefs, pushFields)=>{
           setPrefs(newPrefs);
-          window.__userPrefs = newPrefs;
           sbWritePrefs(newPrefs).catch(()=>{});
           // pushFields is a Set of field keys to push, or null = new deals only
           if (pushFields && pushFields.size > 0 && deals?.length > 0) {
@@ -515,6 +514,7 @@ function App() {
               groupRole={activeGroup?.role}
               activeGroup={activeGroup}
               currentUser={user}
+              prefs={prefs}
             />
         }
         {showTour && <OnboardingTour onClose={()=>setShowTour(false)} onDone={()=>setShowTour(false)}/>}

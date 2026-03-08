@@ -146,7 +146,7 @@ function CommentsPanel({ groupId, dealId, currentUser }) {
                         style={{
                           width: '100%', fontSize: 13, padding: '6px 10px',
                           borderRadius: 8, border: '1px solid var(--accent)',
-                          background: 'var(--inputBg)', color: 'var(--text)',
+                          background: 'var(--input-bg)', color: 'var(--text)',
                           resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box'
                         }}
                       />
@@ -210,7 +210,7 @@ function CommentsPanel({ groupId, dealId, currentUser }) {
           rows={2}
           style={{
             flex: 1, fontSize: 13, padding: '8px 12px', borderRadius: 10,
-            border: '1px solid var(--border)', background: 'var(--inputBg)',
+            border: '1px solid var(--border)', background: 'var(--input-bg)',
             color: 'var(--text)', resize: 'none', fontFamily: 'inherit',
             outline: 'none', transition: 'border-color 0.15s'
           }}

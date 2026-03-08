@@ -18,7 +18,7 @@ const TABS_DESK  =["Deal Summary","Assumptions","Cash Flow","Rent Comps","Showin
 
 import CommentsPanel from './CommentsPanel';
 
-function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, groupRole, activeGroup, currentUser}) {
+function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, groupRole, activeGroup, currentUser, prefs}) {
   const [tab, setTab] = useState(0);
   const isMobile = useIsMobile();
   const result = useMemo(() => calcDeal(deal), [deal]);
@@ -45,7 +45,7 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
     {tab===2&&<CashFlowTab result={result} deal={deal}/>}
     {tab===3&&<RentCompsTab deal={deal} onChange={onUpdate}/>}
     {tab===4&&<ShowingTab deal={deal} onChange={onUpdate}/>}
-    {tab===5&&<RedFlagsTab deal={deal} result={result} onChange={onUpdate} prefs={window.__userPrefs||DEFAULT_PREFS}/>}
+    {tab===5&&<RedFlagsTab deal={deal} result={result} onChange={onUpdate} prefs={prefs||DEFAULT_PREFS}/>}
     {tab===6&&<SensitivityTab deal={deal}/>}
     {activeGroup && deal._deal_id && (
       <CommentsPanel
