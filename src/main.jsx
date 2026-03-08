@@ -4,6 +4,7 @@ import * as Sentry from '@sentry/react';
 import './styles/index.css';
 import App from './components/App';
 import ErrorBoundary from './components/ErrorBoundary';
+import { SubscriptionProvider } from './contexts/SubscriptionContext';
 
 Sentry.init({
   dsn: 'https://1427d8f17bc8fb78a755d240cdf1741f@o4511005787357184.ingest.us.sentry.io/4511005788930048',
@@ -26,6 +27,8 @@ Sentry.init({
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <ErrorBoundary>
-    <App />
+    <SubscriptionProvider>
+      <App />
+    </SubscriptionProvider>
   </ErrorBoundary>
 );
