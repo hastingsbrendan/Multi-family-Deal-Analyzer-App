@@ -303,6 +303,9 @@ function resolveExpenses(a, grossRentYear0) {
 function calcDeal(deal) {
   if (!deal?.assumptions) return {};
   const a = deal.assumptions;
+  // Guard: ensure units array exists (recovered/migrated deals may be missing it)
+  if (!a.units || !Array.isArray(a.units)) return {};
+  if (!a.numUnits) a.numUnits = a.units.length || 2;
   const pp=+a.purchasePrice||0, dpPct=(+a.downPaymentPct||25)/100, dp=pp>0?pp*dpPct:(+a.downPaymentDollar||0);
   const insUpfront=a.insuranceUpfront?(+a.expenses?.insurance||0):0;
   const closingCostsTotal=Object.values(a.closingCosts).reduce((s,v)=>s+(+v||0),0)+insUpfront;
