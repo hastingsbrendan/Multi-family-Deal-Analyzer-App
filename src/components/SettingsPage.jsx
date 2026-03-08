@@ -327,4 +327,3 @@ function SettingsPage({ prefs, onSave, onBack, deals, dark, setDark }) {
 }
 
 export default SettingsPage;
-EOSX
