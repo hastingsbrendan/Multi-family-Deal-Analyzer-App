@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import * as Sentry from '@sentry/react';
 import { iSty } from './ui/InputRow';
 import { sbClient, STORAGE_KEY, STATUS_OPTIONS, FMT_USD, loadLocal, saveLocal, sbRead, sbWrite, sbWriteDeal, sbDeleteDeal, sbWritePrefs, authGetSession, authSignOut } from '../lib/constants';
@@ -13,7 +13,7 @@ import ProfilePage from './ProfilePage';
 import SettingsPage from './SettingsPage';
 import GroupsPage from './GroupsPage';
 import ShareDealModal from './ShareDealModal';
-import OnboardingTour from './OnboardingTour';
+import GuidedTour, { TOUR_STEPS } from './GuidedTour';
 import UndoToast from './ui/UndoToast';
 
 function App() {
@@ -23,7 +23,8 @@ function App() {
   const [showProfile, setShowProfile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showAppSettings, setShowAppSettings] = useState(false);
-  const [showTour, setShowTour] = useState(false);
+  const [tourStep, setTourStep] = useState(null); // null = inactive, number = active step
+  const tourDealRef = useRef(null); // track sample deal created for tour
   const [showGroups, setShowGroups] = useState(false);
   const [activeGroup, setActiveGroup] = useState(null); // {id, name, role} or null = personal
   const [groupDeals, setGroupDeals] = useState([]);
@@ -59,7 +60,7 @@ function App() {
               } else if (local.length > 0) {
                 sbWrite(local).catch(() => {});
               } else {
-                setShowTour(true);
+                setTourStep(0);
               }
             })
             .catch(() => {});
@@ -97,6 +98,51 @@ function App() {
   const deleteDeal   = (id) => setDeals(p=>p.filter(d=>d.id!==id));
   const reorderDeals = useCallback((next) => { setDeals(next); }, []);
   const activeDeal   = (activeGroup ? (groupDeals||[]) : (deals||[])).find(d=>d.id===activeDealId);
+
+  // ─── Tour navigation ────────────────────────────────────────────────
+  const tourActive = tourStep !== null;
+  const tourStepDef = tourActive ? TOUR_STEPS[tourStep] : null;
+
+  // Compute forceTab from current tour step (only when tour controls a deal tab)
+  const tourForceTab = tourActive && tourStepDef?.page === 'deal' && tourStepDef?.tab != null ? tourStepDef.tab : null;
+
+  // When tour enters a deal step, ensure we have a deal open
+  useEffect(() => {
+    if (!tourActive || !tourStepDef || tourStepDef.page !== 'deal') return;
+    if (activeDealId) return; // already viewing a deal
+    // Use first existing deal or create a sample
+    const allDeals = deals || [];
+    if (allDeals.length > 0) {
+      setActiveDealId(allDeals[0].id);
+    } else {
+      const d = newDeal(prefs);
+      d.address = 'Sample Property — 123 Main St';
+      tourDealRef.current = d.id;
+      setDeals(prev => [...(prev || []), d]);
+      setActiveDealId(d.id);
+    }
+  }, [tourStep]);
+
+  // When tour enters a portfolio step, go back to portfolio
+  useEffect(() => {
+    if (!tourActive || !tourStepDef) return;
+    if (tourStepDef.page === 'portfolio' && activeDealId) {
+      setActiveDealId(null);
+    }
+  }, [tourStep]);
+
+  const startTour = () => setTourStep(0);
+  const closeTour = () => {
+    setTourStep(null);
+    setActiveDealId(null); // return to portfolio
+  };
+  const tourNext = () => {
+    if (tourStep < TOUR_STEPS.length - 1) setTourStep(s => s + 1);
+    else closeTour();
+  };
+  const tourBack = () => {
+    if (tourStep > 0) setTourStep(s => s - 1);
+  };
 
   const handleSignOut = async () => {
     await authSignOut();
@@ -383,7 +429,7 @@ function App() {
               onReorder={activeGroup ? reorderGroupDeals : reorderDeals}
               dark={dark} setDark={setDark}
               filterState={[portfolioFilter,setPortfolioFilter]}
-              onTour={()=>setShowTour(true)}
+              onTour={startTour}
               onOpenGroups={()=>setShowGroups(true)}
               activeGroup={activeGroup}
               onExitGroup={()=>setActiveGroup(null)}
@@ -400,9 +446,10 @@ function App() {
               activeGroup={activeGroup}
               currentUser={user}
               prefs={prefs}
+              forceTab={tourForceTab}
             />
         }
-        {showTour && <OnboardingTour onClose={()=>setShowTour(false)} onDone={()=>setShowTour(false)}/>}
+        {tourActive && <GuidedTour step={tourStep} onNext={tourNext} onBack={tourBack} onClose={closeTour}/>}
         {showShareModal && (
           <ShareDealModal
             deal={showShareModal}

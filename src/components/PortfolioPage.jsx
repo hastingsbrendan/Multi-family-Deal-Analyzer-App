@@ -57,13 +57,13 @@ function PortfolioPage({deals, onSelect, onAdd, onDelete, onExport, onReorder, d
       <div style={{display:"flex",gap:8}}>
         <button onClick={()=>onTour&&onTour()} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"8px 14px",color:"var(--muted)",fontSize:13,cursor:"pointer",fontWeight:600,display:"flex",alignItems:"center",gap:6}}>🗺️ Take a Tour</button>
         <button onClick={()=>window._openGroups&&window._openGroups()} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"8px 14px",color:"var(--muted)",fontSize:13,cursor:"pointer",fontWeight:600,display:"flex",alignItems:"center",gap:6}}>👥 Groups</button>
-        <button onClick={onAdd} style={{background:"var(--accent)",color:"#fff",border:"none",borderRadius:100,padding:"8px 16px",fontSize:13,fontWeight:800}}>+ Add</button>
+        <button onClick={onAdd} data-tour="add-deal" style={{background:"var(--accent)",color:"#fff",border:"none",borderRadius:100,padding:"8px 16px",fontSize:13,fontWeight:800}}>+ Add</button>
       </div>
     </div>
     {filterBar}
     <PortfolioMap deals={filtered} onSelect={onSelect}/>
-    {filtered.length===0?(<div style={{textAlign:"center",padding:"60px 20px",color:"var(--muted)"}}>{(deals||[]).length===0?<><div style={{fontSize:48,marginBottom:12}}>🏘</div><div>No deals yet. Tap <strong style={{color:"var(--text)"}}>+ Add</strong> to start.</div></>:"No deals match this filter."}</div>):(
-      filtered.map((d,i)=>{const r=calcDeal(d);return(<div key={d.id} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:14,marginBottom:10}}>
+    {filtered.length===0?(<div data-tour="portfolio-list" style={{textAlign:"center",padding:"60px 20px",color:"var(--muted)"}}>{(deals||[]).length===0?<><div style={{fontSize:48,marginBottom:12}}>🏘</div><div>No deals yet. Tap <strong style={{color:"var(--text)"}}>+ Add</strong> to start.</div></>:"No deals match this filter."}</div>):(
+      <div data-tour="portfolio-list">{filtered.map((d,i)=>{const r=calcDeal(d);return(<div key={d.id} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:14,marginBottom:10}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10,gap:8}}>
           <div style={{flex:1,minWidth:0}} onClick={()=>onSelect(d.id)}>
             <div style={{fontWeight:800,fontSize:14,color:"var(--text)",marginBottom:3}}>{d.address||<em style={{color:"var(--muted)"}}>Untitled</em>}</div>
@@ -84,7 +84,7 @@ function PortfolioPage({deals, onSelect, onAdd, onDelete, onExport, onReorder, d
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}} onClick={()=>onSelect(d.id)}>
           {[["Price",FMT_USD(+d.assumptions.purchasePrice),false],["CoC (Yr1)",FMT_PCT(r.cocReturn),true],["IRR (10yr)",FMT_PCT(r.irr),true],["NOI (Yr1)",FMT_USD(r.noi),false],["Cap Rate",FMT_PCT(r.capRate),false],["Cash In",FMT_USD(r.totalCash),false]].map(([lbl,val,accent])=>(<div key={lbl}><div style={{fontSize:9,color:"var(--muted)",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:1}}>{lbl}</div><div style={{fontSize:13,fontWeight:700,color:accent?"var(--accent)":"var(--text)"}}>{val}</div></div>))}
         </div>
-      </div>);}))
+      </div>);}))}</div>
     }
     {toast&&<UndoToast message={toast.message} onUndo={()=>{onReorder(toast.snapshot);setToast(null);}} onDismiss={()=>setToast(null)}/>}
   </div>);}
@@ -105,13 +105,13 @@ function PortfolioPage({deals, onSelect, onAdd, onDelete, onExport, onReorder, d
         <button onClick={()=>onTour&&onTour()} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"8px 14px",color:"var(--muted)",fontSize:13,cursor:"pointer",fontWeight:600,display:"flex",alignItems:"center",gap:6}}>🗺️ Take a Tour</button>
         <button onClick={()=>onOpenGroups&&onOpenGroups()} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"8px 14px",color:"var(--muted)",fontSize:13,cursor:"pointer",fontWeight:600,display:"flex",alignItems:"center",gap:6}}>👥 Groups</button>
         <button onClick={onExport} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 16px",color:"var(--text)",fontSize:13,fontWeight:700}}>⬇ Export</button>
-        <button onClick={onAdd} style={{background:"var(--accent)",color:"#fff",border:"none",borderRadius:100,padding:"8px 18px",fontSize:13,fontWeight:800}}>+ New Deal</button>
+        <button onClick={onAdd} data-tour="add-deal" style={{background:"var(--accent)",color:"#fff",border:"none",borderRadius:100,padding:"8px 18px",fontSize:13,fontWeight:800}}>+ New Deal</button>
       </div>
     </div>
     {filterBar}
     <PortfolioMap deals={filtered} onSelect={onSelect}/>
-    {filtered.length===0?(<div style={{textAlign:"center",padding:"80px 20px",color:"var(--muted)"}}>{(deals||[]).length===0?<><div style={{fontSize:48,marginBottom:16}}>🏘</div><div style={{fontSize:16}}>No deals yet. Click <strong style={{color:"var(--text)"}}>+ New Deal</strong> to get started.</div></>:"No deals match this filter."}</div>):(
-      <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+    {filtered.length===0?(<div data-tour="portfolio-list" style={{textAlign:"center",padding:"80px 20px",color:"var(--muted)"}}>{(deals||[]).length===0?<><div style={{fontSize:48,marginBottom:16}}>🏘</div><div style={{fontSize:16}}>No deals yet. Click <strong style={{color:"var(--text)"}}>+ New Deal</strong> to get started.</div></>:"No deals match this filter."}</div>):(
+      <div data-tour="portfolio-list" style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
         <thead><tr>{["","Address","Status","Showing","Price","Cash In","NOI Yr1","CoC Yr1","Cap Rate","IRR 10yr","EqMult","DSCR",""].map(h=>(<th key={h} style={{padding:"10px 12px",textAlign:"left",color:"var(--muted)",fontWeight:700,fontSize:11,letterSpacing:"0.06em",textTransform:"uppercase",borderBottom:"2px solid var(--border)",whiteSpace:"nowrap",background:"var(--table-head)"}}>{h}</th>))}</tr></thead>
         <tbody>{filtered.map((d,i)=>{const r=calcDeal(d);const isDragging=dragIdx===i;const isOver=dragOverIdx===i&&dragIdx!==i;return(<tr key={d.id} draggable onDragStart={e=>handleDragStart(e,i)} onDragOver={e=>handleDragOver(e,i)} onDrop={e=>handleDrop(e,i)} onDragEnd={handleDragEnd} onClick={()=>onSelect(d.id)} style={{cursor:"pointer",borderBottom:"1px solid var(--border-faint)",opacity:isDragging?0.4:1,background:isOver?"var(--accent-soft)":"transparent",transition:"background 0.1s"}} onMouseEnter={e=>{if(!isDragging)e.currentTarget.style.background="var(--row-hover)";}} onMouseLeave={e=>{e.currentTarget.style.background=isOver?"var(--accent-soft)":"transparent";}}>
           <td onClick={e=>e.stopPropagation()} style={{padding:"8px 6px 8px 12px",color:"var(--muted)",cursor:"grab",fontSize:16,userSelect:"none"}} title="Drag to reorder">⠿</td>

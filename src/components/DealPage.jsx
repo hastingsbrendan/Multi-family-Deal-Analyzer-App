@@ -1,4 +1,4 @@
-import React, { useState, useMemo, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useIsMobile } from '../lib/hooks';
 import { FMT_USD, FMT_PCT, STATUS_OPTIONS, STATUS_COLORS } from '../lib/constants';
 import { calcDeal, DEFAULT_PREFS } from '../lib/calc';
@@ -21,8 +21,9 @@ const TabFallback = () => (
   <div style={{padding:40,textAlign:'center',color:'var(--muted)',fontSize:13}}>Loading…</div>
 );
 
-function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, groupRole, activeGroup, currentUser, prefs}) {
+function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, groupRole, activeGroup, currentUser, prefs, forceTab}) {
   const [tab, setTab] = useState(0);
+  useEffect(() => { if (forceTab != null) setTab(forceTab); }, [forceTab]);
   const isMobile = useIsMobile();
   const result = useMemo(() => calcDeal(deal), [deal]);
   const tabLabels = isMobile ? TABS_MOBILE : TABS_DESK;
@@ -40,10 +41,10 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
       </div>
     </div>
     <AddressAutocomplete value={deal.address} onChange={v=>onUpdate({...deal,address:v})} placeholder="Enter property address..." inputStyle={{width:"100%",background:"none",border:"none",borderBottom:"2px solid var(--accent)",fontSize:isMobile?18:24,fontFamily:"'Fraunces',serif",fontWeight:900,color:"var(--text)",padding:"6px 0",marginBottom:14,outline:"none",letterSpacing:"-0.5px"}}/>
-    <div style={{display:"flex",borderBottom:"1px solid var(--border)",overflowX:"auto",WebkitOverflowScrolling:"touch",scrollbarWidth:"none",msOverflowStyle:"none"}}>
+    <div data-tour="tab-bar" style={{display:"flex",borderBottom:"1px solid var(--border)",overflowX:"auto",WebkitOverflowScrolling:"touch",scrollbarWidth:"none",msOverflowStyle:"none"}}>
       {tabLabels.map((t,i)=>(<button key={i} onClick={()=>setTab(i)} style={{background:"none",border:"none",borderBottom:tab===i?"3px solid var(--accent)":"3px solid transparent",padding:isMobile?"10px 12px":"10px 18px",cursor:"pointer",fontSize:isMobile?12:13,fontWeight:tab===i?800:500,color:tab===i?"var(--accent)":"var(--muted)",marginBottom:-1,fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}}>{t}</button>))}
     </div>
-    <Suspense fallback={<TabFallback/>}>
+    <div data-tour="tab-content"><Suspense fallback={<TabFallback/>}>
       {tab===0&&<DealSummaryTab deal={deal} result={result} onUpdate={onUpdate}/>}
       {tab===1&&<AssumptionsTab deal={deal} onChange={onUpdate}/>}
       {tab===2&&<CashFlowTab result={result} deal={deal}/>}
@@ -51,7 +52,7 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
       {tab===4&&<ShowingTab deal={deal} onChange={onUpdate}/>}
       {tab===5&&<RedFlagsTab deal={deal} result={result} onChange={onUpdate} prefs={prefs||DEFAULT_PREFS}/>}
       {tab===6&&<SensitivityTab deal={deal}/>}
-    </Suspense>
+    </Suspense></div>
     {activeGroup && deal._deal_id && (
       <CommentsPanel
         groupId={activeGroup.id}
