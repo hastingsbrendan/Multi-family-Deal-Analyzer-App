@@ -510,7 +510,7 @@ function App() {
               onUpdate={activeGroup ? updateGroupDeal : updateDeal}
               onBack={()=>setActiveDealId(null)}
               onExport={()=>exportDealCSV(activeDeal)}
-              onExportPDF={()=>exportDealPDF(activeDeal)}
+              onExportPDF={()=>exportDealPDF(activeDeal, user)}
               onShare={()=>setShowShareModal(activeDeal)}
               groupRole={activeGroup?.role}
               activeGroup={activeGroup}

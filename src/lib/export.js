@@ -10,7 +10,7 @@ function dlFile(content,filename,type){const blob=new Blob([content],{type});con
 
 // ─── PDF export ───────────────────────────────────────────────────────────────
 
-function exportDealPDF(deal) {
+function exportDealPDF(deal, user) {
   const r = calcDeal(deal);
   const a = deal.assumptions;
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
@@ -32,32 +32,54 @@ function exportDealPDF(deal) {
   const fmtX = v => v == null ? '—' : v.toFixed(2) + 'x';
   const fmtNum = v => v == null ? '—' : Number(v).toLocaleString();
 
+  // ── Preparer info from user profile ──
+  const preparerName = user?.user_metadata?.display_name || user?.email || '';
+  const preparerOrg  = user?.user_metadata?.organization || '';
+
   // ── PAGE 1 ── Header ─────────────────────────────────────────────────────
-  // Teal header bar
+  // Thin teal top accent bar
   doc.setFillColor(...TEAL);
-  doc.rect(0, 0, W, 72, 'F');
+  doc.rect(0, 0, W, 4, 'F');
 
-  // RentHack wordmark
+  // White background header area
+  doc.setFillColor(...WHITE);
+  doc.rect(0, 4, W, 68, 'F');
+
+  // RentHack split-color wordmark
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(20);
-  doc.setTextColor(...WHITE);
-  doc.text('RentHack', L, 34);
+  doc.setFontSize(22);
+  doc.setTextColor(...DARK);
+  doc.text('Rent', L, 38);
+  const rentW = doc.getTextWidth('Rent');
+  doc.setTextColor(...TEAL);
+  doc.text('Hack', L + rentW, 38);
 
-  // Report label
-  doc.setFontSize(9);
+  // Report label below wordmark
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(204, 251, 241);
-  doc.text('DEAL ANALYSIS REPORT', L, 48);
+  doc.setFontSize(8.5);
+  doc.setTextColor(...MUTED);
+  doc.text('DEAL ANALYSIS REPORT', L, 54);
 
-  // Date top-right
+  // Date + preparer top-right
   const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  doc.setFontSize(9);
-  doc.setTextColor(204, 251, 241);
+  doc.setFontSize(8.5);
+  doc.setTextColor(...MUTED);
   doc.text(dateStr, R, 34, { align: 'right' });
+  if (preparerName) {
+    const preparerLine = preparerOrg ? `${preparerName}  ·  ${preparerOrg}` : preparerName;
+    doc.text(`Prepared by: ${preparerLine}`, R, 48, { align: 'right' });
+  }
+  if (deal.status) {
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...TEAL);
+    doc.text(deal.status.toUpperCase(), R, 62, { align: 'right' });
+  }
 
-  // Status badge top-right
-  doc.setFontSize(8);
-  doc.text(deal.status || '', R, 48, { align: 'right' });
+  // Divider line under header
+  doc.setDrawColor(...BORDER);
+  doc.setLineWidth(0.5);
+  doc.line(L, 72, R, 72);
 
   // ── Address ──
   let y = 96;
@@ -273,17 +295,22 @@ function exportDealPDF(deal) {
   // ── PAGE 2 — 10-Year Cash Flow Table ─────────────────────────────────────
   doc.addPage();
 
-  // Header strip
+  // Header strip — matches page 1 style
   doc.setFillColor(...TEAL);
-  doc.rect(0, 0, W, 40, 'F');
+  doc.rect(0, 0, W, 4, 'F');
+  doc.setFillColor(...WHITE);
+  doc.rect(0, 4, W, 36, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
-  doc.setTextColor(...WHITE);
-  doc.text('10-Year Cash Flow Projection', L, 26);
+  doc.setTextColor(...DARK);
+  doc.text('10-Year Cash Flow Projection', L, 28);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.setTextColor(204, 251, 241);
-  doc.text(deal.address || '', R, 26, { align: 'right' });
+  doc.setTextColor(...MUTED);
+  doc.text(deal.address || '', R, 28, { align: 'right' });
+  doc.setDrawColor(...BORDER);
+  doc.setLineWidth(0.5);
+  doc.line(L, 40, R, 40);
 
   const cfHead = [['', 'Yr 1','Yr 2','Yr 3','Yr 4','Yr 5','Yr 6','Yr 7','Yr 8','Yr 9','Yr 10']];
   const cfRows = [

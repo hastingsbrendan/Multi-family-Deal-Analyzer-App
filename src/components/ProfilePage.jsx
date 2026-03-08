@@ -4,6 +4,7 @@ import { sbClient, authUpdatePassword, authUpdateProfile } from '../lib/constant
 
 function ProfilePage({ user, onBack, onSignOut, dark, setDark }) {
   const [displayName, setDisplayName] = useState(user?.user_metadata?.display_name || "");
+  const [organization, setOrganization] = useState(user?.user_metadata?.organization || "");
   const [saving, setSaving]   = useState(false);
   const [saved, setSaved]     = useState(false);
   const [profErr, setProfErr] = useState("");
@@ -22,7 +23,7 @@ function ProfilePage({ user, onBack, onSignOut, dark, setDark }) {
 
   const saveProfile = async () => {
     setSaving(true); setProfErr(""); setSaved(false);
-    const { error: e } = await authUpdateProfile({ display_name: displayName.trim() });
+    const { error: e } = await authUpdateProfile({ display_name: displayName.trim(), organization: organization.trim() });
     setSaving(false);
     if (e) { setProfErr(e.message); return; }
     setSaved(true); setTimeout(() => setSaved(false), 2500);
@@ -80,6 +81,14 @@ function ProfilePage({ user, onBack, onSignOut, dark, setDark }) {
               letterSpacing:"0.06em", display:"block", marginBottom:4}}>Email</label>
             <input value={user?.email || ""} disabled
               style={{...iS, opacity:0.55, cursor:"not-allowed"}} />
+          </div>
+          <div>
+            <label style={{fontSize:11, fontWeight:700, color:"var(--muted)", textTransform:"uppercase",
+              letterSpacing:"0.06em", display:"block", marginBottom:4}}>Organization / Company</label>
+            <input value={organization} onChange={e=>setOrganization(e.target.value)}
+              placeholder="e.g. GH Investment Properties, LLC" style={iS}
+              onKeyDown={e=>e.key==="Enter"&&saveProfile()} />
+            <div style={{fontSize:11, color:"var(--muted)", marginTop:4}}>Appears on exported PDF reports</div>
           </div>
           {profErr && <div style={{color:"#ef4444", fontSize:13}}>{profErr}</div>}
           {saved   && <div style={{color:"#10b981", fontSize:13, fontWeight:600}}>✓ Profile saved</div>}
