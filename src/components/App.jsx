@@ -5,6 +5,7 @@ import { sbClient, STORAGE_KEY, STATUS_OPTIONS, FMT_USD, loadLocal, saveLocal, s
 import { calcDeal, DEFAULT_PREFS, newDeal, sbGetGroupDeals, sbShareDealToGroup, sbRemoveDealFromGroup, sbReorderGroupDeals } from '../lib/calc';
 import { dlFile, exportDealCSV, exportDealPDF, exportPortfolioCSV } from '../lib/export';
 import { useIsMobile, useOnlineStatus } from '../lib/hooks';
+import { useCloudSync } from '../lib/useCloudSync';
 import AuthScreen from './AuthScreen';
 import PortfolioPage from './PortfolioPage';
 import DealPage from './DealPage';
@@ -29,15 +30,13 @@ function App() {
   const [showShareModal, setShowShareModal] = useState(null); // deal to share
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [prefs, setPrefs] = useState(DEFAULT_PREFS);
-  const [deals, setDeals] = useState(null);
   const [activeDealId, setActiveDealId] = useState(null);
-  const [syncStatus, setSyncStatus] = useState("idle");
-  const [syncError, setSyncError] = useState("");
-  const [lastSyncedAt, setLastSyncedAt] = useState(null);
   const [portfolioFilter, setPortfolioFilter] = useState("All");
-  const syncTimer = useRef(null);
-  const lastCloudUpdate = useRef(null);
   const isOnline = useOnlineStatus();
+
+  const { deals, setDeals, syncStatus, syncError, lastSyncedAt, forceRefresh, setLastCloudUpdate } = useCloudSync(user, isOnline);
+
+  const theme = dark ? "dark" : "light";
 
   // Bootstrap: restore session from localStorage on mount, then listen for changes
   useEffect(() => {
@@ -47,28 +46,23 @@ function App() {
       setAuthLoading(false);
       if (u) {
         Sentry.setUser({ id: u.id, email: u.email });
-        // Show user-scoped local cache immediately (empty array for new users / new devices)
         const local = loadLocal(u.id);
         setDeals(local);
-        // Always fetch from cloud — cloud is source of truth, local is just a cache
         setTimeout(() => {
           sbRead()
             .then(({ data: cloudDeals, prefs: cloudPrefs, updated_at }) => {
-              lastCloudUpdate.current = updated_at;
+              setLastCloudUpdate(updated_at);
               if (cloudPrefs) { const p = { ...DEFAULT_PREFS, ...cloudPrefs }; setPrefs(p); }
               if (cloudDeals.length > 0) {
                 setDeals(cloudDeals);
                 saveLocal(cloudDeals, u.id);
               } else if (local.length > 0) {
-                // First login on new device — push cached local up to cloud
                 sbWrite(local).catch(() => {});
               } else {
-                // Brand new user — show onboarding tour
                 setShowTour(true);
               }
-              // New user with no data anywhere — stays as empty array, correct
             })
-            .catch(() => {}); // keep local cache on network error
+            .catch(() => {});
         }, 300);
       }
     });
@@ -78,17 +72,15 @@ function App() {
       if (u) Sentry.setUser({ id: u.id, email: u.email });
       else Sentry.setUser(null);
       if (u && (evt === "SIGNED_IN" || evt === "USER_UPDATED")) {
-        // Clean up hash after Supabase has processed it
         if (window.location.hash.includes("access_token")) {
           window.history.replaceState(null, "", window.location.pathname);
         }
-        // Use user-scoped local cache — never bleed another user's data
         const local = loadLocal(u.id);
         setDeals(local);
         setTimeout(() => {
           sbRead()
             .then(({ data: cloudDeals, updated_at }) => {
-              lastCloudUpdate.current = updated_at;
+              setLastCloudUpdate(updated_at);
               if (cloudDeals.length > 0) { setDeals(cloudDeals); saveLocal(cloudDeals, u.id); }
               else if (local.length > 0) { sbWrite(local).catch(() => {}); }
             })
@@ -99,58 +91,6 @@ function App() {
     });
     return () => subscription.unsubscribe();
   }, []);
-
-  // Re-pull from cloud when tab regains visibility or window is focused (cross-device sync)
-  useEffect(() => {
-    const pull = () => {
-      if (!user || !isOnline || syncStatus === "saving") return;
-      sbRead()
-        .then(({ data: cloudDeals, updated_at }) => {
-          // If updated_at isn't available, always apply cloud data to stay safe
-          if (updated_at && updated_at === lastCloudUpdate.current) return;
-          lastCloudUpdate.current = updated_at;
-          setDeals(cloudDeals);
-          saveLocal(cloudDeals, user?.id);
-          setSyncStatus("saved");
-          setLastSyncedAt(new Date());
-          setTimeout(() => setSyncStatus("idle"), 2000);
-        })
-        .catch(() => {});
-    };
-    const onVisible = () => { if (document.visibilityState === "visible") pull(); };
-    document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", pull);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", pull);
-    };
-  }, [isOnline, syncStatus]);
-
-  useEffect(() => {
-    if (deals === null || !user) return;
-    saveLocal(deals, user?.id);
-    if (!isOnline) { setSyncStatus("offline"); return; }
-    clearTimeout(syncTimer.current);
-    setSyncStatus("saving");
-    syncTimer.current = setTimeout(async () => {
-      try {
-        await sbWrite(deals);
-        setSyncStatus("saved");
-        setSyncError("");
-        setLastSyncedAt(new Date());
-        setTimeout(() => setSyncStatus("idle"), 2000);
-      } catch(e) { setSyncStatus("error"); setSyncError(e.message); }
-    }, 800);
-  }, [deals, isOnline]);
-
-  // Re-attempt sync when coming back online
-  useEffect(() => {
-    if (isOnline && syncStatus === "offline" && deals !== null) {
-      sbWrite(deals)
-        .then(() => { setSyncStatus("saved"); setLastSyncedAt(new Date()); setTimeout(() => setSyncStatus("idle"), 2000); })
-        .catch(e => { setSyncStatus("error"); setSyncError(e.message); });
-    }
-  }, [isOnline]);
 
   const addDeal      = () => { const d=newDeal(prefs); setDeals(p=>[...p,d]); setActiveDealId(d.id); };
   const updateDeal   = useCallback((u) => { setDeals(p=>p.map(d=>d.id===u.id?u:d)); }, []);
@@ -168,62 +108,42 @@ function App() {
   };
 
   // Load group deals when switching to a group context
-  React.useEffect(() => {
+  useEffect(() => {
     if (!activeGroup) return;
     sbGetGroupDeals(activeGroup.id).then(d => setGroupDeals(d || []));
   }, [activeGroup?.id]);
 
   // Group deal operations — ref-based A2 schema
-  const addGroupDeal = React.useCallback(() => {
+  const addGroupDeal = useCallback(() => {
     const d = newDeal(prefs);
     sbShareDealToGroup(d, activeGroup.id)
       .then(saved => { setGroupDeals(prev => [...prev, saved]); setActiveDealId(saved.id); })
       .catch(() => {});
   }, [activeGroup?.id, prefs]);
 
-  const deleteGroupDeal = React.useCallback((id) => {
+  const deleteGroupDeal = useCallback((id) => {
     const deal = (groupDeals||[]).find(d => d.id === id);
     if (deal?._deal_id) sbRemoveDealFromGroup(deal._deal_id, activeGroup.id).catch(() => {});
     setGroupDeals(prev => prev.filter(d => d.id !== id));
   }, [groupDeals, activeGroup?.id]);
 
-  const reorderGroupDeals = React.useCallback((next) => {
+  const reorderGroupDeals = useCallback((next) => {
     setGroupDeals(next);
     const orderedIds = next.map(d => d._deal_id).filter(Boolean);
     if (orderedIds.length && activeGroup) sbReorderGroupDeals(activeGroup.id, orderedIds).catch(() => {});
   }, [activeGroup?.id]);
 
-  const updateGroupDeal = React.useCallback((updated) => {
+  const updateGroupDeal = useCallback((updated) => {
     setGroupDeals(prev => prev.map(d => d.id === updated.id ? updated : d));
     if (updated._deal_id) sbWriteDeal(updated).catch(() => {});
   }, []);
 
-  const forceRefresh = () => {
-    setSyncStatus("saving");
-    sbRead()
-      .then(({ data: cloudDeals, updated_at }) => {
-        lastCloudUpdate.current = updated_at;
-        setDeals(cloudDeals);
-        saveLocal(cloudDeals);
-        setSyncStatus("saved");
-        setLastSyncedAt(new Date());
-        setTimeout(() => setSyncStatus("idle"), 2000);
-      })
-      .catch(e => { setSyncStatus("error"); setSyncError(e.message); });
-  };
-
-  const D = dark ? {
-    bg:"#0f172a",card:"#1e293b",border:"#334155",borderFaint:"#1e293b",text:"#f1f5f9",muted:"#94a3b8",accent:"#0D9488",accent2:"#F59E0B",accentSoft:"rgba(13,148,136,0.12)",inputBg:"#0f172a",tableHead:"#1e293b",rowHover:"rgba(13,148,136,0.08)",rowSub:"rgba(15,23,42,0.5)",scrollThumb:"#334155"
-  } : {
-    bg:"#FDFAF6",card:"#FFFFFF",border:"#E2E8F0",borderFaint:"#F5EFE6",text:"#1E293B",muted:"#64748B",accent:"#0D9488",accent2:"#D97706",accentSoft:"rgba(13,148,136,0.08)",inputBg:"#F8FAFC",tableHead:"#F5EFE6",rowHover:"rgba(13,148,136,0.05)",rowSub:"rgba(245,239,230,0.6)",scrollThumb:"#CBD5E1"
-  };
-
   if (deals === null) {
     return (
-      <div style={{minHeight:"100vh",background:D.bg,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'DM Sans','Segoe UI',sans-serif"}}>
-        <div style={{textAlign:"center",color:D.muted}}>
+      <div data-theme={theme} style={{minHeight:"100vh",background:"var(--bg)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+        <div style={{textAlign:"center",color:"var(--muted)"}}>
           <div style={{fontSize:32,marginBottom:12}}>☁️</div>
-          <div style={{fontSize:15,fontWeight:700,color:D.text,marginBottom:4}}>Loading…</div>
+          <div style={{fontSize:15,fontWeight:700,color:"var(--text)",marginBottom:4}}>Loading…</div>
           <div style={{fontSize:12}}>Restoring your session</div>
         </div>
       </div>
@@ -238,27 +158,24 @@ function App() {
 
   // Auth gate
   if (authLoading) return (
-    <div style={{minHeight:"100vh",background:"#0f172a",display:"flex",alignItems:"center",justifyContent:"center"}}>
-      <div style={{color:"var(--accent, #0D9488)",fontSize:15,fontWeight:700}}>Loading…</div>
+    <div data-theme="dark" style={{minHeight:"100vh",background:"var(--bg)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{color:"var(--accent)",fontSize:15,fontWeight:700}}>Loading…</div>
     </div>
   );
   if (!user) return (
-    <div style={{minHeight:"100vh"}} data-theme="dark">
-      <style>{`*{box-sizing:border-box;margin:0;padding:0;}html,body{background:#0f172a;color:#e2e8f0;font-family:'DM Sans','Segoe UI',sans-serif;}input,select,textarea{font-family:inherit;outline:none;}input,select{font-size:16px!important;}:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--border-faint:#1e293b;--text:#e2e8f0;--muted:#94a3b8;--accent:#0D9488;--accent2:#F59E0B;--accent-soft:rgba(13,148,136,0.12);--input-bg:#0f172a;}`}</style>
+    <div data-theme="dark" style={{minHeight:"100vh"}}>
       <AuthScreen onAuth={setUser}/>
     </div>
   );
   if (showProfile) return (
-    <div data-theme={dark?"dark":"light"} style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
-      <style>{`*{box-sizing:border-box;margin:0;padding:0;}html,body{background:#0f172a;color:#e2e8f0;font-family:'DM Sans','Segoe UI',sans-serif;}input,select,textarea{font-family:inherit;outline:none;}input,select{font-size:16px!important;}:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--border-faint:#1e293b;--text:#e2e8f0;--muted:#94a3b8;--accent:#0D9488;--input-bg:#0f172a;--table-head:#1e293b;--row-hover:rgba(13,148,136,0.08);--row-sub:#1a2744;}`}</style>
+    <div data-theme={theme} style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
       <div style={{padding:"0 16px"}}>
         <ProfilePage user={user} onBack={()=>setShowProfile(false)} onSignOut={handleSignOut} dark={dark} setDark={setDark}/>
       </div>
     </div>
   );
   if (showGroups) return (
-    <div style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
-      <style>{`*{box-sizing:border-box;margin:0;padding:0;}html,body{background:#0f172a;color:#e2e8f0;font-family:'DM Sans','Segoe UI',sans-serif;}input,select,textarea{font-family:inherit;outline:none;}input,select{font-size:16px!important;}:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--border-faint:#1e293b;--text:#e2e8f0;--muted:#94a3b8;--accent:#0D9488;--input-bg:#0f172a;--table-head:#1e293b;--row-hover:rgba(13,148,136,0.08);--row-sub:#1a2744;}`}</style>
+    <div data-theme={theme} style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
       <GroupsPage
         user={user}
         dark={dark}
@@ -268,8 +185,7 @@ function App() {
     </div>
   );
   if (showAppSettings) return (
-    <div style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
-      <style>{`*{box-sizing:border-box;margin:0;padding:0;}html,body{background:#0f172a;color:#e2e8f0;font-family:'DM Sans','Segoe UI',sans-serif;}input,select,textarea{font-family:inherit;outline:none;}input,select{font-size:16px!important;}:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--border-faint:#1e293b;--text:#e2e8f0;--muted:#94a3b8;--accent:#0D9488;--input-bg:#0f172a;--table-head:#1e293b;--row-hover:rgba(13,148,136,0.08);--row-sub:#1a2744;}`}</style>
+    <div data-theme={theme} style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
       <div style={{padding:"0 16px"}}>
         <div style={{maxWidth:480, margin:"0 auto", paddingBottom:40}}>
           <div style={{display:"flex", alignItems:"center", gap:12, margin:"20px 0 24px"}}>
@@ -279,7 +195,6 @@ function App() {
             </button>
             <div style={{fontWeight:800, fontSize:18}}>Settings</div>
           </div>
-          {/* Appearance */}
           <div style={{background:"var(--card)", border:"1px solid var(--border)", borderRadius:12, padding:24, marginBottom:14}}>
             <div style={{fontWeight:700, fontSize:14, marginBottom:14}}>Appearance</div>
             <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
@@ -295,7 +210,6 @@ function App() {
               </button>
             </div>
           </div>
-          {/* Account */}
           <div style={{background:"var(--card)", border:"1px solid var(--border)", borderRadius:12, padding:24, marginBottom:14}}>
             <div style={{fontWeight:700, fontSize:14, marginBottom:14}}>Account</div>
             <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
@@ -310,7 +224,6 @@ function App() {
               </button>
             </div>
           </div>
-          {/* Sign out */}
           <div style={{background:"var(--card)", border:"1px solid var(--border)", borderRadius:12, padding:24}}>
             <div style={{fontWeight:700, fontSize:14, marginBottom:4}}>Sign Out</div>
             <div style={{color:"var(--muted)", fontSize:13, marginBottom:14}}>You'll need to sign back in to access your deals.</div>
@@ -325,42 +238,34 @@ function App() {
     </div>
   );
   if (showSettings) return (
-    <div style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
-      <style>{`*{box-sizing:border-box;margin:0;padding:0;}html,body{background:#0f172a;color:#e2e8f0;font-family:'DM Sans','Segoe UI',sans-serif;}input,select,textarea{font-family:inherit;outline:none;}input,select{font-size:16px!important;}:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--border-faint:#1e293b;--text:#e2e8f0;--muted:#94a3b8;--accent:#0D9488;--input-bg:#0f172a;--table-head:#1e293b;--row-hover:rgba(13,148,136,0.08);--row-sub:#1a2744;}`}</style>
+    <div data-theme={theme} style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
       <div style={{padding:"0 16px"}}>
         <SettingsPage prefs={prefs} onSave={(newPrefs, pushFields)=>{
           setPrefs(newPrefs);
           sbWritePrefs(newPrefs).catch(()=>{});
-          // pushFields is a Set of field keys to push, or null = new deals only
           if (pushFields && pushFields.size > 0 && deals?.length > 0) {
             const has = (k) => pushFields.has(k);
             const updated = deals.map(d => {
               const a = JSON.parse(JSON.stringify(d.assumptions));
               const cc = { ...(a.closingCosts||{}) };
-              // Financing
               if (has('downPaymentPct'))   a.downPaymentPct   = newPrefs.downPaymentPct;
               if (has('interestRate'))     a.interestRate     = newPrefs.interestRate;
               if (has('amortYears'))       a.amortYears       = newPrefs.amortYears;
-              // Income & Growth
               if (has('vacancyRate'))      a.vacancyRate      = newPrefs.vacancyRate;
               if (has('rentGrowth'))       a.rentGrowth       = newPrefs.rentGrowth;
               if (has('expenseGrowth'))    a.expenseGrowth    = newPrefs.expenseGrowth;
               if (has('appreciationRate')) a.appreciationRate = newPrefs.appreciationRate;
-              // Tax
               if (has('taxBracket'))       a.taxBracket       = newPrefs.taxBracket;
-              // Expense %
               if (has('propertyTaxPct'))   a.propertyTaxPct   = newPrefs.propertyTaxPct;
               if (has('insurancePct'))     a.insurancePct     = newPrefs.insurancePct;
               if (has('maintenancePct'))   a.maintenancePct   = newPrefs.maintenancePct;
               if (has('capexPct'))         a.capexPct         = newPrefs.capexPct;
               if (has('propertyMgmtPct'))  a.propertyMgmtPct  = newPrefs.propertyMgmtPct;
-              // Closing Costs
               if (has('cc_title'))        cc.title        = newPrefs.closingCosts?.title;
               if (has('cc_transferTax'))  cc.transferTax  = newPrefs.closingCosts?.transferTax;
               if (has('cc_inspection'))   cc.inspection   = newPrefs.closingCosts?.inspection;
               if (has('cc_attorney'))     cc.attorney     = newPrefs.closingCosts?.attorney;
               if (has('cc_lenderFees'))   cc.lenderFees   = newPrefs.closingCosts?.lenderFees;
-              // Red Flag Thresholds (stored on prefs, not per-deal assumptions — skip deal update)
               a.closingCosts = cc;
               return { ...d, assumptions: a };
             });
@@ -372,27 +277,8 @@ function App() {
     </div>
   );
 
-  return(<>
-    <style>{`
-      *{box-sizing:border-box;margin:0;padding:0;}
-      html,body{background:${D.bg};color:${D.text};font-family:'DM Sans','Segoe UI',sans-serif;min-height:100%;}
-      input,select,textarea{font-family:inherit;outline:none;}
-      input,select{font-size:16px !important;}
-      textarea{font-size:14px;}
-      input[type=number]::-webkit-inner-spin-button{opacity:.4;}
-      select option{background:${D.card};color:${D.text};}
-      :root{
-        --bg:${D.bg};--card:${D.card};--border:${D.border};--border-faint:${D.borderFaint};
-        --text:${D.text};--muted:${D.muted};--accent:${D.accent};--accent2:${D.accent2};
-        --accent-soft:${D.accentSoft};--input-bg:${D.inputBg};--table-head:${D.tableHead};
-        --row-hover:${D.rowHover};--row-sub:${D.rowSub};
-      }
-      ::-webkit-scrollbar{width:4px;height:4px;}
-      ::-webkit-scrollbar-track{background:transparent;}
-      ::-webkit-scrollbar-thumb{background:${D.scrollThumb};border-radius:3px;}
-      div[style*="overflowX"]::-webkit-scrollbar{height:3px;}
-    `}</style>
-    <div style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
+  return(
+    <div data-theme={theme} style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
       <div style={{borderBottom:"1px solid var(--border)",padding:"0 20px",height:60,display:"flex",alignItems:"center",justifyContent:"space-between",background:dark?"var(--card)":"rgba(253,250,246,0.95)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",position:"sticky",top:0,zIndex:100}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <a href="index.html" style={{display:"flex",alignItems:"center",gap:8,textDecoration:"none"}}>
@@ -418,7 +304,6 @@ function App() {
               style={{background:"none",border:"1px solid var(--border)",borderRadius:4,padding:"2px 7px",fontSize:11,color:"var(--muted)",cursor:syncStatus==="saving"?"not-allowed":"pointer",lineHeight:1.4,flexShrink:0}}>
               {syncStatus==="saving" ? "…" : "↻"}
             </button>
-            {/* ── Profile avatar + dropdown ── */}
             {(()=>{
               const name = user?.user_metadata?.display_name || "";
               const parts = name.trim().split(" ").filter(Boolean);
@@ -531,9 +416,7 @@ function App() {
         )}
       </div>
     </div>
-  </>);
+  );
 }
-
-
 
 export default App;

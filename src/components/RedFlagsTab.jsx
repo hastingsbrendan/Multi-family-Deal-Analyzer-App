@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { iSty } from './ui/InputRow';
-import { FMT_PCT, FMT_USD } from '../lib/constants';;
+import { FMT_PCT, FMT_USD } from '../lib/constants';
 import { DEFAULT_PREFS } from '../lib/calc';
 import { useIsMobile } from '../lib/hooks';
 

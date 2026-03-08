@@ -1,22 +1,25 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { iSty } from './ui/InputRow';
+import React, { useState, useMemo, Suspense } from 'react';
 import { useIsMobile } from '../lib/hooks';
-import { FMT_USD, FMT_PCT, STATUS_OPTIONS, STATUS_COLORS } from '../lib/constants';;
-import { calcDeal } from '../lib/calc';
+import { FMT_USD, FMT_PCT, STATUS_OPTIONS, STATUS_COLORS } from '../lib/constants';
+import { calcDeal, DEFAULT_PREFS } from '../lib/calc';
 import AddressAutocomplete from './AddressAutocomplete';
-import DealSummaryTab from './DealSummaryTab';
-import AssumptionsTab from './AssumptionsTab';
-import CashFlowTab from './CashFlowTab';
-import RentCompsTab from './RentCompsTab';
-import ShowingTab from './ShowingTab';
-import RedFlagsTab from './RedFlagsTab';
-import SensitivityTab from './SensitivityTab';
-import { DEFAULT_PREFS } from '../lib/calc';
+import CommentsPanel from './CommentsPanel';
+
+// Lazy-load tab components — only downloaded when the user navigates to that tab
+const DealSummaryTab = React.lazy(() => import('./DealSummaryTab'));
+const AssumptionsTab = React.lazy(() => import('./AssumptionsTab'));
+const CashFlowTab    = React.lazy(() => import('./CashFlowTab'));
+const RentCompsTab   = React.lazy(() => import('./RentCompsTab'));
+const ShowingTab     = React.lazy(() => import('./ShowingTab'));
+const RedFlagsTab    = React.lazy(() => import('./RedFlagsTab'));
+const SensitivityTab = React.lazy(() => import('./SensitivityTab'));
 
 const TABS_MOBILE=["Summary","Assumptions","Cash Flow","Comps","Showing","Red Flags","Sensitivity"];
 const TABS_DESK  =["Deal Summary","Assumptions","Cash Flow","Rent Comps","Showing","Red Flags","Sensitivity"];
 
-import CommentsPanel from './CommentsPanel';
+const TabFallback = () => (
+  <div style={{padding:40,textAlign:'center',color:'var(--muted)',fontSize:13}}>Loading…</div>
+);
 
 function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, groupRole, activeGroup, currentUser, prefs}) {
   const [tab, setTab] = useState(0);
@@ -40,13 +43,15 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
     <div style={{display:"flex",borderBottom:"1px solid var(--border)",overflowX:"auto",WebkitOverflowScrolling:"touch",scrollbarWidth:"none",msOverflowStyle:"none"}}>
       {tabLabels.map((t,i)=>(<button key={i} onClick={()=>setTab(i)} style={{background:"none",border:"none",borderBottom:tab===i?"3px solid var(--accent)":"3px solid transparent",padding:isMobile?"10px 12px":"10px 18px",cursor:"pointer",fontSize:isMobile?12:13,fontWeight:tab===i?800:500,color:tab===i?"var(--accent)":"var(--muted)",marginBottom:-1,fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}}>{t}</button>))}
     </div>
-    {tab===0&&<DealSummaryTab deal={deal} result={result} onUpdate={onUpdate}/>}
-    {tab===1&&<AssumptionsTab deal={deal} onChange={onUpdate}/>}
-    {tab===2&&<CashFlowTab result={result} deal={deal}/>}
-    {tab===3&&<RentCompsTab deal={deal} onChange={onUpdate}/>}
-    {tab===4&&<ShowingTab deal={deal} onChange={onUpdate}/>}
-    {tab===5&&<RedFlagsTab deal={deal} result={result} onChange={onUpdate} prefs={prefs||DEFAULT_PREFS}/>}
-    {tab===6&&<SensitivityTab deal={deal}/>}
+    <Suspense fallback={<TabFallback/>}>
+      {tab===0&&<DealSummaryTab deal={deal} result={result} onUpdate={onUpdate}/>}
+      {tab===1&&<AssumptionsTab deal={deal} onChange={onUpdate}/>}
+      {tab===2&&<CashFlowTab result={result} deal={deal}/>}
+      {tab===3&&<RentCompsTab deal={deal} onChange={onUpdate}/>}
+      {tab===4&&<ShowingTab deal={deal} onChange={onUpdate}/>}
+      {tab===5&&<RedFlagsTab deal={deal} result={result} onChange={onUpdate} prefs={prefs||DEFAULT_PREFS}/>}
+      {tab===6&&<SensitivityTab deal={deal}/>}
+    </Suspense>
     {activeGroup && deal._deal_id && (
       <CommentsPanel
         groupId={activeGroup.id}
@@ -56,7 +61,5 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
     )}
   </div>);
 }
-
-// ─── ADDRESS AUTOCOMPLETE ─────────────────────────────────────────────────────
 
 export default DealPage;

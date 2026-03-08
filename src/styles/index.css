@@ -1,13 +1,18 @@
 
 *{box-sizing:border-box;margin:0;padding:0;}
-html,body{height:100%;-webkit-text-size-adjust:100%;}
-body{overscroll-behavior-y:none;}
+html,body{height:100%;-webkit-text-size-adjust:100%;font-family:'DM Sans','Segoe UI',sans-serif;min-height:100%;}
+body{overscroll-behavior-y:none;background:var(--bg);color:var(--text);}
 input,select,textarea,button{font-family:'DM Sans','Segoe UI',sans-serif;} h1,h2,h3,.serif{font-family:'Fraunces',serif;}
+input,select,textarea{outline:none;}
+input,select{font-size:16px !important;}
+textarea{font-size:14px;}
 input[type=number]::-webkit-inner-spin-button{opacity:.4;}
 input[type=date],input[type=time]{-webkit-appearance:none;appearance:none;}
+select option{background:var(--card);color:var(--text);}
 ::-webkit-scrollbar{width:4px;height:4px;}
 ::-webkit-scrollbar-track{background:transparent;}
-::-webkit-scrollbar-thumb{border-radius:3px;}
+::-webkit-scrollbar-thumb{background:var(--scrollbar);border-radius:3px;}
+div[style*="overflowX"]::-webkit-scrollbar{height:3px;}
 *{-webkit-tap-highlight-color:transparent;}
 button{cursor:pointer;}
 @keyframes slideIn{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
@@ -15,38 +20,47 @@ button{cursor:pointer;}
 
 /* ── RentHack Warm Light Theme (default) ── */
 [data-theme="light"] {
-  --bg:       #FDFAF6;
-  --bg2:      #F5EFE6;
-  --card:     #FFFFFF;
-  --border:   #E2E8F0;
-  --text:     #1E293B;
-  --muted:    #64748B;
-  --accent:   #0D9488;
-  --accent2:  #D97706;
-  --accentlt: #CCFBF1;
-  --accentdk: #0F766E;
-  --navy:     #1E293B;
-  --red:      #EF4444;
-  --green:    #10B981;
-  --scrollbar:#CBD5E1;
-  --input-bg: #F8FAFC;
+  --bg:         #FDFAF6;
+  --bg2:        #F5EFE6;
+  --card:       #FFFFFF;
+  --border:     #E2E8F0;
+  --border-faint:#F5EFE6;
+  --text:       #1E293B;
+  --muted:      #64748B;
+  --accent:     #0D9488;
+  --accent2:    #D97706;
+  --accent-soft:rgba(13,148,136,0.08);
+  --accentlt:   #CCFBF1;
+  --accentdk:   #0F766E;
+  --navy:       #1E293B;
+  --red:        #EF4444;
+  --green:      #10B981;
+  --scrollbar:  #CBD5E1;
+  --input-bg:   #F8FAFC;
+  --table-head: #F5EFE6;
+  --row-hover:  rgba(13,148,136,0.05);
+  --row-sub:    rgba(245,239,230,0.6);
 }
 /* ── Dark Theme ── */
 [data-theme="dark"] {
-  --bg:       #0f172a;
-  --bg2:      #1e293b;
-  --card:     #1e293b;
-  --border:   #334155;
-  --text:     #f1f5f9;
-  --muted:    #94a3b8;
-  --accent:   #0D9488;
-  --accent2:  #F59E0B;
-  --accentlt: #134e4a;
-  --accentdk: #5eead4;
-  --navy:     #f1f5f9;
-  --red:      #f87171;
-  --green:    #34d399;
-  --scrollbar:#334155;
-  --input-bg: #0f172a;
+  --bg:         #0f172a;
+  --bg2:        #1e293b;
+  --card:       #1e293b;
+  --border:     #334155;
+  --border-faint:#1e293b;
+  --text:       #f1f5f9;
+  --muted:      #94a3b8;
+  --accent:     #0D9488;
+  --accent2:    #F59E0B;
+  --accent-soft:rgba(13,148,136,0.12);
+  --accentlt:   #134e4a;
+  --accentdk:   #5eead4;
+  --navy:       #f1f5f9;
+  --red:        #f87171;
+  --green:      #34d399;
+  --scrollbar:  #334155;
+  --input-bg:   #0f172a;
+  --table-head: #1e293b;
+  --row-hover:  rgba(13,148,136,0.08);
+  --row-sub:    rgba(15,23,42,0.5);
 }
-::-webkit-scrollbar-thumb{background:var(--scrollbar);}
