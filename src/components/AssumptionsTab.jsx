@@ -318,17 +318,18 @@ function AssumptionsTab({deal,onChange}){
         // Comma-formatted integer inputs (sqft, lot)
         const FmtInt = ({value, onChange, placeholder, style}) => {
           const [focused, setFocused] = React.useState(false);
+          const [draft, setDraft] = React.useState("");
           const raw = +value || 0;
-          const display = focused ? (raw || "") : (raw ? raw.toLocaleString() : "");
+          const display = focused ? draft : (raw ? raw.toLocaleString() : "");
           return (
             <input
               type="text"
               inputMode="numeric"
               value={display}
               placeholder={placeholder}
-              onFocus={()=>setFocused(true)}
-              onBlur={()=>setFocused(false)}
-              onChange={e=>onChange(e.target.value.replace(/,/g,""))}
+              onFocus={()=>{ setFocused(true); setDraft(raw ? String(raw) : ""); }}
+              onBlur={()=>{ setFocused(false); const n = parseInt(draft.replace(/,/g,""),10); onChange(isNaN(n)?0:n); }}
+              onChange={e=>{ setDraft(e.target.value.replace(/[^0-9]/g,"")); const n=parseInt(e.target.value.replace(/,/g,""),10); onChange(isNaN(n)?0:n); }}
               style={style}/>
           );
         };
@@ -400,12 +401,10 @@ function AssumptionsTab({deal,onChange}){
               <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Property Tax ($/yr)</div>
               <div style={{display:"flex",alignItems:"center",gap:6}}>
                 <span style={{color:"var(--muted)",fontSize:13}}>$</span>
-                <input type="text" inputMode="numeric" value={
-                    (() => { const v = +a.expenses?.propertyTax||0; return v ? v.toLocaleString() : ""; })()
-                  } placeholder="e.g. 23,707"
-                  onFocus={e=>{const v=+a.expenses?.propertyTax||0;e.target.value=v?String(v):"";}}
-                  onBlur={e=>{const v=+e.target.value.replace(/,/g,"")||0;e.target.value=v?v.toLocaleString():"";}}
-                  onChange={e=>{const v=+e.target.value.replace(/,/g,"")||0;upd("expenses.propertyTax",v);upd("expenseModes.propertyTax","value");}}
+                <FmtInt
+                  value={a.expenses?.propertyTax||0}
+                  onChange={v=>{upd("expenses.propertyTax",v);upd("expenseModes.propertyTax","value");}}
+                  placeholder="e.g. 23,707"
                   style={{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit",flex:1,maxWidth:200}}/>
               </div>
               {(+a.expenses?.propertyTax||0)>0 && (
