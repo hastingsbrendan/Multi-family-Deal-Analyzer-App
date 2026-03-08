@@ -59,6 +59,8 @@ export function BlurGate({ feature, children, userEmail }) {
 
 // ─── Upgrade card ─────────────────────────────────────────────────────────────
 export function UpgradeCard({ userEmail, compact = false }) {
+  const { tier } = useSubscription();
+  if (tier === 'pro') return null;
   const [loading, setLoading] = React.useState(false);
 
   async function handleUpgrade() {

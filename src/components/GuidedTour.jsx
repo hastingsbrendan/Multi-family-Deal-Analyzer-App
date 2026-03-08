@@ -168,18 +168,25 @@ function GuidedTour({ step, onNext, onBack, onClose }) {
     transition: 'all 0.35s ease',
   } : null;
 
-  // Tooltip position: above or below the spotlight
+  // Tooltip position: above or below the spotlight, clamped to viewport
+  const TOOLTIP_H = 220;
+  const TOOLTIP_W = 380;
+  const MARGIN = 16;
   const tooltipStyle = {};
   if (rect) {
-    const above = s.placement === 'top' || (!s.placement && rect.top > 340);
+    const spaceAbove = rect.top - pad - 12;
+    const spaceBelow = window.innerHeight - (rect.top + rect.height + pad + 12);
+    const preferAbove = s.placement === 'top' || (!s.placement && rect.top > window.innerHeight / 2);
+    const above = preferAbove ? (spaceAbove >= TOOLTIP_H || spaceAbove >= spaceBelow) : (spaceBelow < TOOLTIP_H && spaceAbove > spaceBelow);
+    const leftPos = Math.max(MARGIN, Math.min(rect.left, window.innerWidth - TOOLTIP_W - MARGIN));
+    tooltipStyle.position = 'fixed';
+    tooltipStyle.left = leftPos;
     if (above) {
-      tooltipStyle.position = 'fixed';
-      tooltipStyle.bottom = window.innerHeight - rect.top + pad + 12;
-      tooltipStyle.left = Math.max(16, Math.min(rect.left, window.innerWidth - 400));
+      const rawBottom = window.innerHeight - rect.top + pad + 12;
+      tooltipStyle.bottom = Math.min(rawBottom, window.innerHeight - TOOLTIP_H - MARGIN);
     } else {
-      tooltipStyle.position = 'fixed';
-      tooltipStyle.top = rect.top + rect.height + pad + 12;
-      tooltipStyle.left = Math.max(16, Math.min(rect.left, window.innerWidth - 400));
+      const rawTop = rect.top + rect.height + pad + 12;
+      tooltipStyle.top = Math.min(rawTop, window.innerHeight - TOOLTIP_H - MARGIN);
     }
   } else {
     // Fallback: center the tooltip
