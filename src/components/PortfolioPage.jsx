@@ -84,7 +84,7 @@ function PortfolioPage({deals, onSelect, onAdd, onDelete, onExport, onReorder, d
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}} onClick={()=>onSelect(d.id)}>
           {[["Price",FMT_USD(+d.assumptions.purchasePrice),false],["CoC (Yr1)",FMT_PCT(r.cocReturn),true],["IRR (10yr)",FMT_PCT(r.irr),true],["NOI (Yr1)",FMT_USD(r.noi),false],["Cap Rate",FMT_PCT(r.capRate),false],["Cash In",FMT_USD(r.totalCash),false]].map(([lbl,val,accent])=>(<div key={lbl}><div style={{fontSize:9,color:"var(--muted)",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:1}}>{lbl}</div><div style={{fontSize:13,fontWeight:700,color:accent?"var(--accent)":"var(--text)"}}>{val}</div></div>))}
         </div>
-      </div>);}))}</div>
+      </div>);})}</div>)
     }
     {toast&&<UndoToast message={toast.message} onUndo={()=>{onReorder(toast.snapshot);setToast(null);}} onDismiss={()=>setToast(null)}/>}
   </div>);}
