@@ -4,6 +4,8 @@ import { FMT_USD, FMT_PCT, STATUS_OPTIONS, STATUS_COLORS } from '../lib/constant
 import { calcDeal, DEFAULT_PREFS } from '../lib/calc';
 import AddressAutocomplete from './AddressAutocomplete';
 import CommentsPanel from './CommentsPanel';
+import { BlurGate } from './UpgradeModal';
+import { useFeatureCheck } from './FeatureGate';
 
 // Lazy-load tab components — only downloaded when the user navigates to that tab
 const DealSummaryTab = React.lazy(() => import('./DealSummaryTab'));
@@ -27,6 +29,11 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
   const isMobile = useIsMobile();
   const result = useMemo(() => calcDeal(deal), [deal]);
   const tabLabels = isMobile ? TABS_MOBILE : TABS_DESK;
+
+  const canPDF      = useFeatureCheck('pdfExport');
+  const canShare    = useFeatureCheck('sharing');
+  const userEmail   = currentUser?.email;
+
   return(<div style={{maxWidth:980,margin:"0 auto",paddingBottom:60}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,gap:8}}>
       <button onClick={onBack} style={{color:"var(--accent)",cursor:"pointer",fontSize:13,fontWeight:700,padding:"6px 12px",borderRadius:100,border:"1px solid var(--border)",background:"var(--card)",whiteSpace:"nowrap"}}>← Portfolio</button>
@@ -34,9 +41,25 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
         <select value={deal.status} onChange={e=>onUpdate({...deal,status:e.target.value})} style={{background:STATUS_COLORS[deal.status]+"22",border:`1px solid ${STATUS_COLORS[deal.status]}55`,borderRadius:6,padding:"6px 10px",color:STATUS_COLORS[deal.status],fontWeight:700,fontSize:13,cursor:"pointer"}}>
           {STATUS_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
         </select>
-        {onShare&&<button onClick={onShare} style={{background:"var(--accentlt, #CCFBF1)",border:"1px solid rgba(13,148,136,0.25)",borderRadius:6,padding:"7px 14px",cursor:"pointer",fontSize:13,color:"var(--accentdk, #0F766E)",fontWeight:700}}>👥 Share</button>}
+
+        {/* Share button — gated */}
+        {onShare && canShare && (
+          <button onClick={onShare} style={{background:"var(--accentlt, #CCFBF1)",border:"1px solid rgba(13,148,136,0.25)",borderRadius:6,padding:"7px 14px",cursor:"pointer",fontSize:13,color:"var(--accentdk, #0F766E)",fontWeight:700}}>👥 Share</button>
+        )}
+        {onShare && !canShare && (
+          <button onClick={()=>setTab(-1)} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:6,padding:"7px 14px",cursor:"pointer",fontSize:13,color:"var(--muted)",fontWeight:700}}>🔒 Share</button>
+        )}
+
         {groupRole==="Viewer"&&<div style={{fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:20,background:"var(--teal-lt, #CCFBF1)",color:"var(--accentdk, #0F766E)",border:"1px solid rgba(13,148,136,0.35)"}}>👁 View Only</div>}
-        {groupRole!=="Viewer"&&<button onClick={onExportPDF} style={{background:"var(--card)",color:"var(--accent)",border:"1px solid var(--accent)",borderRadius:100,padding:"7px 14px",cursor:"pointer",fontSize:13,fontWeight:700}}>⬇ PDF</button>}
+
+        {/* PDF button — gated */}
+        {groupRole!=="Viewer" && canPDF && (
+          <button onClick={onExportPDF} style={{background:"var(--card)",color:"var(--accent)",border:"1px solid var(--accent)",borderRadius:100,padding:"7px 14px",cursor:"pointer",fontSize:13,fontWeight:700}}>⬇ PDF</button>
+        )}
+        {groupRole!=="Viewer" && !canPDF && (
+          <button onClick={()=>setTab(-1)} style={{background:"var(--card)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:100,padding:"7px 14px",cursor:"pointer",fontSize:13,fontWeight:700}}>🔒 PDF</button>
+        )}
+
         <button onClick={onExport} style={{background:"var(--accent)",color:"#fff",border:"none",borderRadius:100,padding:"7px 14px",cursor:"pointer",fontSize:13,fontWeight:700}}>⬇ CSV</button>
       </div>
     </div>
@@ -48,10 +71,18 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
       {tab===0&&<DealSummaryTab deal={deal} result={result} onUpdate={onUpdate}/>}
       {tab===1&&<AssumptionsTab deal={deal} onChange={onUpdate}/>}
       {tab===2&&<CashFlowTab result={result} deal={deal}/>}
-      {tab===3&&<RentCompsTab deal={deal} onChange={onUpdate}/>}
+      {tab===3&&(
+        <BlurGate feature="rentComps" userEmail={userEmail}>
+          <RentCompsTab deal={deal} onChange={onUpdate}/>
+        </BlurGate>
+      )}
       {tab===4&&<ShowingTab deal={deal} onChange={onUpdate}/>}
       {tab===5&&<RedFlagsTab deal={deal} result={result} onChange={onUpdate} prefs={prefs||DEFAULT_PREFS}/>}
-      {tab===6&&<SensitivityTab deal={deal}/>}
+      {tab===6&&(
+        <BlurGate feature="sensitivity" userEmail={userEmail}>
+          <SensitivityTab deal={deal}/>
+        </BlurGate>
+      )}
     </Suspense></div>
     {activeGroup && deal._deal_id && (
       <CommentsPanel

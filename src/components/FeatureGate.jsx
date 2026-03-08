@@ -1,54 +1,30 @@
 import React from 'react';
 import { useSubscription } from '../contexts/SubscriptionContext';
+import { BlurGate, UpgradeCard } from './UpgradeModal';
 
-// ─── Imperative hook ─────────────────────────────────────────────────────────
-// Returns true if the current plan allows the given feature.
-// Usage: const canExportPDF = useFeatureCheck('pdfExport');
+// ─── Imperative hook ──────────────────────────────────────────────────────────
 export function useFeatureCheck(feature) {
   const { limits } = useSubscription();
   const val = limits[feature];
-  if (val === undefined) return true; // unknown feature key → allow by default
-  if (typeof val === 'boolean') return val;
-  if (typeof val === 'number') return val > 0;
-  return true;
+  if (val === undefined) return true;
+  return val !== false;
 }
 
-// ─── Default upgrade prompt ──────────────────────────────────────────────────
-function DefaultFallback() {
-  return (
-    <div style={{
-      background: 'var(--card)',
-      border: '1px solid var(--border)',
-      borderRadius: 10,
-      padding: 24,
-      textAlign: 'center',
-      margin: '16px 0',
-    }}>
-      <div style={{ fontSize: 24, marginBottom: 8 }}>🔒</div>
-      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
-        Upgrade to Pro
-      </div>
-      <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-        This feature is available on the Pro plan.
-      </div>
-    </div>
-  );
-}
-
-// ─── Declarative wrapper ─────────────────────────────────────────────────────
-// Usage:
-//   <FeatureGate feature="pdfExport">
-//     <button onClick={onExportPDF}>⬇ PDF</button>
-//   </FeatureGate>
-//
-// With custom fallback:
-//   <FeatureGate feature="groups" fallback={<span>Pro only</span>}>
-//     <ShareButton />
-//   </FeatureGate>
-function FeatureGate({ feature, children, fallback }) {
+// ─── Declarative wrapper ──────────────────────────────────────────────────────
+// For tab content: wraps children in a blur overlay when locked.
+// For buttons: hides and shows upgrade prompt inline.
+function FeatureGate({ feature, children, fallback, userEmail, blur = false }) {
   const allowed = useFeatureCheck(feature);
+
   if (allowed) return children;
-  return fallback !== undefined ? fallback : <DefaultFallback />;
+
+  // Blur mode: show content blurred with upgrade card on top
+  if (blur) {
+    return <BlurGate feature={feature} userEmail={userEmail}>{children}</BlurGate>;
+  }
+
+  // Default: show fallback or standard upgrade card
+  return fallback !== undefined ? fallback : <UpgradeCard userEmail={userEmail} />;
 }
 
 export default FeatureGate;

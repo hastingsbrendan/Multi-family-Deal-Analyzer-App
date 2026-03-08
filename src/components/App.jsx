@@ -14,6 +14,7 @@ import SettingsPage from './SettingsPage';
 import GroupsPage from './GroupsPage';
 import ShareDealModal from './ShareDealModal';
 import GuidedTour, { TOUR_STEPS } from './GuidedTour';
+import { TrialBanner } from './UpgradeModal';
 import UndoToast from './ui/UndoToast';
 
 function App() {
@@ -419,6 +420,7 @@ function App() {
           </div>
       </div>
       <div style={{padding:"18px 16px 0"}}>
+        <TrialBanner userEmail={user?.email}/>
         {!activeDeal
           ?(!deals ? <div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:"var(--muted)",fontSize:14}}>Loading…</div></div> : <PortfolioPage
               deals={activeGroup ? groupDeals : deals}
