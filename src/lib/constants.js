@@ -59,7 +59,10 @@ async function sbRead() {
 async function sbWrite(deals) {
   const { data: { user } } = await sbClient.auth.getUser();
   if (!user) throw new Error("Not authenticated");
-  if (!Array.isArray(deals) || deals.length === 0) return;
+  if (!Array.isArray(deals) || deals.length === 0) return; // never wipe DB with empty array
+  // Safety: refuse to write if every deal is missing an address (likely corrupt state)
+  const validDeals = deals.filter(d => d && (d.address || d.purchasePrice));
+  if (validDeals.length === 0) return;
   const now = new Date().toISOString();
   const rows = deals.map(deal => ({
     user_id: user.id,
