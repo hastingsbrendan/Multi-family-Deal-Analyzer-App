@@ -156,7 +156,7 @@ function App() {
   const updateDeal   = useCallback((u) => { setDeals(p=>p.map(d=>d.id===u.id?u:d)); }, []);
   const deleteDeal   = (id) => setDeals(p=>p.filter(d=>d.id!==id));
   const reorderDeals = useCallback((next) => { setDeals(next); }, []);
-  const activeDeal   = deals?.find(d=>d.id===activeDealId);
+  const activeDeal   = (activeGroup ? (groupDeals||[]) : (deals||[])).find(d=>d.id===activeDealId);
 
   const handleSignOut = async () => {
     await authSignOut();
