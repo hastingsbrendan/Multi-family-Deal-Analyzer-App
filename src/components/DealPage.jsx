@@ -16,7 +16,9 @@ import { DEFAULT_PREFS } from '../lib/calc';
 const TABS_MOBILE=["Summary","Assumptions","Cash Flow","Comps","Showing","Red Flags","Sensitivity"];
 const TABS_DESK  =["Deal Summary","Assumptions","Cash Flow","Rent Comps","Showing","Red Flags","Sensitivity"];
 
-function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, groupRole}) {
+import CommentsPanel from './CommentsPanel';
+
+function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, groupRole, activeGroup, currentUser}) {
   const [tab, setTab] = useState(0);
   const isMobile = useIsMobile();
   const result = useMemo(() => calcDeal(deal), [deal]);
@@ -45,6 +47,13 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
     {tab===4&&<ShowingTab deal={deal} onChange={onUpdate}/>}
     {tab===5&&<RedFlagsTab deal={deal} result={result} onChange={onUpdate} prefs={window.__userPrefs||DEFAULT_PREFS}/>}
     {tab===6&&<SensitivityTab deal={deal}/>}
+    {activeGroup && deal._deal_id && (
+      <CommentsPanel
+        groupId={activeGroup.id}
+        dealId={deal._deal_id}
+        currentUser={currentUser}
+      />
+    )}
   </div>);
 }
 

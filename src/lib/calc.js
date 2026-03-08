@@ -1,5 +1,5 @@
 // ─── Financial calculation engine ────────────────────────────────────────────
-import { sbClient } from './constants';
+import { sbClient, sbWriteDeal } from './constants';
 const DEFAULT_PREFS = {
   // Default assumptions applied to every new deal
   downPaymentPct:   25,
@@ -173,35 +173,121 @@ async function sbRemoveMember(groupId, memberId) {
     .eq('group_id', groupId).eq('user_id', memberId);
 }
 
+// ── Group deal refs (A2 schema) ──────────────────────────────────────────────
+
+// Load group deals via refs: fetch refs → fetch owner deal rows → return deal objects
 async function sbGetGroupDeals(groupId) {
-  const { data } = await sbClient
-    .from('group_deals').select('deal_data, updated_at')
-    .eq('group_id', groupId).order('updated_at', { ascending: false });
-  return (data?.[0]?.deal_data) || [];
+  // 1. Get refs for this group
+  const { data: refs, error: refsErr } = await sbClient
+    .from('group_deal_refs')
+    .select('deal_id, owner_user_id, shared_by, shared_at, sort_order')
+    .eq('group_id', groupId)
+    .order('sort_order', { ascending: true });
+  if (refsErr || !refs?.length) return [];
+
+  // 2. Fetch the actual deal rows (RLS allows group members to read shared deals)
+  const dealIds = refs.map(r => r.deal_id);
+  const { data: dealRows, error: dealsErr } = await sbClient
+    .from('deals')
+    .select('deal_id, deal_data, user_id, updated_at')
+    .in('deal_id', dealIds);
+  if (dealsErr) return [];
+
+  // 3. Stitch refs + deal data, preserve sort_order
+  return refs
+    .map(ref => {
+      const row = dealRows?.find(d => d.deal_id === ref.deal_id);
+      if (!row?.deal_data) return null;
+      return {
+        ...row.deal_data,
+        _deal_id: row.deal_id,
+        _owner_user_id: row.user_id,
+        _shared_at: ref.shared_at,
+        _sort_order: ref.sort_order,
+      };
+    })
+    .filter(Boolean);
 }
 
-async function sbWriteGroupDeals(groupId, deals) {
-  const { data: { user } } = await sbClient.auth.getUser();
-  if (!user) return;
-  const { error } = await sbClient.from('group_deals')
-    .upsert({ group_id: groupId, deal_data: deals, updated_by: user.id, updated_at: new Date().toISOString() },
-            { onConflict: 'group_id' });
-  if (error) throw error;
-}
-
+// Share a deal into a group — writes a ref row (no data copy)
 async function sbShareDealToGroup(deal, groupId) {
   const { data: { user } } = await sbClient.auth.getUser();
-  const existing = await sbGetGroupDeals(groupId);
-  // Merge with a default deal so calcDeal never crashes on missing fields
-  const sharedDeal = {
-    ...newDeal(DEFAULT_PREFS),
-    ...deal,
-    id: Date.now(),
-    sharedFromUserId: user?.id,
-    sharedAt: new Date().toISOString()
-  };
-  await sbWriteGroupDeals(groupId, [...existing, sharedDeal]);
-  return sharedDeal;
+  if (!user) throw new Error('Not authenticated');
+
+  // Ensure the deal has a stable _deal_id in the DB first
+  let dealId = deal._deal_id;
+  if (!dealId) {
+    dealId = await sbWriteDeal(deal);
+  }
+
+  // Insert the ref (UNIQUE constraint prevents duplicates)
+  const { error } = await sbClient.from('group_deal_refs').upsert({
+    group_id: groupId,
+    deal_id: dealId,
+    owner_user_id: user.id,
+    shared_by: user.id,
+    shared_at: new Date().toISOString(),
+    sort_order: Date.now(),
+  }, { onConflict: 'group_id,deal_id' });
+  if (error) throw error;
+  return { ...deal, _deal_id: dealId };
+}
+
+// Remove a deal from a group (deletes the ref, not the deal itself)
+async function sbRemoveDealFromGroup(dealId, groupId) {
+  await sbClient.from('group_deal_refs')
+    .delete()
+    .eq('group_id', groupId)
+    .eq('deal_id', dealId);
+}
+
+// Update sort order for group deals
+async function sbReorderGroupDeals(groupId, orderedDealIds) {
+  const updates = orderedDealIds.map((dealId, i) =>
+    sbClient.from('group_deal_refs')
+      .update({ sort_order: i })
+      .eq('group_id', groupId)
+      .eq('deal_id', dealId)
+  );
+  await Promise.all(updates);
+}
+
+// ── Group comments ────────────────────────────────────────────────────────────
+
+async function sbGetComments(groupId, dealId) {
+  const { data, error } = await sbClient
+    .from('group_comments')
+    .select('id, user_id, body, created_at, updated_at, profiles(display_name, email)')
+    .eq('group_id', groupId)
+    .eq('deal_id', dealId)
+    .order('created_at', { ascending: true });
+  if (error) return [];
+  return data || [];
+}
+
+async function sbPostComment(groupId, dealId, body) {
+  const { data: { user } } = await sbClient.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+  const { data, error } = await sbClient.from('group_comments')
+    .insert({ group_id: groupId, deal_id: dealId, user_id: user.id, body })
+    .select('id, user_id, body, created_at, updated_at, profiles(display_name, email)')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+async function sbDeleteComment(commentId) {
+  await sbClient.from('group_comments').delete().eq('id', commentId);
+}
+
+async function sbEditComment(commentId, body) {
+  const { data, error } = await sbClient.from('group_comments')
+    .update({ body, updated_at: new Date().toISOString() })
+    .eq('id', commentId)
+    .select('id, body, updated_at')
+    .single();
+  if (error) throw error;
+  return data;
 }
 
 // ─── FINANCIAL ENGINE ─────────────────────────────────────────────────────────
@@ -318,4 +404,4 @@ function calcSensitivity(deal) {
 
 // ─── CSV EXPORT ───────────────────────────────────────────────────────────────
 
-export { DEFAULT_PREFS, newDeal, resolveExpenses, calcDeal, calcSensitivity, sbGetMyGroups, sbGetPendingInvites, sbCreateGroup, sbInviteMember, sbRespondToInvite, sbLeaveGroup, sbGetGroupMembers, sbUpdateMemberRole, sbRemoveMember, sbGetGroupDeals, sbWriteGroupDeals, sbShareDealToGroup };
+export { DEFAULT_PREFS, newDeal, resolveExpenses, calcDeal, calcSensitivity, sbGetMyGroups, sbGetPendingInvites, sbCreateGroup, sbInviteMember, sbRespondToInvite, sbLeaveGroup, sbGetGroupMembers, sbUpdateMemberRole, sbRemoveMember, sbGetGroupDeals, sbShareDealToGroup, sbRemoveDealFromGroup, sbReorderGroupDeals, sbGetComments, sbPostComment, sbDeleteComment, sbEditComment };

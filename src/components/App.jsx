@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import * as Sentry from '@sentry/react';
 import { iSty } from './ui/InputRow';
-import { sbClient, STORAGE_KEY, STATUS_OPTIONS, FMT_USD, loadLocal, saveLocal, sbRead, sbWrite, sbWritePrefs, authGetSession, authSignOut } from '../lib/constants';
-import { calcDeal, DEFAULT_PREFS, newDeal, sbGetGroupDeals, sbWriteGroupDeals } from '../lib/calc';
+import { sbClient, STORAGE_KEY, STATUS_OPTIONS, FMT_USD, loadLocal, saveLocal, sbRead, sbWrite, sbWriteDeal, sbDeleteDeal, sbWritePrefs, authGetSession, authSignOut } from '../lib/constants';
+import { calcDeal, DEFAULT_PREFS, newDeal, sbGetGroupDeals, sbShareDealToGroup, sbRemoveDealFromGroup, sbReorderGroupDeals } from '../lib/calc';
 import { dlFile, exportDealCSV, exportDealPDF, exportPortfolioCSV } from '../lib/export';
 import { useIsMobile, useOnlineStatus } from '../lib/hooks';
 import AuthScreen from './AuthScreen';
@@ -173,10 +173,30 @@ function App() {
     sbGetGroupDeals(activeGroup.id).then(d => setGroupDeals(d || []));
   }, [activeGroup?.id]);
 
-  const saveGroupDeals = React.useCallback((updated) => {
-    setGroupDeals(updated);
-    if (activeGroup) sbWriteGroupDeals(activeGroup.id, updated).catch(()=>{});
+  // Group deal operations — ref-based A2 schema
+  const addGroupDeal = React.useCallback(() => {
+    const d = newDeal(prefs);
+    sbShareDealToGroup(d, activeGroup.id)
+      .then(saved => { setGroupDeals(prev => [...prev, saved]); setActiveDealId(saved.id); })
+      .catch(() => {});
+  }, [activeGroup?.id, prefs]);
+
+  const deleteGroupDeal = React.useCallback((id) => {
+    const deal = (groupDeals||[]).find(d => d.id === id);
+    if (deal?._deal_id) sbRemoveDealFromGroup(deal._deal_id, activeGroup.id).catch(() => {});
+    setGroupDeals(prev => prev.filter(d => d.id !== id));
+  }, [groupDeals, activeGroup?.id]);
+
+  const reorderGroupDeals = React.useCallback((next) => {
+    setGroupDeals(next);
+    const orderedIds = next.map(d => d._deal_id).filter(Boolean);
+    if (orderedIds.length && activeGroup) sbReorderGroupDeals(activeGroup.id, orderedIds).catch(() => {});
   }, [activeGroup?.id]);
+
+  const updateGroupDeal = React.useCallback((updated) => {
+    setGroupDeals(prev => prev.map(d => d.id === updated.id ? updated : d));
+    if (updated._deal_id) sbWriteDeal(updated).catch(() => {});
+  }, []);
 
   const forceRefresh = () => {
     setSyncStatus("saving");
@@ -308,22 +328,41 @@ function App() {
     <div style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
       <style>{`*{box-sizing:border-box;margin:0;padding:0;}html,body{background:#0f172a;color:#e2e8f0;font-family:'DM Sans','Segoe UI',sans-serif;}input,select,textarea{font-family:inherit;outline:none;}input,select{font-size:16px!important;}:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--border-faint:#1e293b;--text:#e2e8f0;--muted:#94a3b8;--accent:#0D9488;--input-bg:#0f172a;--table-head:#1e293b;--row-hover:rgba(13,148,136,0.08);--row-sub:#1a2744;}`}</style>
       <div style={{padding:"0 16px"}}>
-        <SettingsPage prefs={prefs} onSave={(newPrefs, applyToDeals)=>{
+        <SettingsPage prefs={prefs} onSave={(newPrefs, pushFields)=>{
           setPrefs(newPrefs);
           window.__userPrefs = newPrefs;
           sbWritePrefs(newPrefs).catch(()=>{});
-          if (applyToDeals && deals?.length > 0) {
+          // pushFields is a Set of field keys to push, or null = new deals only
+          if (pushFields && pushFields.size > 0 && deals?.length > 0) {
+            const has = (k) => pushFields.has(k);
             const updated = deals.map(d => {
               const a = JSON.parse(JSON.stringify(d.assumptions));
-              // Only overwrite fields that match the original default (user hasn't customized them)
-              if (a.downPaymentPct   === d._defaultDownPct   || true) a.downPaymentPct   = newPrefs.downPaymentPct;
-              if (a.interestRate     === d._defaultRate       || true) a.interestRate     = newPrefs.interestRate;
-              if (a.amortYears       === d._defaultAmort      || true) a.amortYears       = newPrefs.amortYears;
-              a.vacancyRate      = newPrefs.vacancyRate;
-              a.rentGrowth       = newPrefs.rentGrowth;
-              a.expenseGrowth    = newPrefs.expenseGrowth;
-              a.appreciationRate = newPrefs.appreciationRate;
-              a.taxBracket       = newPrefs.taxBracket;
+              const cc = { ...(a.closingCosts||{}) };
+              // Financing
+              if (has('downPaymentPct'))   a.downPaymentPct   = newPrefs.downPaymentPct;
+              if (has('interestRate'))     a.interestRate     = newPrefs.interestRate;
+              if (has('amortYears'))       a.amortYears       = newPrefs.amortYears;
+              // Income & Growth
+              if (has('vacancyRate'))      a.vacancyRate      = newPrefs.vacancyRate;
+              if (has('rentGrowth'))       a.rentGrowth       = newPrefs.rentGrowth;
+              if (has('expenseGrowth'))    a.expenseGrowth    = newPrefs.expenseGrowth;
+              if (has('appreciationRate')) a.appreciationRate = newPrefs.appreciationRate;
+              // Tax
+              if (has('taxBracket'))       a.taxBracket       = newPrefs.taxBracket;
+              // Expense %
+              if (has('propertyTaxPct'))   a.propertyTaxPct   = newPrefs.propertyTaxPct;
+              if (has('insurancePct'))     a.insurancePct     = newPrefs.insurancePct;
+              if (has('maintenancePct'))   a.maintenancePct   = newPrefs.maintenancePct;
+              if (has('capexPct'))         a.capexPct         = newPrefs.capexPct;
+              if (has('propertyMgmtPct'))  a.propertyMgmtPct  = newPrefs.propertyMgmtPct;
+              // Closing Costs
+              if (has('cc_title'))        cc.title        = newPrefs.closingCosts?.title;
+              if (has('cc_transferTax'))  cc.transferTax  = newPrefs.closingCosts?.transferTax;
+              if (has('cc_inspection'))   cc.inspection   = newPrefs.closingCosts?.inspection;
+              if (has('cc_attorney'))     cc.attorney     = newPrefs.closingCosts?.attorney;
+              if (has('cc_lenderFees'))   cc.lenderFees   = newPrefs.closingCosts?.lenderFees;
+              // Red Flag Thresholds (stored on prefs, not per-deal assumptions — skip deal update)
+              a.closingCosts = cc;
               return { ...d, assumptions: a };
             });
             setDeals(updated);
@@ -454,16 +493,10 @@ function App() {
           ?(!deals ? <div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:"var(--muted)",fontSize:14}}>Loading…</div></div> : <PortfolioPage
               deals={activeGroup ? groupDeals : deals}
               onSelect={id=>setActiveDealId(id)}
-              onAdd={activeGroup
-                ? ()=>{ const d=newDeal(prefs); saveGroupDeals([...(groupDeals||[]),d]); setActiveDealId(d.id); }
-                : addDeal}
-              onDelete={activeGroup
-                ? (id)=>saveGroupDeals((groupDeals||[]).filter(d=>d.id!==id))
-                : deleteDeal}
+              onAdd={activeGroup ? addGroupDeal : addDeal}
+              onDelete={activeGroup ? deleteGroupDeal : deleteDeal}
               onExport={()=>exportPortfolioCSV(activeGroup ? groupDeals : deals)}
-              onReorder={activeGroup
-                ? (neo)=>saveGroupDeals(neo)
-                : reorderDeals}
+              onReorder={activeGroup ? reorderGroupDeals : reorderDeals}
               dark={dark} setDark={setDark}
               filterState={[portfolioFilter,setPortfolioFilter]}
               onTour={()=>setShowTour(true)}
@@ -474,14 +507,14 @@ function App() {
             />)
           :<DealPage
               deal={activeDeal}
-              onUpdate={activeGroup
-                ? (u)=>saveGroupDeals((groupDeals||[]).map(d=>d.id===u.id?u:d))
-                : updateDeal}
+              onUpdate={activeGroup ? updateGroupDeal : updateDeal}
               onBack={()=>setActiveDealId(null)}
               onExport={()=>exportDealCSV(activeDeal)}
               onExportPDF={()=>exportDealPDF(activeDeal)}
               onShare={()=>setShowShareModal(activeDeal)}
               groupRole={activeGroup?.role}
+              activeGroup={activeGroup}
+              currentUser={user}
             />
         }
         {showTour && <OnboardingTour onClose={()=>setShowTour(false)} onDone={()=>setShowTour(false)}/>}

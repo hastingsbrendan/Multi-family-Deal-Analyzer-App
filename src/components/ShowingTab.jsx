@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { iSty } from './ui/InputRow';
 import { FMT_USD } from '../lib/constants';;
 import { useIsMobile } from '../lib/hooks';
+import PhotoGallery from './PhotoGallery';
 
 function calcRehabTotal(showing,numUnits,phase){let t=0;for(let i=0;i<numUnits;i++){const u=(showing.units||[])[i]||{};if(u.rehabMode==="items")t+=(u.lineItems||[]).filter(li=>li.phase===phase).reduce((s,li)=>s+(+li.cost||0),0);else if((u.rehabPhase||"1")===phase)t+=+u.rehabLump||0;}const ext=showing.exterior||{};if(ext.rehabMode==="items")t+=(ext.lineItems||[]).filter(li=>li.phase===phase).reduce((s,li)=>s+(+li.cost||0),0);else if((ext.rehabPhase||"1")===phase)t+=+ext.rehabLump||0;return t;}
 function ShowingTab({deal,onChange}){
@@ -97,6 +98,7 @@ function ShowingTab({deal,onChange}){
         <label style={lSty}>Notes</label>
         <textarea value={u.notes||""} onChange={e=>upd(d=>{if(!d.showing.units[i])d.showing.units[i]={};d.showing.units[i].notes=e.target.value;})} rows={3} placeholder="Unit condition, features, tenant situation…" style={{...iSty,resize:"vertical",marginBottom:12}}/>
         {renderRehab(true,i)}
+        <PhotoGallery deal={deal} onUpdate={onChange} context={`unit_${i}`} contextLabel={`Unit ${i+1}`}/>
       </div>);
     })}
     {(()=>{const ext=((deal.showing||{}).exterior)||{};const cond=ext.condition||"";return(<div style={cSty}>
@@ -111,6 +113,7 @@ function ShowingTab({deal,onChange}){
       <label style={lSty}>Notes</label>
       <textarea value={ext.notes||""} onChange={e=>upd(d=>{if(!d.showing.exterior)d.showing.exterior={};d.showing.exterior.notes=e.target.value;})} rows={3} placeholder="Roof, foundation, siding, landscaping, parking…" style={{...iSty,resize:"vertical",marginBottom:12}}/>
       {renderRehab(false,-1)}
+      <PhotoGallery deal={deal} onUpdate={onChange} context="exterior" contextLabel="Exterior"/>
     </div>);})()}
     <div style={{...cSty,background:"var(--accent-soft)",border:"1px solid var(--accent)44"}}>
       <span style={{fontWeight:800,fontSize:13,color:"var(--text)",display:"block",marginBottom:12}}>Rehab Rollup</span>
