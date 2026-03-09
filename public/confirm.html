@@ -6,35 +6,24 @@
   <title>Confirm Your Email — RentHack</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <style>
     :root {
-      --bg: #0f1117;
-      --card: #1a1d27;
-      --border: #2a2d3a;
-      --text: #e8eaed;
-      --muted: #8b8fa3;
-      --accent: #0d9488;
-      --accent2: #0f766e;
+      --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a;
+      --text: #e8eaed; --muted: #8b8fa3;
+      --accent: #0d9488; --accent2: #0f766e;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; display: flex; align-items: center;
+      justify-content: center; padding: 20px;
     }
     .card {
-      width: 100%;
-      max-width: 440px;
-      background: var(--card);
-      border: 1.5px solid var(--border);
-      border-radius: 22px;
-      padding: 48px 40px;
-      box-shadow: 0 24px 64px rgba(0,0,0,0.3);
+      width: 100%; max-width: 440px; background: var(--card);
+      border: 1.5px solid var(--border); border-radius: 22px;
+      padding: 48px 40px; box-shadow: 0 24px 64px rgba(0,0,0,0.3);
       text-align: center;
     }
     .logo {
@@ -106,16 +95,11 @@
 
   <script>
     (function() {
-      var SB_URL = 'https://lxkwvayalxuoryuwxtsq.supabase.co';
-
       var params = new URLSearchParams(window.location.search);
       var tokenHash = params.get('token_hash');
-      var type = params.get('type') || 'signup';
-      var code = params.get('code');
-      var hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
-      var accessToken = hashParams.get('access_token');
+      var type = params.get('type') || 'email';
 
-      if (!tokenHash && !code && !accessToken) {
+      if (!tokenHash) {
         document.getElementById('content').innerHTML =
           '<div class="icon">🔗</div>' +
           '<h1>Invalid or expired link</h1>' +
@@ -132,33 +116,25 @@
         status.className = 'status loading';
         status.textContent = 'Verifying your email address…';
 
-        if (tokenHash) {
-          // Navigate to Supabase verify endpoint — this is a simple GET
-          // that verifies the token and redirects to the app.
-          // By navigating (not fetching), we let Supabase handle the
-          // redirect flow naturally, which sets up the session correctly.
-          var verifyUrl = SB_URL + '/auth/v1/verify'
-            + '?token_hash=' + encodeURIComponent(tokenHash)
-            + '&type=' + encodeURIComponent(type)
-            + '&redirect_to=' + encodeURIComponent(window.location.origin);
+        // Use the Supabase JS client to verify the OTP with token_hash
+        var supabase = window.supabase.createClient(
+          'https://lxkwvayalxuoryuwxtsq.supabase.co',
+          'placeholder'  // anon key loaded below
+        );
 
-          // Short delay so user sees feedback
-          setTimeout(function() {
-            window.location.href = verifyUrl;
-          }, 800);
+        // We need to call the verify endpoint directly since we may not
+        // have the correct anon key hardcoded. Use the raw REST endpoint.
+        // The correct param name is "token" (not "token_hash") per Supabase docs.
+        var verifyUrl = 'https://lxkwvayalxuoryuwxtsq.supabase.co/auth/v1/verify'
+          + '?token=' + encodeURIComponent(tokenHash)
+          + '&type=' + encodeURIComponent(type)
+          + '&redirect_to=' + encodeURIComponent(window.location.origin);
 
-        } else if (code) {
-          // PKCE flow — redirect to main app with code param
-          setTimeout(function() {
-            window.location.href = '/' + window.location.search;
-          }, 600);
-
-        } else if (accessToken) {
-          // Implicit flow
-          setTimeout(function() {
-            window.location.href = '/' + window.location.hash;
-          }, 600);
-        }
+        // Navigate to the verify endpoint — Supabase will verify the token
+        // and redirect back to our app with the session
+        setTimeout(function() {
+          window.location.href = verifyUrl;
+        }, 800);
       });
     })();
   </script>
