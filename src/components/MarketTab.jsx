@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { RENTCAST_KEY, GMAPS_KEY, SB_URL, SB_ANON_KEY, FMT_USD } from '../lib/constants';
+import { RENTCAST_KEY, GMAPS_KEY, FMT_USD } from '../lib/constants';
 import { useIsMobile } from '../lib/hooks';
 import MetricCard from './ui/MetricCard';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
@@ -7,17 +7,13 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 const CENSUS_VARS = 'B19013_001E,B25003_001E,B25003_002E,B25003_003E,B25002_001E,B25002_003E,B01002_001E,B01003_001E';
 const FRED_MORTGAGE_SERIES = 'MORTGAGE30US';
 
-function wsLabel(s){if(s>=90)return"Walker's Paradise";if(s>=70)return"Very Walkable";if(s>=50)return"Somewhat Walkable";if(s>=25)return"Car-Dependent";return"Almost All Errands Require a Car";}
-function tsLabel(s){if(s>=75)return"Excellent Transit";if(s>=50)return"Excellent Transit";if(s>=25)return"Some Transit";return"Minimal Transit";}
-function bsLabel(s){if(s>=90)return"Biker's Paradise";if(s>=70)return"Very Bikeable";if(s>=50)return"Bikeable";return"Some Bike Infrastructure";}
-
 function floodZoneInfo(zone){
   if(!zone)return null;
   const z=zone.toUpperCase();
   if(z==='X'||z==='X500')return{risk:'low',label:`Zone ${zone}`,color:'#10b981',bg:'#10b98115',desc:'Minimal flood risk — outside 500-year floodplain'};
   if(z.startsWith('V'))return{risk:'critical',label:`Zone ${zone}`,color:'#ef4444',bg:'#ef444415',desc:'Coastal high-risk — mandatory flood insurance likely required'};
   if(z.startsWith('A'))return{risk:'high',label:`Zone ${zone}`,color:'#f59e0b',bg:'#f59e0b15',desc:'High-risk flood zone — flood insurance typically required by lenders'};
-  if(z==='D')return{risk:'unknown',label:`Zone ${zone}`,color:'#6366f1',bg:'#6366f115',desc:'Undetermined flood risk — possible but not assessed'};
+  if(z==='D')return{risk:'unknown',label:`Zone ${zone}`,color:'#6366f1',bg:'#6366f115',desc:'Undetermined flood risk — possible but not assessed by FEMA'};
   return{risk:'moderate',label:`Zone ${zone}`,color:'#f59e0b',bg:'#f59e0b15',desc:'Moderate-to-low flood risk'};
 }
 
@@ -27,12 +23,6 @@ function Section({children,style}){return(<div style={{background:'var(--card)',
 function EmptyState({icon,title,sub}){return(<div style={{textAlign:'center',padding:'32px 16px',color:'var(--muted)'}}><div style={{fontSize:32,marginBottom:8}}>{icon}</div><div style={{fontSize:13,fontWeight:700,color:'var(--text)',marginBottom:4}}>{title}</div><div style={{fontSize:12}}>{sub}</div></div>);}
 function ChartTooltip({active,payload,label,formatter}){if(!active||!payload?.length)return null;return(<div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:8,padding:'8px 12px',fontSize:12}}><div style={{color:'var(--muted)',marginBottom:4}}>{label}</div>{payload.map((p,i)=>(<div key={i} style={{color:p.color,fontWeight:700}}>{p.name}: {formatter?formatter(p.value):p.value}</div>))}</div>);}
 function extractZip(address){if(!address)return null;const m=address.match(/\b(\d{5})\b/);return m?m[1]:null;}
-
-function WalkScoreCard({score,label,desc,icon,color}){
-  if(score==null)return null;
-  const pct=Math.min(100,Math.max(0,score));
-  return(<div style={{flex:'1 1 140px',minWidth:0,background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,padding:'14px 16px'}}><div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}><span style={{fontSize:18}}>{icon}</span><span style={{fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.06em'}}>{label}</span></div><div style={{fontFamily:"'Fraunces',serif",fontSize:28,fontWeight:900,color,lineHeight:1,marginBottom:6}}>{score}</div><div style={{width:'100%',height:5,background:'var(--border)',borderRadius:3,marginBottom:8,overflow:'hidden'}}><div style={{width:`${pct}%`,height:'100%',background:color,borderRadius:3,transition:'width 0.6s ease'}}/></div><div style={{fontSize:11,color:'var(--muted)',lineHeight:1.4}}>{desc}</div></div>);
-}
 
 function RateCompare({fredRate,dealRate}){
   if(!fredRate||!dealRate)return null;
@@ -52,13 +42,8 @@ function MarketTab({deal}){
   const [lastZip,setLastZip]=useState(null);
   const [fredData,setFredData]=useState(null);
   const [fredLoading,setFredLoading]=useState(false);
-  const [walkData,setWalkData]=useState(null);
-  const [walkLoading,setWalkLoading]=useState(false);
-  const [walkError,setWalkError]=useState(null);
-  const [lastWalkAddr,setLastWalkAddr]=useState(null);
 
   const zip=extractZip(deal?.address);
-  const address=deal?.address;
   const FRED_KEY=import.meta.env.VITE_FRED_API_KEY;
 
   const fetchFred=useCallback(async()=>{
@@ -74,26 +59,6 @@ function MarketTab({deal}){
     }catch(e){console.warn('FRED fetch failed:',e.message);}
     finally{setFredLoading(false);}
   },[FRED_KEY]);
-
-  const fetchWalkScore=useCallback(async(addr)=>{
-    if(!addr||addr===lastWalkAddr)return;
-    setWalkLoading(true);setWalkError(null);
-    try{
-      const geoRes=await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(addr)}&key=${GMAPS_KEY}`);
-      const geoData=await geoRes.json();
-      const loc=geoData?.results?.[0]?.geometry?.location;
-      if(!loc)throw new Error('Could not geocode address');
-      const wsRes=await fetch(`${SB_URL}/functions/v1/walkscore-proxy`,{
-        method:'POST',
-        headers:{'Content-Type':'application/json','apikey':SB_ANON_KEY},
-        body:JSON.stringify({address:addr,lat:loc.lat,lon:loc.lng}),
-      });
-      if(!wsRes.ok){const t=await wsRes.text();throw new Error(`Walk Score: ${t}`);}
-      const wsData=await wsRes.json();
-      setWalkData(wsData);setLastWalkAddr(addr);
-    }catch(e){setWalkError(e.message);}
-    finally{setWalkLoading(false);}
-  },[lastWalkAddr]);
 
   const fetchAll=useCallback(async(zipCode)=>{
     setLoading(true);setError(null);
@@ -114,7 +79,6 @@ function MarketTab({deal}){
 
   useEffect(()=>{if(zip&&zip!==lastZip&&!loading)fetchAll(zip);},[zip,lastZip,loading,fetchAll]);
   useEffect(()=>{fetchFred();},[fetchFred]);
-  useEffect(()=>{if(address&&address!==lastWalkAddr&&!walkLoading)fetchWalkScore(address);},[address,lastWalkAddr,walkLoading,fetchWalkScore]);
 
   const income=censusData?+censusData['B19013_001E']:null;
   const totalOcc=censusData?+censusData['B25003_001E']:null;
@@ -138,10 +102,6 @@ function MarketTab({deal}){
   const fredChartData=fredData?.slice(-26).map(d=>({date:d.date.slice(0,7),rate:d.rate}))??[];
   const dealRate=deal?.assumptions?.interestRate?+deal.assumptions.interestRate:null;
 
-  const ws=walkData?.walkscore;
-  const ts=walkData?.transit?.score;
-  const bs=walkData?.bike?.score;
-
   const floodZone=deal?.assumptions?.floodZone;
   const fzInfo=floodZoneInfo(floodZone);
   const fmtK=v=>v>=1000?`$${(v/1000).toFixed(0)}K`:FMT_USD(v);
@@ -160,9 +120,9 @@ function MarketTab({deal}){
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
         <div>
           <div style={{fontFamily:"'Fraunces',serif",fontSize:18,fontWeight:900,color:'var(--text)',letterSpacing:'-0.5px'}}>Market Overview · ZIP {zip}</div>
-          <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>Rentcast · US Census ACS 2023 · FRED · Walk Score</div>
+          <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>Rentcast · US Census ACS 2023 · FRED</div>
         </div>
-        <button onClick={()=>{fetchAll(zip);fetchFred();if(address)fetchWalkScore(address);}} style={{background:'none',border:'1px solid var(--border)',borderRadius:100,padding:'6px 14px',fontSize:11,fontWeight:700,color:'var(--muted)',cursor:'pointer',fontFamily:'inherit'}}>↻ Refresh</button>
+        <button onClick={()=>{fetchAll(zip);fetchFred();}} style={{background:'none',border:'1px solid var(--border)',borderRadius:100,padding:'6px 14px',fontSize:11,fontWeight:700,color:'var(--muted)',cursor:'pointer',fontFamily:'inherit'}}>↻ Refresh</button>
       </div>
 
       {/* FLOOD ZONE BANNER — high/critical risk only */}
@@ -244,24 +204,6 @@ function MarketTab({deal}){
         )}
       </div>
 
-      {/* WALK SCORE */}
-      <Section style={{marginTop:16}}>
-        <SectionHeader title="🚶 Walkability & Transit" subtitle={address||'Walk Score · Transit Score · Bike Score'}/>
-        {walkLoading&&<div style={{textAlign:'center',padding:'20px 0',color:'var(--muted)',fontSize:12}}>Fetching Walk Score…</div>}
-        {walkError&&!walkLoading&&<div style={{fontSize:12,color:'var(--muted)',padding:'8px 0'}}>Walk Score unavailable — {walkError.includes('configured')?'API key not yet configured. Add WALKSCORE_API_KEY to Supabase secrets.':walkError}</div>}
-        {!walkLoading&&!walkError&&ws==null&&!walkData&&<div style={{fontSize:12,color:'var(--muted)',padding:'8px 0'}}>Enter an address to load walkability scores.</div>}
-        {ws!=null&&!walkLoading&&(
-          <>
-            <div style={{display:'flex',gap:12,flexWrap:'wrap',marginBottom:12}}>
-              <WalkScoreCard score={ws} label="Walk Score" desc={wsLabel(ws)} icon="🚶" color={ws>=70?'#10b981':ws>=50?'#f59e0b':'#ef4444'}/>
-              {ts!=null&&<WalkScoreCard score={ts} label="Transit Score" desc={tsLabel(ts)} icon="🚌" color={ts>=50?'#10b981':ts>=25?'#f59e0b':'#6b7280'}/>}
-              {bs!=null&&<WalkScoreCard score={bs} label="Bike Score" desc={bsLabel(bs)} icon="🚲" color={bs>=50?'#10b981':bs>=25?'#f59e0b':'#6b7280'}/>}
-            </div>
-            <div style={{fontSize:10,color:'var(--muted)',marginTop:4}}>Powered by <a href="https://www.walkscore.com" target="_blank" rel="noopener noreferrer" style={{color:'var(--accent)',textDecoration:'none',fontWeight:700}}>Walk Score</a></div>
-          </>
-        )}
-      </Section>
-
       {/* RENT TREND CHART */}
       {rentTrend.length>2&&(
         <Section style={{marginTop:16}}>
@@ -282,7 +224,7 @@ function MarketTab({deal}){
 
       {/* FRED RATE ENVIRONMENT */}
       <Section style={{marginTop:16}}>
-        <SectionHeader title="📉 Rate Environment" subtitle={currentRate?`30-Yr Fixed Mortgage · Federal Reserve (FRED) · Updated ${fredData[fredData.length-1]?.date}`:'Federal Reserve Economic Data (FRED)'}/>
+        <SectionHeader title="📉 Rate Environment" subtitle={currentRate&&fredData?.length?`30-Yr Fixed Mortgage · Federal Reserve (FRED) · Updated ${fredData[fredData.length-1]?.date}`:'Federal Reserve Economic Data (FRED)'}/>
         {fredLoading&&<div style={{fontSize:12,color:'var(--muted)',padding:'8px 0'}}>Loading rate data…</div>}
         {!fredLoading&&!currentRate&&!FRED_KEY&&(
           <div style={{fontSize:12,color:'var(--muted)',padding:'8px 0'}}>Add <code style={{background:'var(--border)',padding:'1px 5px',borderRadius:4}}>VITE_FRED_API_KEY</code> to Cloudflare env vars to enable rate data.</div>
