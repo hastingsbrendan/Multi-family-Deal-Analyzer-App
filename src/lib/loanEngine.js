@@ -438,7 +438,7 @@ export function runRecommendationEngine(answers, deal) {
     purchasePrice,    // number
     numUnits,         // 2 | 3 | 4
     monthlyRent,      // number (total expected rent)
-    lowIncome,        // boolean (income ≤ 80% AMI)
+    // lowIncome removed — AMI eligibility not asked (users typically don't know); HomeReady surfaced with caveat
   } = answers;
 
   // Determine credit score midpoint for calculations
@@ -686,9 +686,16 @@ export function runRecommendationEngine(answers, deal) {
     const reasons = [];
 
     if (!ownerOccupied) { score = 0; reasons.push('HomeReady requires owner-occupancy'); }
-    if (!lowIncome)     { score = 0; reasons.push('HomeReady requires household income ≤ 80% Area Median Income'); }
     if (creditMidpoint < 620) { score = 0; reasons.push('Minimum 620 credit score required'); }
     if (isJumbo) { score = 0; reasons.push('Purchase price exceeds conforming limits'); }
+
+    // AMI eligibility: we don't ask the user (they typically don't know their AMI status),
+    // so surface HomeReady as a possible option with a verification note.
+    if (score > 0) {
+      score = 3; // Possible — not confirmed eligible
+      warnings.push('HomeReady / Home Possible requires household income ≤ 80% of your county\'s Area Median Income (AMI). If you qualify, this program offers reduced PMI and better pricing than standard conventional — worth verifying with a lender.');
+      reasons.push('Available if your household income is ≤ 80% AMI for your county — confirm eligibility at fanniemae.com/homeready');
+    }
 
     scores[LOAN_TYPES.HOMEREADY] = { score, warnings, reasons };
   }
