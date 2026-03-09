@@ -793,10 +793,9 @@ export function getQuestionFlow(answers, deal) {
     questions.push('selfEmployed');
   }
 
-  // Q7: Income limit? (only if OO and credit >= 620 — HomeReady eligibility)
-  if (a.ownerOccupied === true && (a.creditRange && a.creditRange !== '< 580')) {
-    questions.push('lowIncome');
-  }
+  // Q7: Income limit — removed from quiz (users typically don't know their AMI status).
+  // HomeReady/Home Possible is surfaced in results with a note to verify eligibility.
+  // Future: pull AMI data from Market tab or HUD API.
 
   return questions;
 }
@@ -841,12 +840,8 @@ export const QUESTIONS = {
     id: 'downPct',
     text: 'What is the most you could put down?',
     subtext: "Think of this as your maximum available — not what you have to use. Some loans require minimums, and we'll flag if you're below them.",
-    type: 'slider',
-    min: 0,
-    max: 40,
-    step: 1,
-    unit: '%',
-    default: 20,
+    type: 'dollar',
+    default: null, // computed from purchasePrice * 0.20 at render time
   },
   needsRenovation: {
     id: 'needsRenovation',

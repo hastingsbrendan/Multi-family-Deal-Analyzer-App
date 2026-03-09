@@ -41,11 +41,52 @@ function ProgressBar({ current, total }) {
 }
 
 // ─── Single question card ─────────────────────────────────────────────────────
-function QuestionCard({ question, value, onChange, onNext, onBack, stepIndex, totalSteps }) {
+function QuestionCard({ question, value, onChange, onNext, onBack, stepIndex, totalSteps, purchasePrice }) {
   const q = QUESTIONS[question];
   if (!q) return null;
 
+  // Dollar input state — default to 20% of purchase price if not yet answered
+  const defaultDollar = purchasePrice ? Math.round(purchasePrice * 0.20 / 1000) * 1000 : 90000;
+  const [dollarVal, setDollarVal] = useState(() => {
+    if (q.type !== 'dollar') return 0;
+    // value is stored as downPct (%), convert back to dollars for display
+    if (value != null && purchasePrice) return Math.round(purchasePrice * value / 100);
+    return defaultDollar;
+  });
+  const [dollarRaw, setDollarRaw] = useState(() => {
+    if (q.type !== 'dollar') return '';
+    if (value != null && purchasePrice) return String(Math.round(purchasePrice * value / 100));
+    return String(defaultDollar);
+  });
+
   const [sliderVal, setSliderVal] = useState(value ?? q.default ?? 20);
+
+  // Derived percentage for dollar input
+  const derivedPct = (purchasePrice && dollarVal > 0)
+    ? Math.round((dollarVal / purchasePrice) * 1000) / 10  // 1 decimal
+    : 0;
+
+  // Handle dollar input change — strip non-numeric, update both states
+  const handleDollarChange = (e) => {
+    const raw = e.target.value.replace(/[^0-9]/g, '');
+    setDollarRaw(raw);
+    setDollarVal(raw ? Number(raw) : 0);
+  };
+
+  // Format on blur
+  const handleDollarBlur = () => {
+    if (dollarVal > 0) setDollarRaw(dollarVal.toLocaleString());
+  };
+  const handleDollarFocus = () => {
+    setDollarRaw(dollarVal ? String(dollarVal) : '');
+  };
+
+  // Submit dollar input — convert to pct for the engine
+  const handleDollarNext = () => {
+    const pct = purchasePrice ? Math.round((dollarVal / purchasePrice) * 10) / 10 : 0;
+    onChange(pct);
+    onNext();
+  };
 
   // Handle slider submit
   const handleSliderNext = () => { onChange(sliderVal); onNext(); };
@@ -104,7 +145,82 @@ function QuestionCard({ question, value, onChange, onNext, onBack, stepIndex, to
         </div>
       )}
 
-      {/* Slider type */}
+      {/* Dollar input type (down payment) */}
+      {q.type === 'dollar' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Big dollar display */}
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+              <span style={{ fontSize: 36, fontFamily: "'Fraunces', serif", fontWeight: 900, color: 'var(--muted)', lineHeight: 1 }}>$</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={dollarRaw}
+                onChange={handleDollarChange}
+                onBlur={handleDollarBlur}
+                onFocus={handleDollarFocus}
+                onKeyDown={e => { if (e.key === 'Enter' && dollarVal > 0) handleDollarNext(); }}
+                placeholder="0"
+                style={{
+                  fontSize: 48, fontFamily: "'Fraunces', serif", fontWeight: 900,
+                  color: 'var(--accent)', background: 'transparent', border: 'none',
+                  borderBottom: '2px solid var(--accent)', outline: 'none',
+                  width: Math.max(4, (dollarRaw || '0').length) + 'ch',
+                  minWidth: '4ch', maxWidth: '100%', textAlign: 'center',
+                  padding: '0 4px',
+                }}
+              />
+            </div>
+            {purchasePrice > 0 && dollarVal > 0 && (
+              <div style={{ marginTop: 8, fontSize: 14, color: 'var(--muted)', fontWeight: 600 }}>
+                {derivedPct}% of ${purchasePrice.toLocaleString()} purchase price
+              </div>
+            )}
+          </div>
+
+          {/* Contextual hint based on derived percentage */}
+          {purchasePrice > 0 && (() => {
+            const dp35  = Math.round(purchasePrice * 0.035);
+            const dp5   = Math.round(purchasePrice * 0.05);
+            const dp20  = Math.round(purchasePrice * 0.20);
+            if (dollarVal === 0) return (
+              <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#B45309' }}>
+                ⚠️ $0 down is only available with a VA loan for eligible veterans
+              </div>
+            );
+            if (dollarVal < dp35) return (
+              <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#B45309' }}>
+                ⚠️ FHA requires at least ${dp35.toLocaleString()} (3.5%) — conventional requires ${dp5.toLocaleString()} (5%)
+              </div>
+            );
+            if (dollarVal < dp5) return (
+              <div style={{ background: 'var(--accent-soft)', border: '1px solid rgba(13,148,136,0.25)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: 'var(--accentdk)' }}>
+                ✓ Meets FHA minimum (${dp35.toLocaleString()} needed) — conventional requires ${dp5.toLocaleString()} (5%)
+              </div>
+            );
+            if (dollarVal < dp20) return (
+              <div style={{ background: 'var(--accent-soft)', border: '1px solid rgba(13,148,136,0.25)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: 'var(--accentdk)' }}>
+                ✓ Qualifies for conventional (5%+) and FHA — you'll pay PMI until ${dp20.toLocaleString()} equity (20%) is reached
+              </div>
+            );
+            return (
+              <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: 'var(--green)' }}>
+                ✓ ${dp20.toLocaleString()}+ (20%) avoids PMI on conventional — also opens investor loan options
+              </div>
+            );
+          })()}
+
+          <button
+            onClick={handleDollarNext}
+            disabled={dollarVal === 0 && derivedPct !== 0}
+            style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 10, padding: '14px 24px', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}
+          >
+            Continue →
+          </button>
+        </div>
+      )}
+
+      {/* Slider type (legacy fallback) */}
       {q.type === 'slider' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div style={{ textAlign: 'center' }}>
@@ -562,6 +678,7 @@ function QuizModal({ deal, onComplete, onClose }) {
           onBack={handleBack}
           stepIndex={stepIndex}
           totalSteps={totalSteps}
+          purchasePrice={answers.purchasePrice}
         />
       </div>
     </div>
