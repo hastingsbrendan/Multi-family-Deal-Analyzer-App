@@ -664,6 +664,55 @@ function LoanTypeTab({ deal }) {
 
     if (view === 'result' && engineResult) {
       const { recommended, scores } = engineResult;
+
+      // No loan matched — show actionable explanation instead of blank screen
+      if (!recommended) {
+        const topReasons = Object.entries(scores)
+          .filter(([, v]) => v.reasons.length > 0)
+          .slice(0, 3)
+          .map(([k, v]) => ({ name: LOAN_CATALOG[k]?.shortName || k, reason: v.reasons[0] }));
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {selectedLoan && <SelectedLoanBanner loanType={selectedLoan} onClear={() => persist({ selectedLoan: null })} />}
+            <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, padding: 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ fontSize: 32 }}>🔍</div>
+              <div>
+                <h3 style={{ fontSize: 20, fontFamily: "'Fraunces', serif", fontWeight: 900, color: 'var(--text)', marginBottom: 6 }}>
+                  No standard loan matches your current preferences
+                </h3>
+                <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
+                  Based on your answers, no loan program fully matches right now — but adjusting a few variables could open options up.
+                </p>
+              </div>
+              {topReasons.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Why each program was ruled out</div>
+                  {topReasons.map(({ name, reason }) => (
+                    <div key={name} style={{ background: 'var(--bg2)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: 'var(--text)', lineHeight: 1.5 }}>
+                      <span style={{ fontWeight: 700, color: 'var(--accent)' }}>{name}:</span> {reason}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <button
+                  onClick={handleExplore}
+                  style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+                >
+                  See All Loan Options →
+                </button>
+                <button
+                  onClick={handleRestart}
+                  style={{ background: 'none', color: 'var(--accent)', border: '2px solid var(--accent)', borderRadius: 10, padding: '12px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+                >
+                  ↺ Retake Quiz
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {selectedLoan && <SelectedLoanBanner loanType={selectedLoan} onClear={() => persist({ selectedLoan: null })} />}

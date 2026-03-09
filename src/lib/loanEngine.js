@@ -621,8 +621,8 @@ export function runRecommendationEngine(answers, deal) {
         ? LOAN_CATALOG[LOAN_TYPES.JUMBO].downPaymentOO[unitKey]
         : LOAN_CATALOG[LOAN_TYPES.JUMBO].downPaymentInv?.[unitKey];
       if (downPct < (minDown || 15)) {
-        score = 0;
-        reasons.push(`Jumbo loans require at least ${minDown}% down for ${numUnits}-unit properties — your preferred down payment of ~${downPct}% falls short. You'd need to put down more or consider a lower purchase price.`);
+        score = Math.min(score, 3);
+        warnings.push(`Jumbo loans require at least ${minDown}% down for ${numUnits}-unit properties. With your preferred down payment of ~${downPct}%, you'd need to put down more — but this may still be your best available path given your purchase price.`);
       }
     }
 
