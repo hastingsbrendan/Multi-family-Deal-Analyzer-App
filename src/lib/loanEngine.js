@@ -450,13 +450,26 @@ export function runRecommendationEngine(answers, deal) {
   // 2026 conforming limits for unit count
   const conformingLimits = { '2unit': 1032650, '3unit': 1248150, '4unit': 1551250 };
   const fhaLimits        = { '2unit': 671200, '3unit': 811150, '4unit': 1008300 };
-  const isJumbo = purchasePrice > conformingLimits[unitKey];
-  const isFHAJumbo = purchasePrice > fhaLimits[unitKey];
 
-  // Estimate DSCR if we have rent data
-  // Using approximate PITI at 7.25% 30yr as placeholder
-  const loanAmt = purchasePrice * (1 - downPct / 100);
-  const monthlyPITI = loanAmt * (0.0725 / 12) / (1 - Math.pow(1 + 0.0725 / 12, -360)) * 1.2; // +20% for taxes/insurance
+  // KEY DISTINCTION: Jumbo is determined by LOAN AMOUNT, not purchase price.
+  // A $1.4M property with $152K down = $1,248,000 loan = within conforming limit.
+  // The buyer simply puts down the difference. isJumbo is only true when the
+  // required loan (price minus max available down payment) exceeds the limit.
+  const loanAmt       = purchasePrice * (1 - downPct / 100);
+  const conformingLim = conformingLimits[unitKey];
+  const fhaLim        = fhaLimits[unitKey];
+  const isJumbo       = loanAmt > conformingLim;
+  const isFHAJumbo    = loanAmt > fhaLim;
+
+  // Minimum down payment needed to stay within conforming limits (used for warnings)
+  const minDownToConform    = purchasePrice > conformingLim
+    ? Math.ceil(((purchasePrice - conformingLim) / purchasePrice) * 1000) / 10  // round up to 1 decimal
+    : 0;
+  const minDownToConformFHA = purchasePrice > fhaLim
+    ? Math.ceil(((purchasePrice - fhaLim) / purchasePrice) * 1000) / 10
+    : 0;
+
+  // Estimate DSCR if we have rent data (using approximate PITI at 7.25% 30yr)
   const dscrRatio = monthlyRent > 0 ? monthlyRent / (loanAmt * (0.0725/12) / (1 - Math.pow(1+0.0725/12,-360))) : null;
 
   const scores = {};
@@ -476,11 +489,16 @@ export function runRecommendationEngine(answers, deal) {
     const warnings = [];
     const reasons = [];
 
-    // Hard gates: credit floor, loan limit
+    // Hard gates: credit floor only. Loan limit check is on LOAN AMOUNT (not price).
     if (creditMidpoint < 620)  { score = 0; reasons.push('Minimum 620 credit score required for conventional loans'); }
     else if (creditMidpoint < 660) { score = Math.min(score, 3); warnings.push(LOAN_CATALOG[LOAN_TYPES.CONVENTIONAL].borderlineWarnings.credit); }
 
-    if (isJumbo) { score = 0; reasons.push('Purchase price exceeds conforming limits — Jumbo required'); }
+    // isJumbo = true only if loan amount (price - down payment) exceeds conforming limit.
+    // If purchase price > limit but down payment covers the gap, it's still conventional.
+    if (isJumbo) {
+      score = 0;
+      reasons.push(`Your loan amount ($${Math.round(loanAmt).toLocaleString()}) exceeds the ${numUnits}-unit conforming limit ($${conformingLim.toLocaleString()}). To use a conventional loan, you would need to put at least ${minDownToConform}% down ($${Math.round(purchasePrice * minDownToConform / 100).toLocaleString()}).`);
+    }
 
     if (score > 0) {
       const minDown = ownerOccupied
@@ -490,11 +508,9 @@ export function runRecommendationEngine(answers, deal) {
       if (!ownerOccupied && minDown == null) {
         score = 0; reasons.push('Conventional investor loans not available for this unit count');
       } else if (!ownerOccupied && downPct < (minDown || 20)) {
-        // Investor: sub-20% is a real program constraint — reduce score significantly
         score = Math.min(score, 2);
         warnings.push(`Investor conventional loans require ${minDown}% down. You indicated ${downPct}% — you could qualify by increasing your down payment or buying at a lower price point.`);
       } else if (ownerOccupied && downPct < (minDown || 5)) {
-        // OO: 5% floor, very achievable — light warning only
         score = Math.min(score, 4);
         warnings.push(`Conventional requires ${minDown}% down minimum for owner-occupied 2-4 units. You're close — this may mean adjusting your target price slightly.`);
       }
@@ -514,9 +530,10 @@ export function runRecommendationEngine(answers, deal) {
     const warnings = [];
     const reasons = [];
 
-    // Hard gates: occupancy, loan limit, credit floor
+    // Hard gates: occupancy, credit floor. Loan limit check is on LOAN AMOUNT.
+    // isFHAJumbo = true only if loan amount exceeds FHA limit after down payment applied.
     if (!ownerOccupied)          { score = 0; reasons.push('FHA requires owner-occupancy'); }
-    else if (isFHAJumbo)         { score = 0; reasons.push('Purchase price exceeds FHA loan limits for this area'); }
+    else if (isFHAJumbo)         { score = 0; reasons.push(`Your loan amount ($${Math.round(loanAmt).toLocaleString()}) exceeds the FHA ${numUnits}-unit limit ($${fhaLim.toLocaleString()}). To use FHA, you would need at least ${minDownToConformFHA}% down ($${Math.round(purchasePrice * minDownToConformFHA / 100).toLocaleString()}).`); }
     else {
       if (creditMidpoint < 580)  { score = 0; reasons.push('FHA requires minimum 580 credit score'); }
       else if (creditMidpoint < 620) {
