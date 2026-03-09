@@ -3,6 +3,7 @@ import { iSty } from './ui/InputRow';
 import { FMT_PCT, FMT_USD } from '../lib/constants';
 import { DEFAULT_PREFS } from '../lib/calc';
 import { useIsMobile } from '../lib/hooks';
+import { floodZoneInfo } from '../lib/floodZone';
 
 function RedFlagsTab({deal,result,onChange,prefs=DEFAULT_PREFS}){
   const [exp,setExp]=useState({});
@@ -13,10 +14,23 @@ function RedFlagsTab({deal,result,onChange,prefs=DEFAULT_PREFS}){
   const dscrFloor = prefs.dscrFloor ?? 1.2;
   const crFloor   = prefs.capRateFloor ?? 0.06;
   const expCeil   = prefs.expRatioCeiling ?? 0.50;
+  // Flood zone flag derived from stored FEMA data
+  const fzi = floodZoneInfo(deal.assumptions?.floodZone);
+  const floodTriggered = fzi && (fzi.risk === 'high' || fzi.risk === 'critical');
+
   const AF=[
     {key:"dscr",label:`DSCR Below ${dscrFloor.toFixed(2)}x`,triggered:dscr!==null&&dscr<dscrFloor,severity:dscr!==null&&dscr<dscrFloor*0.85?"critical":"warning",detail:dscr!==null?`Yr 1 DSCR is ${dscr.toFixed(2)}x — debt service may not be covered by NOI.`:"No data",actual:dscr!==null?`${dscr.toFixed(2)}x`:"—",threshold:`${dscrFloor.toFixed(2)}x`},
     {key:"caprate",label:`Cap Rate Below ${(crFloor*100).toFixed(1)}%`,triggered:cr!==null&&cr<crFloor,severity:cr!==null&&cr<crFloor*0.67?"critical":"warning",detail:cr!==null?`Yr 1 Cap Rate is ${(cr*100).toFixed(2)}% — low return relative to purchase price.`:"No data",actual:cr!==null?`${(cr*100).toFixed(2)}%`:"—",threshold:`${(crFloor*100).toFixed(1)}%`},
     {key:"expratio",label:`Expense Ratio Above ${(expCeil*100).toFixed(0)}%`,triggered:expR!==null&&expR>expCeil,severity:expR!==null&&expR>expCeil*1.3?"critical":"warning",detail:expR!==null?`Yr 1 Expense Ratio is ${(expR*100).toFixed(1)}% — high expenses relative to income.`:"No data",actual:expR!==null?`${(expR*100).toFixed(1)}%`:"—",threshold:`${(expCeil*100).toFixed(0)}%`},
+    ...(fzi ? [{
+      key: "floodzone",
+      label: `FEMA Flood Zone: ${fzi.label}`,
+      triggered: !!floodTriggered,
+      severity: fzi.risk === 'critical' ? 'critical' : 'warning',
+      detail: fzi.desc + (fzi.risk === 'critical' ? ' Consider flood insurance and structural risk.' : ' Verify flood insurance requirements with your lender.'),
+      actual: fzi.label,
+      threshold: 'Zone X (minimal risk)',
+    }] : []),
   ];
   const manual=deal.redFlags?.manual||[];
   const mit=deal.redFlags?.mitigations||{};

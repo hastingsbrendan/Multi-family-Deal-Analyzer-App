@@ -3,6 +3,7 @@ import { FMT_USD, FMT_PCT, mapsUrl, RENTCAST_KEY, sbClient, SB_BUCKET } from '..
 import { resolveExpenses } from '../lib/calc';
 import { useIsMobile } from '../lib/hooks';
 import InputRow, { iSty, btnSm, srcSty, fmtInputDisplay, parseInputValue } from './ui/InputRow';
+import { getFloodZoneForAddress, floodZoneInfo } from '../lib/floodZone';
 import Section from './ui/Section';
 
 function ExpenseInputRow({lbl, modeToggle, isItemPct, rawVal, onChange, mobile}) {
@@ -203,6 +204,18 @@ function PropertyLookupPanel({deal, onChange}) {
     setPreview(null);
     setInput('');
     setOpen(false);
+
+    // Async: fetch FEMA flood zone and update deal
+    const addrForFlood = d.address || preview.parsedAddr;
+    if (addrForFlood) {
+      getFloodZoneForAddress(addrForFlood).then(zone => {
+        if (zone) {
+          const upd2 = JSON.parse(JSON.stringify(d));
+          upd2.assumptions.floodZone = zone;
+          onChange(upd2);
+        }
+      }).catch(() => {/* silent */});
+    }
   };
 
   const pv = preview;
@@ -292,13 +305,23 @@ function PropertyLookupPanel({deal, onChange}) {
           )}
 
           {deal.assumptions.rentcastData && !pv && (
-            <div style={{marginTop:10,fontSize:11,color:'var(--muted)',display:'flex',alignItems:'center',gap:6}}>
+            <div style={{marginTop:10,fontSize:11,color:'var(--muted)',display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
               <span>✅ Last fetched: {deal.assumptions.rentcastData.fetchedAt}</span>
               {deal.assumptions.rentcastData.squareFootage && <span>· {deal.assumptions.rentcastData.squareFootage.toLocaleString()} sq ft</span>}
               {deal.assumptions.rentcastData.yearBuilt && <span>· Built {deal.assumptions.rentcastData.yearBuilt}</span>}
               {deal.assumptions.rentcastData.propertyType && <span>· {deal.assumptions.rentcastData.propertyType}</span>}
             </div>
           )}
+          {deal.assumptions.floodZone && !pv && (() => {
+            const fzi = floodZoneInfo(deal.assumptions.floodZone);
+            if (!fzi) return null;
+            return (
+              <div style={{marginTop:8,display:'inline-flex',alignItems:'center',gap:6,padding:'5px 10px',borderRadius:100,background:fzi.bg,border:`1px solid ${fzi.color}55`,fontSize:11,fontWeight:700,color:fzi.color}}>
+                {fzi.risk==='critical'?'🌊':fzi.risk==='high'?'⚠️':fzi.risk==='low'?'✅':'ℹ️'} FEMA {fzi.label}
+                <span style={{fontWeight:400,color:'var(--muted)',fontSize:10}}>· {fzi.desc}</span>
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>
