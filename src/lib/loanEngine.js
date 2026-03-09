@@ -621,8 +621,8 @@ export function runRecommendationEngine(answers, deal) {
         ? LOAN_CATALOG[LOAN_TYPES.JUMBO].downPaymentOO[unitKey]
         : LOAN_CATALOG[LOAN_TYPES.JUMBO].downPaymentInv?.[unitKey];
       if (downPct < (minDown || 15)) {
-        score = Math.min(score, 2);
-        warnings.push(`Jumbo loans typically require ${minDown}% down for ${numUnits}-unit properties`);
+        score = 0;
+        reasons.push(`Jumbo loans require at least ${minDown}% down for ${numUnits}-unit properties — your preferred down payment of ~${downPct}% falls short. You'd need to put down more or consider a lower purchase price.`);
       }
     }
 
@@ -659,7 +659,7 @@ export function runRecommendationEngine(answers, deal) {
     const minDown = ownerOccupied
       ? LOAN_CATALOG[LOAN_TYPES.HOMESTYLE].downPaymentOO[unitKey]
       : LOAN_CATALOG[LOAN_TYPES.HOMESTYLE].downPaymentInv?.['2unit'];
-    if (downPct < (minDown || 5)) { score = Math.min(score, 2); warnings.push(`Minimum ${minDown}% down required for ${numUnits}-unit HomeStyle`); }
+    if (downPct < (minDown || 5)) { score = 0; reasons.push(`HomeStyle requires at least ${minDown}% down for ${numUnits}-unit properties — your preferred down payment falls short.`); }
 
     scores[LOAN_TYPES.HOMESTYLE] = { score, warnings, reasons };
   }
@@ -711,7 +711,7 @@ export function runRecommendationEngine(answers, deal) {
     else if (creditMidpoint < 680) { score = Math.min(score, 3); warnings.push(LOAN_CATALOG[LOAN_TYPES.DSCR].borderlineWarnings.credit); }
 
     const minDown = LOAN_CATALOG[LOAN_TYPES.DSCR].downPaymentInv?.[unitKey] || 20;
-    if (downPct < minDown) { score = Math.min(score, 2); warnings.push(`DSCR loans require ${minDown}% down for ${numUnits}-unit properties`); }
+    if (downPct < minDown) { score = 0; reasons.push(`DSCR loans require at least ${minDown}% down for ${numUnits}-unit properties — your preferred down payment falls short.`); }
 
     if (dscrRatio !== null && dscrRatio < 1.0) {
       score = Math.min(score, 2);
@@ -738,7 +738,7 @@ export function runRecommendationEngine(answers, deal) {
     else if (creditMidpoint < 680) { score = Math.min(score, 2); warnings.push(LOAN_CATALOG[LOAN_TYPES.BANK_STMT].borderlineWarnings.credit); }
 
     const minDown = LOAN_CATALOG[LOAN_TYPES.BANK_STMT].downPaymentInv?.[unitKey] || 20;
-    if (downPct < minDown) { score = Math.min(score, 1); warnings.push(`Minimum ${minDown}% down required`); }
+    if (downPct < minDown) { score = 0; reasons.push(`Bank statement loans require at least ${minDown}% down — your preferred down payment falls short.`); }
 
     scores[LOAN_TYPES.BANK_STMT] = { score, warnings, reasons };
   }
@@ -754,7 +754,7 @@ export function runRecommendationEngine(answers, deal) {
     if (creditMidpoint < 600) { score = Math.min(score, 1); warnings.push('Some hard money lenders have no credit requirement, but 600+ is standard'); }
 
     const minDown = LOAN_CATALOG[LOAN_TYPES.HARD_MONEY].downPaymentInv?.[unitKey] || 25;
-    if (downPct < minDown) { score = Math.min(score, 2); warnings.push(`Most hard money lenders require ${minDown}%+ down (65–70% LTV max)`); }
+    if (downPct < minDown) { score = 0; reasons.push(`Hard money lenders require at least ${minDown}% down (65–70% LTV max) — your preferred down payment falls short.`); }
 
     if (score > 0) reasons.push('Best for: buy distressed → renovate → refinance into DSCR loan ("BRRRR strategy")');
 
