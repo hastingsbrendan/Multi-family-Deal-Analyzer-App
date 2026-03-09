@@ -16,9 +16,10 @@ const ShowingTab     = React.lazy(() => import('./ShowingTab'));
 const RedFlagsTab    = React.lazy(() => import('./RedFlagsTab'));
 const SensitivityTab = React.lazy(() => import('./SensitivityTab'));
 const MarketTab      = React.lazy(() => import('./MarketTab'));
+const LoanTypeTab    = React.lazy(() => import('./LoanTypeTab'));
 
-const TABS_MOBILE=["Summary","Assumptions","Cash Flow","Comps","Market","Showing","Red Flags","Sensitivity"];
-const TABS_DESK  =["Deal Summary","Assumptions","Cash Flow","Rent Comps","Market","Showing","Red Flags","Sensitivity"];
+const TABS_MOBILE=["Summary","Assumptions","Cash Flow","Comps","Market","Showing","Red Flags","Sensitivity","Loan Type"];
+const TABS_DESK  =["Deal Summary","Assumptions","Cash Flow","Rent Comps","Market","Showing","Red Flags","Sensitivity","Loan Type"];
 
 const TabFallback = () => (
   <div style={{padding:40,textAlign:'center',color:'var(--muted)',fontSize:13}}>Loading…</div>
@@ -85,6 +86,7 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
           <SensitivityTab deal={deal}/>
         </BlurGate>
       )}
+      {tab===8&&<LoanTypeTab deal={deal}/>}
     </Suspense></div>
     {activeGroup && deal._deal_id && (
       <CommentsPanel
