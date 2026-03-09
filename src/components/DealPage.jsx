@@ -15,9 +15,10 @@ const RentCompsTab   = React.lazy(() => import('./RentCompsTab'));
 const ShowingTab     = React.lazy(() => import('./ShowingTab'));
 const RedFlagsTab    = React.lazy(() => import('./RedFlagsTab'));
 const SensitivityTab = React.lazy(() => import('./SensitivityTab'));
+const MarketTab      = React.lazy(() => import('./MarketTab'));
 
-const TABS_MOBILE=["Summary","Assumptions","Cash Flow","Comps","Showing","Red Flags","Sensitivity"];
-const TABS_DESK  =["Deal Summary","Assumptions","Cash Flow","Rent Comps","Showing","Red Flags","Sensitivity"];
+const TABS_MOBILE=["Summary","Assumptions","Cash Flow","Comps","Market","Showing","Red Flags","Sensitivity"];
+const TABS_DESK  =["Deal Summary","Assumptions","Cash Flow","Rent Comps","Market","Showing","Red Flags","Sensitivity"];
 
 const TabFallback = () => (
   <div style={{padding:40,textAlign:'center',color:'var(--muted)',fontSize:13}}>Loading…</div>
@@ -76,9 +77,10 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
           <RentCompsTab deal={deal} onChange={onUpdate}/>
         </BlurGate>
       )}
-      {tab===4&&<ShowingTab deal={deal} onChange={onUpdate}/>}
-      {tab===5&&<RedFlagsTab deal={deal} result={result} onChange={onUpdate} prefs={prefs||DEFAULT_PREFS}/>}
-      {tab===6&&(
+      {tab===4&&<MarketTab deal={deal}/>}
+      {tab===5&&<ShowingTab deal={deal} onChange={onUpdate}/>}
+      {tab===6&&<RedFlagsTab deal={deal} result={result} onChange={onUpdate} prefs={prefs||DEFAULT_PREFS}/>}
+      {tab===7&&(
         <BlurGate feature="sensitivity" userEmail={userEmail}>
           <SensitivityTab deal={deal}/>
         </BlurGate>
