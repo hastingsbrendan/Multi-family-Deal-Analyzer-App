@@ -738,19 +738,30 @@ function LoanTypeTab({ deal }) {
         </div>
 
         {/* Show the deal context pulled */}
-        {deal?.assumptions && quizAnswers && (
-          <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {[
-              { label: deal.assumptions.numUnits + '-unit property', icon: '🏘️' },
-              { label: deal.assumptions.purchasePrice ? '$' + Number(deal.assumptions.purchasePrice).toLocaleString() : null, icon: '💰' },
-              { label: quizAnswers.ownerOccupied ? 'Owner-Occupied' : 'Investor', icon: quizAnswers.ownerOccupied ? '🏠' : '📈' },
-            ].filter(t => t.label).map(tag => (
-              <span key={tag.label} style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 20, padding: '3px 10px', fontWeight: 600 }}>
-                {tag.icon} {tag.label}
-              </span>
-            ))}
-          </div>
-        )}
+        {deal?.assumptions && quizAnswers && (() => {
+          const er = engineResult;
+          return (
+            <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              {[
+                { label: deal.assumptions.numUnits + '-unit property', icon: '🏘️' },
+                { label: deal.assumptions.purchasePrice ? '$' + Number(deal.assumptions.purchasePrice).toLocaleString() : null, icon: '💰' },
+                { label: quizAnswers.ownerOccupied ? 'Owner-Occupied' : 'Investor', icon: quizAnswers.ownerOccupied ? '🏠' : '📈' },
+              ].filter(t => t.label).map(tag => (
+                <span key={tag.label} style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 20, padding: '3px 10px', fontWeight: 600 }}>
+                  {tag.icon} {tag.label}
+                </span>
+              ))}
+              {er?.isHighCostCounty && (
+                <span
+                  title={`Conforming limit: $${er.conformingLim?.toLocaleString()} · FHA limit: $${er.fhaLim?.toLocaleString()}`}
+                  style={{ fontSize: 11, color: 'var(--accent)', background: 'var(--accent-soft)', border: '1px solid var(--accent)', borderRadius: 20, padding: '3px 10px', fontWeight: 700, cursor: 'default' }}
+                >
+                  📍 {er.countyName} Co., {er.countyState} (High-Cost County)
+                </span>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Main content */}

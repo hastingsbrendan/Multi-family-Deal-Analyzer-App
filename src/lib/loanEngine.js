@@ -2,6 +2,8 @@
 // Expert-level loan matching for 2-4 unit multifamily properties.
 // Mirrors the knowledge depth of a licensed loan officer.
 
+import { getLimitsForZip, extractZip, BASELINE_CONFORMING, BASELINE_FHA } from './loanLimits.js';
+
 export const LOAN_TYPES = {
   CONVENTIONAL: 'conventional',
   FHA:          'fha',
@@ -447,25 +449,38 @@ export function runRecommendationEngine(answers, deal) {
 
   const unitKey = `${numUnits}unit`;
 
-  // 2026 baseline conforming loan limits (FHFA, effective Jan 1 2026)
-  // Source: fhfa.gov/news/news-release/fhfa-announces-conforming-loan-limit-values-for-2026
-  // These are the NATIONAL BASELINE limits that apply to ~95% of US counties.
-  // High-cost counties (CA, NY, CO, etc.) have higher limits — see FHFA county table.
-  // Illinois is entirely at baseline; no IL county is high-cost for conforming purposes.
-  const conformingLimits = { '2unit': 1066250, '3unit': 1288800, '4unit': 1601750 };
+  // ── County-aware loan limits ──────────────────────────────────────────────
+  // ZIP is extracted from deal.address and used to look up the correct county
+  // limits for conforming and FHA loans. Falls back to the 2026 national baseline
+  // for counties not in the high-cost set (~95% of US counties).
+  const zip5     = extractZip(deal?.address);
+  const countyLimits = getLimitsForZip(zip5, numUnits);
 
-  // 2026 FHA loan limits for Illinois (HUD Mortgagee Letter 2025-23, eff Jan 1 2026)
-  // IL FHA limits are the national floor — same across all IL counties.
-  // Source: hud.gov/hud-partners/single-family-fha-info
-  const fhaLimits = { '2unit': 693050, '3unit': 837700, '4unit': 1041125 };
+  const conformingLimits = {
+    '2unit': countyLimits.conforming || BASELINE_CONFORMING['2unit'],
+    '3unit': countyLimits.conforming || BASELINE_CONFORMING['3unit'],
+    '4unit': countyLimits.conforming || BASELINE_CONFORMING['4unit'],
+  };
+  // For the specific unit count we actually care about:
+  const conformingLimitActual = countyLimits.conforming;  // already unit-specific
+  const fhaLimitActual        = countyLimits.fha;         // already unit-specific
+  const countyName  = countyLimits.county;
+  const countyState = countyLimits.state;
+  const isHighCostCounty = countyLimits.isHighCost;
+
+  const fhaLimits = {
+    '2unit': getLimitsForZip(zip5, 2).fha,
+    '3unit': getLimitsForZip(zip5, 3).fha,
+    '4unit': getLimitsForZip(zip5, 4).fha,
+  };
 
   // KEY DISTINCTION: Jumbo is determined by LOAN AMOUNT, not purchase price.
   // A $1.4M property with $152K down = $1,248,000 loan = within conforming limit.
   // The buyer simply puts down the difference. isJumbo is only true when the
   // required loan (price minus max available down payment) exceeds the limit.
   const loanAmt       = purchasePrice * (1 - downPct / 100);
-  const conformingLim = conformingLimits[unitKey];
-  const fhaLim        = fhaLimits[unitKey];
+  const conformingLim = conformingLimitActual;   // county-specific or baseline
+  const fhaLim        = fhaLimitActual;          // county-specific or baseline
   const isJumbo       = loanAmt > conformingLim;
   const isFHAJumbo    = loanAmt > fhaLim;
 
@@ -746,7 +761,7 @@ export function runRecommendationEngine(answers, deal) {
 
   const recommended = eligible[0]?.[0] || null;
 
-  return { recommended, scores, dscrRatio, isJumbo };
+  return { recommended, scores, dscrRatio, isJumbo, countyName, countyState, isHighCostCounty, conformingLim, fhaLim };
 }
 
 // ─── Adaptive question flow ───────────────────────────────────────────────────
