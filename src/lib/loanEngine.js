@@ -845,10 +845,15 @@ export const QUESTIONS = {
   },
   downPct: {
     id: 'downPct',
-    text: 'What is the most you could put down?',
-    subtext: "Think of this as your maximum available — not what you have to use. Some loans require minimums, and we'll flag if you're below them.",
-    type: 'dollar',
-    default: null, // computed from purchasePrice * 0.20 at render time
+    text: 'What percentage down would you ideally put down?',
+    subtext: "Think of this as your preference — not what you have to use. Some loans require minimums, and we'll flag if your range is below them.",
+    type: 'choice',
+    options: [
+      { value: 3.5,  label: '3.5%',    icon: '🌱', desc: 'Minimum FHA down payment — lowest entry point' },
+      { value: 7.5,  label: '5–10%',   icon: '🏠', desc: 'Conventional owner-occupied range' },
+      { value: 17.5, label: '15–20%',  icon: '💼', desc: 'Strong conventional position — nearing PMI-free' },
+      { value: 25,   label: '20%+',    icon: '⭐', desc: 'No PMI, opens investor loan options' },
+    ],
   },
   needsRenovation: {
     id: 'needsRenovation',
