@@ -46,7 +46,7 @@ function App() {
   const [portfolioFilter, setPortfolioFilter] = useState("All");
   const isOnline = useOnlineStatus();
 
-  const { deals, setDeals, syncStatus, syncError, lastSyncedAt, forceRefresh, setLastCloudUpdate } = useCloudSync(user, isOnline);
+  const { deals, setDeals, syncStatus, syncError, lastSyncedAt, forceRefresh, setLastCloudUpdate, markDealDirty } = useCloudSync(user, isOnline);
 
   const theme = dark ? "dark" : "light";
 
@@ -105,7 +105,7 @@ function App() {
   }, []);
 
   const addDeal      = () => { const d=newDeal(prefs); setDeals(p=>[...p,d]); setActiveDealId(d.id); };
-  const updateDeal   = useCallback((u) => { setDeals(p=>p.map(d=>d.id===u.id?u:d)); }, []);
+  const updateDeal   = useCallback((u) => { markDealDirty(u.id); setDeals(p=>p.map(d=>d.id===u.id?u:d)); }, [markDealDirty]);
   const deleteDeal   = (id) => setDeals(p=>p.filter(d=>d.id!==id));
   const reorderDeals = useCallback((next) => { setDeals(next); }, []);
   const activeDeal   = (activeGroup ? (groupDeals||[]) : (deals||[])).find(d=>d.id===activeDealId);
