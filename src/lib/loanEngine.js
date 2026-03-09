@@ -461,23 +461,49 @@ export function runRecommendationEngine(answers, deal) {
 
   const scores = {};
 
+  // ─── IMPORTANT: Down payment philosophy ──────────────────────────────────────
+  // Down payment is a PREFERENCE, not an immutable constraint (except VA 0% which
+  // is a feature). A user saying "5% down" doesn't disqualify them from a 20%-down
+  // loan — they could buy a cheaper house, save more, or use gift funds.
+  // Hard disqualifiers are ONLY: wrong occupancy type, credit below program floor,
+  // veteran status, loan limit exceeded, renovation mismatch.
+  // Down payment below program minimum = WARNING + score reduction, never score = 0
+  // (except investor loans where < 20% is a genuine program ineligibility).
+
   // ─── Conventional ────────────────────────────────────────────────────────────
   {
     let score = 5;
     const warnings = [];
     const reasons = [];
 
-    if (creditMidpoint < 620)  { score = 0; }
+    // Hard gates: credit floor, loan limit
+    if (creditMidpoint < 620)  { score = 0; reasons.push('Minimum 620 credit score required for conventional loans'); }
     else if (creditMidpoint < 660) { score = Math.min(score, 3); warnings.push(LOAN_CATALOG[LOAN_TYPES.CONVENTIONAL].borderlineWarnings.credit); }
 
-    const minDown = ownerOccupied
-      ? LOAN_CATALOG[LOAN_TYPES.CONVENTIONAL].downPaymentOO[unitKey]
-      : LOAN_CATALOG[LOAN_TYPES.CONVENTIONAL].downPaymentInv?.[unitKey];
-
-    if (minDown == null && !ownerOccupied) { score = 0; }
-    else if (downPct < (minDown || 5)) { score = 0; reasons.push(`Minimum down payment is ${minDown}% for this loan type`); }
-
     if (isJumbo) { score = 0; reasons.push('Purchase price exceeds conforming limits — Jumbo required'); }
+
+    if (score > 0) {
+      const minDown = ownerOccupied
+        ? LOAN_CATALOG[LOAN_TYPES.CONVENTIONAL].downPaymentOO[unitKey]  // 5% OO
+        : LOAN_CATALOG[LOAN_TYPES.CONVENTIONAL].downPaymentInv?.[unitKey]; // 20-25% investor
+
+      if (!ownerOccupied && minDown == null) {
+        score = 0; reasons.push('Conventional investor loans not available for this unit count');
+      } else if (!ownerOccupied && downPct < (minDown || 20)) {
+        // Investor: sub-20% is a real program constraint — reduce score significantly
+        score = Math.min(score, 2);
+        warnings.push(`Investor conventional loans require ${minDown}% down. You indicated ${downPct}% — you could qualify by increasing your down payment or buying at a lower price point.`);
+      } else if (ownerOccupied && downPct < (minDown || 5)) {
+        // OO: 5% floor, very achievable — light warning only
+        score = Math.min(score, 4);
+        warnings.push(`Conventional requires ${minDown}% down minimum for owner-occupied 2-4 units. You're close — this may mean adjusting your target price slightly.`);
+      }
+
+      // PMI note for OO sub-20%
+      if (ownerOccupied && downPct < 20 && downPct >= (minDown || 5) && score > 0) {
+        warnings.push(`With ${downPct}% down you'll pay PMI until you reach 20% equity — typically $100–$300/month, but it cancels (unlike FHA's permanent MIP).`);
+      }
+    }
 
     scores[LOAN_TYPES.CONVENTIONAL] = { score, warnings, reasons };
   }
@@ -488,22 +514,33 @@ export function runRecommendationEngine(answers, deal) {
     const warnings = [];
     const reasons = [];
 
+    // Hard gates: occupancy, loan limit, credit floor
     if (!ownerOccupied)          { score = 0; reasons.push('FHA requires owner-occupancy'); }
     else if (isFHAJumbo)         { score = 0; reasons.push('Purchase price exceeds FHA loan limits for this area'); }
     else {
-      if (creditMidpoint < 580)  { score = 0; reasons.push('FHA requires minimum 580 credit score (with 3.5% down)'); }
+      if (creditMidpoint < 580)  { score = 0; reasons.push('FHA requires minimum 580 credit score'); }
       else if (creditMidpoint < 620) {
         score = Math.min(score, 3);
-        warnings.push('Credit scores 580–619 require 10% down instead of 3.5%');
-        if (downPct < 10) { score = 0; reasons.push('With credit below 620, FHA requires 10% down'); }
+        warnings.push('Credit scores 580–619 require 10% down instead of 3.5%. Scores below 580 are ineligible.');
+        if (downPct < 10) {
+          score = Math.min(score, 2);
+          warnings.push(`With credit in the 580–619 range, FHA requires 10% down. You indicated ${downPct}% — you'd need to increase your down payment or improve your credit to 620+.`);
+        }
       }
       if (creditMidpoint >= 620 && creditMidpoint < 660) {
         score = Math.min(score, 4);
         warnings.push(LOAN_CATALOG[LOAN_TYPES.FHA].borderlineWarnings.credit);
       }
-
-      // FHA shines for low credit, low down payment
-      if (creditMidpoint < 680 && downPct <= 5) { score = Math.min(score + 1, 5); reasons.push('FHA is optimal for lower credit + low down payment combination'); }
+      // FHA shines for lower credit buyers
+      if (creditMidpoint < 660 && score > 0) {
+        score = Math.min(score + 1, 5);
+        reasons.push('FHA is often the most accessible option for credit scores below 660');
+      }
+      // 3.5% floor — just a note
+      if (downPct < 3.5 && score > 0) {
+        score = Math.min(score, 4);
+        warnings.push('FHA requires a minimum of 3.5% down — one of the lowest available down payment thresholds.');
+      }
     }
 
     scores[LOAN_TYPES.FHA] = { score, warnings, reasons };
@@ -762,8 +799,8 @@ export const QUESTIONS = {
   },
   downPct: {
     id: 'downPct',
-    text: 'How much are you planning to put down?',
-    subtext: 'Enter the percentage of the purchase price. This determines eligibility and PMI requirements.',
+    text: 'What is the most you could put down?',
+    subtext: "Think of this as your maximum available — not what you have to use. Some loans require minimums, and we'll flag if you're below them.",
     type: 'slider',
     min: 0,
     max: 40,

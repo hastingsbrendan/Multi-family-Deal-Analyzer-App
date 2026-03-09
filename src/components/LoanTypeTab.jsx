@@ -126,17 +126,22 @@ function QuestionCard({ question, value, onChange, onNext, onBack, stepIndex, to
           </div>
           {sliderVal < 3 && (
             <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#B45309' }}>
-              ⚠️ 0% down is only available with a VA loan (veterans only)
+              ⚠️ 0% down is only available with a VA loan for eligible veterans — most loans require at least 3.5%
             </div>
           )}
           {sliderVal >= 3 && sliderVal < 5 && (
             <div style={{ background: 'var(--accent-soft)', border: '1px solid rgba(13,148,136,0.25)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: 'var(--accentdk)' }}>
-              ✓ 3.5% minimum for FHA — great for owner-occupied
+              ✓ 3.5% meets the FHA minimum — conventional requires 5% for owner-occupied
+            </div>
+          )}
+          {sliderVal >= 5 && sliderVal < 20 && (
+            <div style={{ background: 'var(--accent-soft)', border: '1px solid rgba(13,148,136,0.25)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: 'var(--accentdk)' }}>
+              ✓ Qualifies for conventional (5%+ OO) and FHA — you'll pay PMI until 20% equity is reached
             </div>
           )}
           {sliderVal >= 20 && (
             <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: 'var(--green)' }}>
-              ✓ 20%+ down avoids PMI on conventional loans
+              ✓ 20%+ avoids PMI on conventional — also opens investor loan options
             </div>
           )}
           <button
