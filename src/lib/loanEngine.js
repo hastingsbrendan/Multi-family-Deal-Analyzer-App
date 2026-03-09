@@ -30,7 +30,7 @@ export const LOAN_CATALOG = {
     downPaymentOO: { '2unit': 5, '3unit': 5, '4unit': 5 },
     downPaymentInv: { '2unit': 20, '3unit': 25, '4unit': 25 },
     maxDTI: 45,
-    loanLimits2026: { standard: { '1unit':806500,'2unit':1032650,'3unit':1248150,'4unit':1551250 } },
+    loanLimits2026: { standard: { '1unit':832750,'2unit':1066250,'3unit':1288800,'4unit':1601750 } },
     mi: 'PMI required if < 20% down; cancellable at 80% LTV',
     rate: 'Best available rate — at-market',
     ratePremium: 0,
@@ -67,7 +67,7 @@ export const LOAN_CATALOG = {
     downPaymentOO: { '2unit': 3.5, '3unit': 3.5, '4unit': 3.5 },
     downPaymentInv: null, // Not available for non-OO investment
     maxDTI: 57,
-    loanLimits2026: { standard: { '1unit':524225,'2unit':671200,'3unit':811150,'4unit':1008300 }, highCost: { '2unit':1548975 } },
+    loanLimits2026: { standard: { '1unit':541287,'2unit':693050,'3unit':837700,'4unit':1041125 }, highCost: { note: 'High-cost ceiling: $1,249,125 (1-unit)' } },
     mi: 'Upfront MIP 1.75% + Annual MIP 0.55–0.85% — does NOT cancel for most borrowers',
     rate: 'Slightly above conventional (0–0.25%)',
     ratePremium: 0.15,
@@ -177,7 +177,7 @@ export const LOAN_CATALOG = {
     downPaymentOO: { '2unit': 3.5, '3unit': 3.5, '4unit': 3.5 },
     downPaymentInv: null,
     maxDTI: 57,
-    loanLimits2026: { standard: { '2unit': 671200, note: 'Based on ARV (after-repair value)' } },
+    loanLimits2026: { standard: { '2unit': 693050, note: 'Based on ARV (after-repair value)' } },
     mi: 'Same as FHA — Upfront 1.75% + permanent annual MIP',
     rate: '0.5–1% above standard FHA',
     ratePremium: 0.75,
@@ -213,7 +213,7 @@ export const LOAN_CATALOG = {
     downPaymentOO: { '2unit': 5, '3unit': 15, '4unit': 15 },
     downPaymentInv: { '2unit': 20, note: '1-unit investment only for investor use' },
     maxDTI: 45,
-    loanLimits2026: { standard: { '2unit': 1032650, '3unit': 1248150, '4unit': 1551250, highCost: 2403100 } },
+    loanLimits2026: { standard: { '2unit': 1066250, '3unit': 1288800, '4unit': 1601750, note: 'Same as conforming limits' } },
     mi: 'PMI if < 20% down; cancellable based on as-completed value',
     rate: 'At-market + 0.125–0.375% premium',
     ratePremium: 0.25,
@@ -447,9 +447,17 @@ export function runRecommendationEngine(answers, deal) {
 
   const unitKey = `${numUnits}unit`;
 
-  // 2026 conforming limits for unit count
-  const conformingLimits = { '2unit': 1032650, '3unit': 1248150, '4unit': 1551250 };
-  const fhaLimits        = { '2unit': 671200, '3unit': 811150, '4unit': 1008300 };
+  // 2026 baseline conforming loan limits (FHFA, effective Jan 1 2026)
+  // Source: fhfa.gov/news/news-release/fhfa-announces-conforming-loan-limit-values-for-2026
+  // These are the NATIONAL BASELINE limits that apply to ~95% of US counties.
+  // High-cost counties (CA, NY, CO, etc.) have higher limits — see FHFA county table.
+  // Illinois is entirely at baseline; no IL county is high-cost for conforming purposes.
+  const conformingLimits = { '2unit': 1066250, '3unit': 1288800, '4unit': 1601750 };
+
+  // 2026 FHA loan limits for Illinois (HUD Mortgagee Letter 2025-23, eff Jan 1 2026)
+  // IL FHA limits are the national floor — same across all IL counties.
+  // Source: hud.gov/hud-partners/single-family-fha-info
+  const fhaLimits = { '2unit': 693050, '3unit': 837700, '4unit': 1041125 };
 
   // KEY DISTINCTION: Jumbo is determined by LOAN AMOUNT, not purchase price.
   // A $1.4M property with $152K down = $1,248,000 loan = within conforming limit.
