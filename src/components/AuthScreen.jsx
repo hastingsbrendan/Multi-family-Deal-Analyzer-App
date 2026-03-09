@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { iSty, btnSm, srcSty } from './ui/InputRow';
 import { sbClient, authSignInWithGoogle, authSignUp, authSignIn, authResetPassword, authUpdatePassword } from '../lib/constants';
 
-function AuthScreen({ onAuth }) {
-  const [mode, setMode] = useState("login"); // login | signup | forgot | verify | reset
+function AuthScreen({ onAuth, initialMode }) {
+  const [mode, setMode] = useState(initialMode || "login"); // login | signup | forgot | verify | reset
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPw, setConfirmPw] = useState("");

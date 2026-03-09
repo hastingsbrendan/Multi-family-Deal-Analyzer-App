@@ -220,13 +220,14 @@ function App() {
     </div>
   );
   if (!user) {
-    // #app hash = user clicked a CTA on the landing page, go straight to auth
-    const wantsApp = window.location.hash === '#app';
+    // #app / #signup hash = user clicked a CTA on the landing page, go straight to auth
+    const wantsSignup = window.location.hash === '#signup';
+    const wantsApp    = window.location.hash === '#app' || wantsSignup;
     if (wantsApp) {
       window.history.replaceState(null, '', window.location.pathname + window.location.search);
       return (
         <div data-theme="dark" style={{minHeight:"100vh"}}>
-          <AuthScreen onAuth={setUser}/>
+          <AuthScreen onAuth={setUser} initialMode={wantsSignup ? "signup" : "login"}/>
         </div>
       );
     }
