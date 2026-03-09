@@ -75,8 +75,8 @@ export function SubscriptionProvider({ children }) {
   }
 
   useEffect(() => {
-    sbClient.auth.getUser().then(({ data: { user } }) => applyUser(user));
-
+    // onAuthStateChange fires INITIAL_SESSION on mount with the current user —
+    // no need for a separate getUser() call which would cause two auth round-trips.
     const { data: { subscription } } = sbClient.auth.onAuthStateChange((_evt, session) => {
       applyUser(session?.user ?? null);
     });

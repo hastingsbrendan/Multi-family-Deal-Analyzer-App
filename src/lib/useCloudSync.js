@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import * as Sentry from '@sentry/react';
 import { loadLocal, saveLocal, sbRead, sbWrite } from './constants';
 
 export function useCloudSync(user, isOnline) {
@@ -13,7 +14,11 @@ export function useCloudSync(user, isOnline) {
   useEffect(() => {
     if (deals === null || !user) return;
     saveLocal(deals, user?.id);
-    if (!isOnline) { setSyncStatus("offline"); return; }
+    if (!isOnline) {
+      setSyncStatus("offline");
+      Sentry.addBreadcrumb({ category: 'sync', message: 'offline — queued', data: { deals: deals.length, online: navigator.onLine }, level: 'warning' });
+      return;
+    }
     clearTimeout(syncTimer.current);
     setSyncStatus("saving");
     syncTimer.current = setTimeout(async () => {
@@ -22,8 +27,13 @@ export function useCloudSync(user, isOnline) {
         setSyncStatus("saved");
         setSyncError("");
         setLastSyncedAt(new Date());
+        Sentry.addBreadcrumb({ category: 'sync', message: 'saved', data: { deals: deals.length }, level: 'info' });
         setTimeout(() => setSyncStatus("idle"), 2000);
-      } catch(e) { setSyncStatus("error"); setSyncError(e.message); }
+      } catch(e) {
+        setSyncStatus("error");
+        setSyncError(e.message);
+        Sentry.addBreadcrumb({ category: 'sync', message: 'save error', data: { error: e.message, deals: deals.length }, level: 'error' });
+      }
     }, 800);
   }, [deals, isOnline]);
 

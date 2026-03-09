@@ -1,5 +1,6 @@
 // ─── Constants, config & formatting helpers ──────────────────────────────────
 import { createClient } from '@supabase/supabase-js';
+import * as Sentry from '@sentry/react';
 
 const STORAGE_KEY = "re_deal_analyzer_v2";
 const SB_URL      = import.meta.env.VITE_SB_URL;
@@ -12,12 +13,32 @@ const sbClient = createClient(SB_URL, SB_ANON_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
 });
 
+// ─── Deal shape validation — logs a Sentry warning for malformed deals ────────
+function validateDealShape(deal, source) {
+  const issues = [];
+  if (!deal?.assumptions)                             issues.push('missing assumptions');
+  if (!Array.isArray(deal?.assumptions?.units))       issues.push('assumptions.units not array');
+  if (!deal?.assumptions?.numUnits)                   issues.push('missing assumptions.numUnits');
+  if (!Array.isArray(deal?.comps))                    issues.push('missing comps array');
+  if (!deal?.showing)                                 issues.push('missing showing');
+  if (issues.length > 0) {
+    const msg = `[RentHack] Malformed deal loaded from ${source}: ${issues.join(', ')}`;
+    console.warn(msg, { deal_id: deal?._deal_id || deal?.id });
+    Sentry.captureMessage(msg, { level: 'warning', extra: { deal_id: deal?._deal_id || deal?.id, issues } });
+  }
+  return issues.length === 0;
+}
+
 // Key local cache by user ID so different users on same device never see each other's data
 const loadLocal = (uid) => {
   try {
     const key = uid ? STORAGE_KEY + "_" + uid : STORAGE_KEY;
     const deals = JSON.parse(localStorage.getItem(key)) || [];
-    return deals.map(d => (!d.numUnits && d.units?.length) ? { ...d, numUnits: d.units.length } : d);
+    return deals.map(d => {
+      if (!d.numUnits && d.units?.length) d = { ...d, numUnits: d.units.length };
+      validateDealShape(d, 'localStorage');
+      return d;
+    });
   } catch { return []; }
 };
 const saveLocal = (d, uid) => {
@@ -33,6 +54,7 @@ const saveLocal = (d, uid) => {
 // Reads all individual deal rows for the current user, sorted by updated_at desc
 // Returns { deals: [...], prefs, updated_at } where updated_at is the most recent
 async function sbRead() {
+  const t0 = Date.now();
   const { data: { user } } = await sbClient.auth.getUser();
   if (!user) throw new Error("Not authenticated");
   const { data, error } = await sbClient
@@ -55,9 +77,15 @@ async function sbRead() {
     const d = { ...row.deal_data, _deal_id: row.deal_id };
     // Backfill numUnits if missing (guards against recovered/migrated deals)
     if (!d.numUnits && d.units?.length) d.numUnits = d.units.length;
+    validateDealShape(d, 'sbRead');
     return d;
   });
   const latestAt = data?.[0]?.updated_at || prefsRow?.updated_at || null;
+  const latency = Date.now() - t0;
+  Sentry.addBreadcrumb({ category: 'db', message: 'sbRead', data: { deals: deals.length, latency, updated_at: latestAt }, level: 'info' });
+  if (deals.length === 0 && data !== null) {
+    Sentry.addBreadcrumb({ category: 'db', message: 'sbRead returned 0 deals — may fall through to local', level: 'warning' });
+  }
   return { data: deals, prefs: prefsRow?.prefs || null, updated_at: latestAt };
 }
 
@@ -77,6 +105,7 @@ async function sbWrite(deals) {
     deal_data: deal,
     updated_at: now,
   }));
+  Sentry.addBreadcrumb({ category: 'db', message: 'sbWrite', data: { deals: rows.length }, level: 'info' });
   const { error } = await sbClient.from("deals")
     .upsert(rows, { onConflict: "deal_id", ignoreDuplicates: false });
   if (error) throw new Error(`Write: ${error.message}`);
@@ -122,7 +151,7 @@ async function sbWritePrefs(prefs) {
   if (updateErr) {
     const { error: insertErr } = await sbClient
       .from("deals")
-      .insert({ user_id: user.id, data: [], prefs, updated_at: new Date().toISOString() });
+      .insert({ user_id: user.id, prefs, updated_at: new Date().toISOString() });
     if (insertErr) throw new Error(`WritePrefs: ${insertErr.message}`);
   }
 }
@@ -180,4 +209,4 @@ const mapsUrl = (addr) => addr ? `https://maps.google.com/?q=${encodeURIComponen
 const GMAPS_KEY    = import.meta.env.VITE_GMAPS_KEY;
 const RENTCAST_KEY = import.meta.env.VITE_RENTCAST_KEY;
 
-export { STORAGE_KEY, GMAPS_KEY, RENTCAST_KEY, SB_URL, SB_ANON_KEY, SB_BUCKET, sbClient, loadLocal, saveLocal, sbRead, sbWrite, sbWriteDeal, sbDeleteDeal, sbWritePrefs, sbUploadPhoto, sbDeletePhoto, authSignInWithGoogle, authSignUp, authSignIn, authSignOut, authResetPassword, authUpdatePassword, authUpdateProfile, authGetSession, STATUS_OPTIONS, STATUS_COLORS, FMT_USD, FMT_PCT, FMT_X, mapsUrl };
+export { STORAGE_KEY, GMAPS_KEY, RENTCAST_KEY, SB_URL, SB_ANON_KEY, SB_BUCKET, sbClient, loadLocal, saveLocal, validateDealShape, sbRead, sbWrite, sbWriteDeal, sbDeleteDeal, sbWritePrefs, sbUploadPhoto, sbDeletePhoto, authSignInWithGoogle, authSignUp, authSignIn, authSignOut, authResetPassword, authUpdatePassword, authUpdateProfile, authGetSession, STATUS_OPTIONS, STATUS_COLORS, FMT_USD, FMT_PCT, FMT_X, mapsUrl };
