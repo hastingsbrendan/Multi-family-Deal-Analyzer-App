@@ -132,7 +132,7 @@ const authSignInWithGoogle = () => sbClient.auth.signInWithOAuth({
   provider: "google",
   options: { redirectTo: window.location.origin + window.location.pathname }
 });
-const authSignUp          = (email, pw)  => sbClient.auth.signUp({ email, password: pw, options: { emailRedirectTo: window.location.origin } });
+const authSignUp          = (email, pw)  => sbClient.auth.signUp({ email, password: pw, options: { emailRedirectTo: window.location.origin + '/confirm.html' } });
 const authSignIn          = (email, pw)  => sbClient.auth.signInWithPassword({ email, password: pw });
 const authSignOut         = ()           => sbClient.auth.signOut();
 const authResetPassword   = (email)      => sbClient.auth.resetPasswordForEmail(email, {
