@@ -207,7 +207,7 @@ async function sbDeletePhoto(url) {
 // ─── CONSTANTS & HELPERS ──────────────────────────────────────────────────────
 const STATUS_OPTIONS = ["Analyzing","Under Contract","Owned","Pass"];
 const STATUS_COLORS  = { Analyzing:"#f59e0b", "Under Contract":"#3b82f6", Owned:"#10b981", Pass:"#ef4444" };
-const FMT_USD = (v) => v == null || isNaN(v) ? "—" : "$" + Math.round(v).toLocaleString();
+const FMT_USD = (v) => v == null || isNaN(v) ? "—" : v < 0 ? "($" + Math.round(Math.abs(v)).toLocaleString() + ")" : "$" + Math.round(v).toLocaleString();
 const FMT_PCT = (v) => v == null || isNaN(v) ? "—" : (v * 100).toFixed(2) + "%";
 const FMT_X   = (v) => v == null || isNaN(v) ? "—" : v.toFixed(2) + "x";
 const mapsUrl = (addr) => addr ? `https://maps.google.com/?q=${encodeURIComponent(addr)}` : null;

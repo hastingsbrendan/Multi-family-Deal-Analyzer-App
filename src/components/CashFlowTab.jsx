@@ -36,7 +36,7 @@ function CashFlowTab({result,deal}){
           {oo&&(<tr><td style={{...tdL(false,true,"#f59e0b"),userSelect:"none"}}>↳ − Unit {(result.ooUnit||0)+1} Rent (Yr 1–{result.ooYears})</td>{result.years.map(y=>(<td key={y.yr} style={{...tdR(!!y.ooRentDeduction,null),color:y.ooRentDeduction>0?"#f59e0b":"var(--muted)"}}>{y.ooRentDeduction>0?`(${FMT_USD(y.ooRentDeduction)})`:"—"}</td>))}</tr>)}
 
           {/* Vacancy — applied to tenant-only rent */}
-          <R label="Vacancy Loss" color="red"><Yr color="red">{y=>FMT_USD(y.vacancyLoss)}</Yr></R>
+          <R label="Vacancy Loss (tenant units)" color="red"><Yr color="red">{y=>FMT_USD(y.vacancyLoss)}</Yr></R>
 
           {/* EGI */}
           <R label="EGI" bold><Yr bold>{y=>FMT_USD(y.egi)}</Yr></R>
@@ -69,7 +69,7 @@ function CashFlowTab({result,deal}){
           <R label="Cash Flow" bold color="accent"><Yr bold color="accent">{y=>FMT_USD(y.cashFlow)}</Yr></R>
 
           {/* Monthly Net */}
-          <tr><td style={{...tdL(false,true),color:"var(--accent2)",fontStyle:"italic"}}>↳ Monthly Net</td>{result.years.map(y=>{const mc=y.monthlyCashFlow;return(<td key={y.yr} style={{...tdR(true,null),color:mc>=0?"var(--accent2)":"#ef4444",fontStyle:"italic"}}>{mc>=0?FMT_USD(mc):`(${FMT_USD(Math.abs(mc))})`}</td>);})}</tr>
+          <tr><td style={{...tdL(false,true),color:"var(--accent2)",fontStyle:"italic"}}>↳ Monthly Net</td>{result.years.map(y=>{const mc=y.monthlyCashFlow;return(<td key={y.yr} style={{...tdR(true,null),color:mc>=0?"var(--accent2)":"#ef4444",fontStyle:"italic"}}>{FMT_USD(mc)}</td>);})}</tr>
 
           {/* Alt Rent — muted, informational, only during OO years */}
           {oo&&altRent>0&&(<tr><td style={{...tdL(false,false),color:"var(--muted)"}}>Alt. Rent (if renting)</td>{result.years.map(y=>(<td key={y.yr} style={{...tdR(false,null),color:"var(--muted)",fontStyle:"italic"}}>{y.ooRentDeduction>0?`(${FMT_USD(altRent)}/mo)`:"—"}</td>))}</tr>)}
@@ -149,7 +149,7 @@ function CashFlowTab({result,deal}){
 
           {/* Federal Tax / Benefit */}
           <tr><td style={tdL(true,false)}>Federal Tax / (Benefit)</td>
-            {result.years.map(y=>{const te=result.taxAdvEnabled?y.taxEffectAdv:y.taxEffect;return(<td key={y.yr} style={{...tdR(true,null),color:te<0?"#10b981":"#ef4444"}}>{te<0?`(${FMT_USD(Math.abs(te))})`:FMT_USD(te)}</td>);})}
+            {result.years.map(y=>{const te=result.taxAdvEnabled?y.taxEffectAdv:y.taxEffect;return(<td key={y.yr} style={{...tdR(true,null),color:te<0?"#10b981":"#ef4444"}}>{FMT_USD(te)}</td>);})}
           </tr>
           {/* Carryforward tax benefit sub-row — shows the tax saved by CF absorption this year */}
           {result.taxAdvEnabled&&result.years.some(y=>y.taxBenefitFromCF>0)&&(

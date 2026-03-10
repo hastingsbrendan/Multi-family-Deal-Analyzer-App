@@ -193,8 +193,8 @@ function DealSummaryTab({deal, result, onUpdate}) {
             </div>
             {[
               ["Tenant EGI (ex. your unit)", FMT_USD(egiExOO)+"/mo"],
-              ["Expenses", "−"+FMT_USD(result.baseExpenses/12)],
-              ["Debt Service", "−"+FMT_USD(result.annualDebtService/12)],
+              ["Expenses", FMT_USD(-result.baseExpenses/12)],
+              ["Debt Service", FMT_USD(-result.annualDebtService/12)],
             ].map(([l,v])=>(
               <div key={l} style={{display:"flex",justifyContent:"space-between",fontFamily:"system-ui",fontSize:11,marginBottom:3}}>
                 <span style={{color:"var(--muted)"}}>{l}</span>
@@ -261,8 +261,8 @@ function DealSummaryTab({deal, result, onUpdate}) {
           <div style={{fontSize:10,fontWeight:700,fontFamily:"system-ui",color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>Breakdown</div>
           {[
             ["EGI (all units)", FMT_USD(result.years[0]?.egi/12||0)],
-            ["Expenses", "−"+FMT_USD(result.baseExpenses/12)],
-            ["Debt Service", "−"+FMT_USD(result.annualDebtService/12)],
+            ["Expenses", FMT_USD(-result.baseExpenses/12)],
+            ["Debt Service", FMT_USD(-result.annualDebtService/12)],
           ].map(([l,v])=>(
             <div key={l} style={{display:"flex",justifyContent:"space-between",fontFamily:"system-ui",fontSize:11,marginBottom:3}}>
               <span style={{color:"var(--muted)"}}>{l}</span>
@@ -296,13 +296,13 @@ function DealSummaryTab({deal, result, onUpdate}) {
           <SLbl>Exit (Year 10)</SLbl>
           {/* Gross proceeds waterfall */}
           <KV label="Exit Value" value={FMT_USD(result.exitValue)}/>
-          <KV label="− Loan Payoff" value={"("+FMT_USD(result.exitLoanBalance)+")"} color="var(--red)"/>
+          <KV label="− Loan Payoff" value={FMT_USD(-result.exitLoanBalance)} color="var(--red)"/>
           <KV label="= Gross Proceeds" value={FMT_USD(result.exitValue-result.exitLoanBalance)} bold/>
           {/* Tax stack */}
           <div style={{marginTop:6,marginBottom:2,fontSize:9,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:"var(--muted)",fontFamily:"system-ui"}}>Tax on Sale</div>
           <KV label="Total Gain" value={FMT_USD(result.totalGainOnSale)}/>
-          <KV label="§1250 Recapture (25%)" value={"("+FMT_USD(result.recaptureTax)+")"} color="var(--red)"/>
-          <KV label="LTCG (15%)" value={"("+FMT_USD(result.ltcgTax)+")"} color="var(--red)"/>
+          <KV label="§1250 Recapture (25%)" value={FMT_USD(-result.recaptureTax)} color="var(--red)"/>
+          <KV label="LTCG (15%)" value={FMT_USD(-result.ltcgTax)} color="var(--red)"/>
           {/* PAL carryforward benefit — deferred tax asset, not cash */}
           {result.taxAdvEnabled&&result.palTaxBenefit>0&&(
             <div style={{background:"rgba(245,158,11,0.07)",border:"1px solid rgba(245,158,11,0.25)",borderRadius:6,padding:"5px 8px",margin:"4px 0"}}>
@@ -315,7 +315,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
               </div>
             </div>
           )}
-          <KV label="Net Tax on Sale" value={"("+FMT_USD(result.netTaxOnSale)+")"} color="var(--red)" bold/>
+          <KV label="Net Tax on Sale" value={FMT_USD(-result.netTaxOnSale)} color="var(--red)" bold/>
           <div style={{height:1,background:"var(--border)",margin:"6px 0"}}/>
           <KV label="Net Proceeds" value={FMT_USD(result.netProceeds)} color="var(--accent)" bold last/>
           {!result.taxAdvEnabled&&result.finalPalCarryforward>0&&(
@@ -360,7 +360,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
             <KV key={i} label={"Unit "+(i+1)+(result.ooEnabled&&i===result.ooUnit?" 🏠":"")} value={FMT_USD(+(u.rent||u.listedRent)||0)+"/mo"} color={result.ooEnabled&&i===result.ooUnit?"var(--muted)":"var(--text)"}/>
           ))}
           <KV label="Gross Rent" value={FMT_USD(result.grossRentYear0/12)+"/mo"}/>
-          <KV label={"Vacancy ("+((+a.vacancyRate)||0)+"%)"} value={"−"+FMT_USD(result.grossRentYear0/12*(+a.vacancyRate||0)/100)+"/mo"} color="#dc2626"/>
+          <KV label={"Vacancy ("+((+a.vacancyRate)||0)+"%)"} value={FMT_USD(-result.grossRentYear0/12*(+a.vacancyRate||0)/100)+"/mo"} color="#dc2626"/>
           <KV label="EGI (All Units)" value={FMT_USD(result.years[0]?.egi/12||0)+"/mo"} color="var(--accent)" bold/>
           {result.ooEnabled&&<KV label="EGI (Tenant Only)" value={FMT_USD(egiExOO)+"/mo"} color="var(--accent)" bold/>}
           <KV label="NOI Year 1" value={FMT_USD(result.noi)+"/yr"} color="var(--accent)" last/>
