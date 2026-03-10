@@ -40,6 +40,7 @@ function MarketTab({deal}){
   const [loading,setLoading]=useState(false);
   const [error,setError]=useState(null);
   const [lastZip,setLastZip]=useState(null);
+  const [saleFilter,setSaleFilter]=useState('mf'); // 'mf' | 'all'
   const [fredData,setFredData]=useState(null);
   const [fredLoading,setFredLoading]=useState(false);
 
@@ -99,6 +100,9 @@ function MarketTab({deal}){
   // RentCast property type strings: 'Single Family', 'Multi Family', 'Condo', 'Townhouse', etc.
   const MF_TYPES=['Multi-Family','Duplex','Triplex','Quadruplex'];
   const sdMF=sd?.dataByPropertyType?.find(t=>MF_TYPES.includes(t.propertyType))||null;
+  // active sale data: MF-filtered or all-types, based on toggle (fall back to all if no MF data)
+  const sdActive=(saleFilter==='mf'&&sdMF)?sdMF:sd;
+  const sdIsMF=(saleFilter==='mf'&&!!sdMF);
   // Multi-family sale trend from history — filter history dataByPropertyType if available
   const saleTrendMF=sd?.history
     ?Object.entries(sd.history).sort(([a],[b])=>a.localeCompare(b)).slice(-12).map(([month,d])=>{
@@ -150,7 +154,7 @@ function MarketTab({deal}){
       {/* KPI STRIP */}
       <div style={{display:'flex',gap:12,marginBottom:20,flexWrap:'wrap'}}>
         {rd?.averageRent>0&&<MetricCard label="Avg Market Rent" value={FMT_USD(rd.averageRent)} sub={`Median ${FMT_USD(rd.medianRent)}`} highlight/>}
-        {sd?.averagePrice>0&&<MetricCard label={sdMF?"Avg MF Sale Price":"Avg Sale Price"} value={fmtK(sdMF?.averagePrice||sd.averagePrice)} sub={sdMF?`Median ${fmtK(sdMF.medianPrice||0)} · MF only`:`Median ${fmtK(sd.medianPrice)}`}/>}
+        {sd?.averagePrice>0&&<MetricCard label={sdIsMF?"Avg MF Sale Price":"Avg Sale Price"} value={fmtK(sdActive?.averagePrice||sd.averagePrice)} sub={sdIsMF?`Median ${fmtK(sdActive.medianPrice||0)} · MF only`:`Median ${fmtK(sd.medianPrice)}`}/>}
         {income>0&&<MetricCard label="Median HH Income" value={FMT_USD(income)} sub="Census ACS 2023"/>}
         {renterPct!==null&&<MetricCard label="Renter Occupied" value={`${renterPct.toFixed(0)}%`} sub="of occupied units"/>}
         {currentRate&&<MetricCard label="30-Yr Mortgage" value={`${currentRate.toFixed(2)}%`} sub={rateDelta?`${+rateDelta>0?'+':''}${rateDelta}% vs 1yr ago`:'FRED'}/>}
@@ -170,39 +174,43 @@ function MarketTab({deal}){
           </Section>
         )}
 
-        {/* SALE MARKET — multi-family filtered when available */}
+        {/* SALE MARKET — toggle between MF-only and all property types */}
         {sd&&(
           <Section>
-            <SectionHeader
-              title="🏷️ Sale Market"
-              subtitle={sdMF?`Multi-family listings · Rentcast`:`Active sale listings (all types) · Rentcast`}
-            />
-            {sdMF?(
-              <>
-                {sdMF.averagePrice>0&&<StatRow label="Average Price" value={fmtK(sdMF.averagePrice)} accent/>}
-                {sdMF.medianPrice>0&&<StatRow label="Median Price" value={fmtK(sdMF.medianPrice)}/>}
-                {sdMF.averagePricePerSqFt>0&&<StatRow label="Avg Price / Sq Ft" value={`$${Math.round(sdMF.averagePricePerSqFt)}`}/>}
-                {sdMF.averageDaysOnMarket>0&&<StatRow label="Avg Days on Market" value={`${Math.round(sdMF.averageDaysOnMarket)} days`}/>}
-                {sdMF.totalListings>0&&<StatRow label="Active MF Listings" value={sdMF.totalListings.toLocaleString()}/>}
-                <div style={{height:1,background:'var(--border)',margin:'10px 0'}}/>
-                <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:6}}>All Property Types (Reference)</div>
-                {sd.averagePrice>0&&<StatRow label="Avg Price (All)" value={fmtK(sd.averagePrice)}/>}
-                {sd.medianPrice>0&&<StatRow label="Median Price (All)" value={fmtK(sd.medianPrice)}/>}
-                {sd.totalListings>0&&<StatRow label="Total Listings" value={sd.totalListings.toLocaleString()}/>}
-              </>
-            ):(
-              <>
-                <div style={{fontSize:11,color:'var(--accent2)',fontStyle:'italic',marginBottom:10,padding:'6px 8px',background:'rgba(217,119,6,0.07)',borderRadius:6}}>
-                  ⚠ No multi-family listings found in this ZIP — showing all property types.
+            {/* Header row with toggle */}
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16}}>
+              <div>
+                <div style={{fontSize:13,fontWeight:800,color:'var(--text)',letterSpacing:'-0.2px',fontFamily:"'Fraunces',serif"}}>🏷️ Sale Market</div>
+                <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>
+                  {sdIsMF?`${sdActive.totalListings||0} multi-family listings · Rentcast`:`${sd.totalListings||0} listings (all types) · Rentcast`}
                 </div>
-                {sd.averagePrice>0&&<StatRow label="Average Price" value={fmtK(sd.averagePrice)}/>}
-                {sd.medianPrice>0&&<StatRow label="Median Price" value={fmtK(sd.medianPrice)}/>}
-                {sd.averagePricePerSqFt>0&&<StatRow label="Avg Price / Sq Ft" value={`$${Math.round(sd.averagePricePerSqFt)}`}/>}
-                {sd.averageDaysOnMarket>0&&<StatRow label="Avg Days on Market" value={`${Math.round(sd.averageDaysOnMarket)} days`}/>}
-                {sd.totalListings>0&&<StatRow label="Active Listings" value={sd.totalListings.toLocaleString()}/>}
-                {sd.newListings>0&&<StatRow label="New This Month" value={sd.newListings.toLocaleString()}/>}
-              </>
+              </div>
+              {/* MF / All toggle pill */}
+              {sdMF&&(
+                <div style={{display:'flex',background:'var(--bg2)',borderRadius:100,padding:2,gap:0,border:'1px solid var(--border)',flexShrink:0}}>
+                  {[['mf','Multi-Family'],['all','All Types']].map(([val,label])=>(
+                    <button key={val} onClick={()=>setSaleFilter(val)} style={{
+                      padding:'4px 11px',fontSize:11,fontWeight:700,borderRadius:100,border:'none',cursor:'pointer',
+                      fontFamily:'inherit',transition:'all 0.15s',whiteSpace:'nowrap',
+                      background:saleFilter===val?'var(--accent)':'transparent',
+                      color:saleFilter===val?'#fff':'var(--muted)'
+                    }}>{label}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* Stats */}
+            {!sdMF&&saleFilter==='mf'&&(
+              <div style={{fontSize:11,color:'var(--accent2)',fontStyle:'italic',marginBottom:10,padding:'6px 8px',background:'rgba(217,119,6,0.07)',borderRadius:6}}>
+                ⚠ No multi-family listings in this ZIP — showing all property types.
+              </div>
             )}
+            {sdActive.averagePrice>0&&<StatRow label="Average Price" value={fmtK(sdActive.averagePrice)} accent/>}
+            {sdActive.medianPrice>0&&<StatRow label="Median Price" value={fmtK(sdActive.medianPrice)}/>}
+            {sdActive.averagePricePerSqFt>0&&<StatRow label="Avg Price / Sq Ft" value={`$${Math.round(sdActive.averagePricePerSqFt)}`}/>}
+            {sdActive.averageDaysOnMarket>0&&<StatRow label="Avg Days on Market" value={`${Math.round(sdActive.averageDaysOnMarket)} days`}/>}
+            {sdActive.totalListings>0&&<StatRow label="Active Listings" value={sdActive.totalListings.toLocaleString()}/>}
+            {!sdIsMF&&sd.newListings>0&&<StatRow label="New This Month" value={sd.newListings.toLocaleString()}/>}
           </Section>
         )}
 
@@ -248,10 +256,10 @@ function MarketTab({deal}){
       )}
 
       {/* SALE TREND CHART */}
-      {(saleTrendMF.length>2?saleTrendMF:saleTrend).length>2&&(
+      {((saleFilter==='mf'&&saleTrendMF.length>2)?saleTrendMF:saleTrend).length>2&&(
         <Section style={{marginTop:16}}>
-          <SectionHeader title="📈 Sale Price Trend (12 months)" subtitle={saleTrendMF.length>2?`ZIP ${zip} · Multi-family only · Rentcast`:`ZIP ${zip} · All property types · Rentcast`}/>
-          <ResponsiveContainer width="100%" height={200}><LineChart data={saleTrendMF.length>2?saleTrendMF:saleTrend} margin={{top:4,right:16,left:0,bottom:4}}><CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/><XAxis dataKey="month" tick={{fontSize:10,fill:'var(--muted)'}} tickFormatter={v=>v.slice(5)}/><YAxis tick={{fontSize:10,fill:'var(--muted)'}} tickFormatter={v=>`$${(v/1000).toFixed(0)}k`} width={52}/><Tooltip content={<ChartTooltip formatter={v=>`$${(v/1000).toFixed(0)}k`}/>}/><Line type="monotone" dataKey="avg" stroke="var(--accent)" strokeWidth={2} dot={false} name="Avg Price"/><Line type="monotone" dataKey="median" stroke="var(--accent2)" strokeWidth={2} dot={false} name="Median Price" strokeDasharray="4 2"/></LineChart></ResponsiveContainer>
+          <SectionHeader title="📈 Sale Price Trend (12 months)" subtitle={(saleFilter==='mf'&&saleTrendMF.length>2)?`ZIP ${zip} · Multi-family only · Rentcast`:`ZIP ${zip} · All property types · Rentcast`}/>
+          <ResponsiveContainer width="100%" height={200}><LineChart data={(saleFilter==='mf'&&saleTrendMF.length>2)?saleTrendMF:saleTrend} margin={{top:4,right:16,left:0,bottom:4}}><CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/><XAxis dataKey="month" tick={{fontSize:10,fill:'var(--muted)'}} tickFormatter={v=>v.slice(5)}/><YAxis tick={{fontSize:10,fill:'var(--muted)'}} tickFormatter={v=>`$${(v/1000).toFixed(0)}k`} width={52}/><Tooltip content={<ChartTooltip formatter={v=>`$${(v/1000).toFixed(0)}k`}/>}/><Line type="monotone" dataKey="avg" stroke="var(--accent)" strokeWidth={2} dot={false} name="Avg Price"/><Line type="monotone" dataKey="median" stroke="var(--accent2)" strokeWidth={2} dot={false} name="Median Price" strokeDasharray="4 2"/></LineChart></ResponsiveContainer>
           <div style={{display:'flex',gap:16,justifyContent:'center',marginTop:8}}><div style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'var(--muted)'}}><div style={{width:24,height:2,background:'var(--accent)',borderRadius:2}}/> Avg Price</div><div style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'var(--muted)'}}><div style={{width:24,height:2,background:'var(--accent2)',borderRadius:2}}/> Median Price</div></div>
         </Section>
       )}
