@@ -151,6 +151,17 @@ function CashFlowTab({result,deal}){
           <tr><td style={tdL(true,false)}>Federal Tax / (Benefit)</td>
             {result.years.map(y=>{const te=result.taxAdvEnabled?y.taxEffectAdv:y.taxEffect;return(<td key={y.yr} style={{...tdR(true,null),color:te<0?"#10b981":"#ef4444"}}>{te<0?`(${FMT_USD(Math.abs(te))})`:FMT_USD(te)}</td>);})}
           </tr>
+          {/* Carryforward tax benefit sub-row — shows the tax saved by CF absorption this year */}
+          {result.taxAdvEnabled&&result.years.some(y=>y.taxBenefitFromCF>0)&&(
+            <tr>
+              <td style={{...tdL(false,true),color:"#10b981"}}>↳ CF Saves (This Yr)</td>
+              {result.years.map(y=>(
+                <td key={y.yr} style={{...tdR(false,null),color:y.taxBenefitFromCF>0?"#10b981":"var(--muted)"}}>
+                  {y.taxBenefitFromCF>0?`(${FMT_USD(y.taxBenefitFromCF)})`:"—"}
+                </td>
+              ))}
+            </tr>
+          )}
           <R label="After-Tax CF" bold color="accent"><Yr bold color="accent">{y=>FMT_USD(result.taxAdvEnabled?y.afterTaxCFAdv:y.afterTaxCashFlow)}</Yr></R>
 
           {/* ── PAL Carryforward Balance — collapsible row after After-Tax CF ────────────
