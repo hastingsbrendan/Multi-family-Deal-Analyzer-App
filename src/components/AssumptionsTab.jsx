@@ -452,6 +452,18 @@ function AssumptionsTab({deal,onChange}){
                 onChange={e=>upd("expectedCloseDate",e.target.value)}
                 style={{...{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"},colorScheme:"light dark"}}/>
             </div>
+            {/* Showing Date & Time */}
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Showing Date & Time</div>
+              <div style={{display:"flex",gap:8}}>
+                <input type="date" value={deal.showingDate||""}
+                  onChange={e=>{const d=JSON.parse(JSON.stringify(deal));d.showingDate=e.target.value;onChange(d);}}
+                  style={{...{flex:1,padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"},colorScheme:"light dark"}}/>
+                <input type="time" value={deal.showingTime||""}
+                  onChange={e=>{const d=JSON.parse(JSON.stringify(deal));d.showingTime=e.target.value;onChange(d);}}
+                  style={{...{width:110,padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"},colorScheme:"light dark"}}/>
+              </div>
+            </div>
             {/* Year Built — bottom right */}
             <div style={{marginBottom:10}}>
               <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Year Built</div>

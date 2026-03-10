@@ -84,20 +84,11 @@ function DealSummaryTab({deal, result, onUpdate}) {
     <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:"10px 14px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
       <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
         <span style={{fontSize:11,fontWeight:700,background:"rgba(13,148,136,0.1)",color:"var(--accent)",borderRadius:6,padding:"3px 9px",fontFamily:"system-ui"}}>{numUnits} units</span>
-        {yearBuilt!=="—"&&<span style={{fontSize:11,fontWeight:700,background:"rgba(13,148,136,0.1)",color:"var(--accent)",borderRadius:6,padding:"3px 9px",fontFamily:"system-ui"}}>{yearBuilt} built</span>}
         {sqft!=="—"&&<span style={{fontSize:11,fontWeight:700,background:"rgba(13,148,136,0.1)",color:"var(--accent)",borderRadius:6,padding:"3px 9px",fontFamily:"system-ui"}}>{typeof sqft==="number"?sqft.toLocaleString():sqft} sqft</span>}
         {result.ooEnabled&&<span style={{fontSize:11,fontWeight:700,background:"rgba(124,58,237,0.1)",color:"#7c3aed",borderRadius:6,padding:"3px 9px",fontFamily:"system-ui"}}>Owner-Occupied Yr 1–{result.ooYears}</span>}
       </div>
       <div style={{display:"flex",gap:14,alignItems:"center",flexWrap:"wrap"}}>
         {deal.showingDate&&<span style={{fontSize:11,color:"var(--muted)",fontFamily:"system-ui"}}>📅 Showing: <strong style={{color:"var(--text)"}}>{new Date(deal.showingDate+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}{deal.showingTime?" @ "+deal.showingTime:""}</strong></span>}
-        {!deal.showingDate&&<div style={{display:"flex",gap:8}}>
-          <div style={{fontFamily:"system-ui",fontSize:11,color:"var(--muted)"}}>📅 Showing: <input type="date" value={deal.showingDate||""} onChange={e=>onUpdate({...deal,showingDate:e.target.value})} style={{border:"none",background:"transparent",fontSize:11,color:"var(--text)",fontWeight:700,cursor:"pointer",outline:"none"}}/></div>
-          <input type="time" value={deal.showingTime||""} onChange={e=>onUpdate({...deal,showingTime:e.target.value})} style={{border:"none",background:"transparent",fontSize:11,color:"var(--text)",fontWeight:700,cursor:"pointer",outline:"none",fontFamily:"system-ui"}}/>
-        </div>}
-        {deal.showingDate&&<div style={{display:"flex",gap:6,alignItems:"center"}}>
-          <input type="date" value={deal.showingDate||""} onChange={e=>onUpdate({...deal,showingDate:e.target.value})} style={{border:"1px solid var(--border)",background:"var(--input-bg)",borderRadius:6,fontSize:11,color:"var(--text)",padding:"2px 6px",cursor:"pointer",outline:"none",fontFamily:"system-ui"}}/>
-          <input type="time" value={deal.showingTime||""} onChange={e=>onUpdate({...deal,showingTime:e.target.value})} style={{border:"1px solid var(--border)",background:"var(--input-bg)",borderRadius:6,fontSize:11,color:"var(--text)",padding:"2px 6px",cursor:"pointer",outline:"none",fontFamily:"system-ui"}}/>
-        </div>}
       </div>
     </div>
 
