@@ -124,13 +124,13 @@ function CashFlowTab({result,deal}){
               {/* Step 1: Gross taxable income before carryforward offset */}
               <R label="= Taxable Income (Gross)" bold><Yr bold>{y=>FMT_USD(y.taxableIncomeAdv)}</Yr></R>
 
-              {/* Step 2: Carryforward Applied — always visible when there is any CF activity.
-                   Shows "—" in years where no prior losses offset income; teal when active.
-                   This line makes the Gross → Eff. derivation explicit and auditable. */}
+              {/* Step 2: Carryforward Applied — styled like Mortgage Interest (top-level deduction row).
+                   No indent, no arrow, "−" prefix in label. Red value when active, muted dash when not.
+                   Makes the Gross → Eff. derivation explicit and auditable. */}
               {hasCF&&(
                 <tr>
-                  <td style={{...tdL(false,true),color:"var(--accent)"}}>↳ − Carryforward Applied</td>
-                  {result.years.map(y=><td key={y.yr} style={{...tdR(false,null),color:y.carryforwardUsedThisYr>0?"var(--accent)":"var(--muted)"}}>
+                  <td style={tdL(false,false)}>− Carryforward Applied</td>
+                  {result.years.map(y=><td key={y.yr} style={tdR(false,y.carryforwardUsedThisYr>0?"red":null)}>
                     {y.carryforwardUsedThisYr>0?`(${FMT_USD(y.carryforwardUsedThisYr)})`:"—"}
                   </td>)}
                 </tr>
