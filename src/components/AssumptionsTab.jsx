@@ -832,6 +832,123 @@ function AssumptionsTab({deal,onChange}){
     <Section title="Value Add" action={<label style={{fontSize:12,color:"var(--muted)",display:"flex",gap:8,alignItems:"center",cursor:"pointer"}}><input type="checkbox" checked={!!(a.valueAdd?.enabled)} onChange={e=>upd("valueAdd.enabled",e.target.checked)}/> Enable</label>}>
       {a.valueAdd?.enabled?<><InputRow label="Total Remodel Cost" value={a.valueAdd.reModelCost} onChange={v=>upd("valueAdd.reModelCost",v)} prefix="$"/><InputRow label="Rent Bump / Unit / Mo" value={a.valueAdd.rentBumpPerUnit} onChange={v=>upd("valueAdd.rentBumpPerUnit",v)} prefix="$"/><InputRow label="Units Renovated" value={a.valueAdd.unitsRenovated} onChange={v=>upd("valueAdd.unitsRenovated",Math.min(+v,a.numUnits))} suffix={"of "+a.numUnits}/><InputRow label="Completion Year" value={a.valueAdd.completionYear} onChange={v=>upd("valueAdd.completionYear",v)} suffix="yr"/><div style={{fontSize:12,color:"var(--muted)",padding:"6px 0",borderTop:"1px solid var(--border-faint)",marginTop:4}}>Annual rent lift: <strong style={{color:"var(--text)"}}>{FMT_USD((+a.valueAdd.rentBumpPerUnit||0)*Math.min(+a.valueAdd.unitsRenovated||0,a.numUnits)*12)}</strong> · Value implied via NOI/cap rate from Year {a.valueAdd.completionYear}</div></>:<div style={{fontSize:13,color:"var(--muted)",padding:"8px 0"}}>Enable to model remodeling costs and post-renovation rent uplift.</div>}
     </Section>
+    {(()=>{
+      const [taxOpen, setTaxOpen] = React.useState(false);
+      const tax = a.tax || {};
+      const taxEnabled = !!tax.enabled;
+      const csEnabled = taxEnabled && !!tax.costSegEnabled;
+      const pp2 = +a.purchasePrice || 0;
+      const landAmt = pp2 * ((+tax.landValuePct||20)/100);
+      const buildingAmt = pp2 - landAmt;
+      const cs5Amt = buildingAmt * ((+tax.costSeg5YrPct||15)/100);
+      const cs15Amt = buildingAmt * (Math.min(+tax.costSeg15YrPct||10, Math.max(0, 100-(+tax.costSeg5YrPct||15)))/100);
+      const structAmt = buildingAmt - cs5Amt - cs15Amt;
+      const summaryText = taxEnabled
+        ? (csEnabled ? `Cost Seg · ${tax.bonusDepPct||100}% Bonus Dep` : `Land ${tax.landValuePct||20}% · No Cost Seg`)
+        : 'Disabled — click to expand';
+      return (
+        <div style={{marginBottom:24}}>
+          <div onClick={()=>setTaxOpen(v=>!v)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"2px solid var(--accent)",paddingBottom:6,marginBottom:taxOpen?12:0,cursor:"pointer"}}>
+            <div style={{fontSize:12,fontWeight:800,letterSpacing:"0.1em",color:"var(--accent)",textTransform:"uppercase"}}>
+              Advanced Tax Modeling
+              <span style={{fontWeight:400,color:"var(--muted)",fontSize:11,textTransform:"none",letterSpacing:0,marginLeft:6}}>({summaryText})</span>
+            </div>
+            <div style={{fontSize:14,color:"var(--muted)",transform:taxOpen?"rotate(180deg)":"none",transition:"transform 0.2s"}}>▾</div>
+          </div>
+          {taxOpen && (
+            <div>
+              {/* Enable toggle */}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0",borderBottom:"1px solid var(--border-faint)"}}>
+                <div>
+                  <div style={{fontSize:13,fontWeight:700,color:"var(--text)"}}>Enable Advanced Tax Modeling</div>
+                  <div style={{fontSize:11,color:"var(--muted)",marginTop:2}}>Cost segregation, bonus depreciation, Section 179, and passive activity loss rules.</div>
+                </div>
+                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",flexShrink:0,marginLeft:12}}>
+                  <input type="checkbox" checked={taxEnabled} onChange={e=>upd("tax.enabled",e.target.checked)} style={{width:16,height:16,accentColor:"var(--accent)",cursor:"pointer"}}/>
+                  <span style={{fontSize:13,fontWeight:700,color:taxEnabled?"var(--accent)":"var(--muted)"}}>{taxEnabled?"On":"Off"}</span>
+                </label>
+              </div>
+              {!taxEnabled && (
+                <div style={{fontSize:12,color:"var(--muted)",padding:"10px 0"}}>
+                  Enable to model cost segregation, bonus depreciation (100% permanent under OBBBA), Section 179 expensing, and passive activity loss limitations. Results flow into the Cash Flow tab.
+                </div>
+              )}
+              {taxEnabled && (<>
+                {/* Core tax inputs */}
+                <InputRow label="Land Value %" value={tax.landValuePct||20} onChange={v=>upd("tax.landValuePct",v)} suffix="% of purchase price"/>
+                <InputRow label="Federal AGI" value={tax.agi||100000} onChange={v=>upd("tax.agi",v)} prefix="$"/>
+                {/* PAL Status */}
+                <div style={{display:isMobile?"block":"grid",gridTemplateColumns:"200px 1fr",gap:8,alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--border-faint)"}}>
+                  <label style={{fontSize:13,color:"var(--muted)",fontWeight:500,display:"block",marginBottom:isMobile?4:0}}>Passive Activity Status</label>
+                  <select value={tax.paStatus||'active_participant'} onChange={e=>upd("tax.paStatus",e.target.value)} style={{...iSty}}>
+                    <option value="active_participant">Active Participant ($25k allowance)</option>
+                    <option value="re_professional">RE Professional (unlimited deduction)</option>
+                    <option value="passive">Passive Investor (no benefit)</option>
+                  </select>
+                </div>
+                {(tax.paStatus||'active_participant')==='active_participant' && (
+                  <div style={{fontSize:11,color:"var(--muted)",padding:"3px 0 8px",lineHeight:1.5}}>
+                    $25k allowance phases out $1 for every $2 of AGI over $100k (fully phased at $150k AGI). Suspended losses carry forward to future years (not modeled).
+                  </div>
+                )}
+                {tax.paStatus==='re_professional' && (
+                  <div style={{fontSize:11,color:"var(--accent)",padding:"3px 0 8px"}}>
+                    ✓ RE Professional: all rental losses deductible against ordinary income with no cap.
+                  </div>
+                )}
+                {tax.paStatus==='passive' && (
+                  <div style={{fontSize:11,color:"#D97706",padding:"3px 0 8px"}}>
+                    ⚠ Passive: losses only offset passive income. Model assumes no other passive income; all excess losses carry forward.
+                  </div>
+                )}
+                {/* Cost Segregation */}
+                <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid var(--border-faint)"}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:700,color:"var(--text)"}}>Cost Segregation Study</div>
+                      <div style={{fontSize:11,color:"var(--muted)"}}>Reclassify components to 5-yr and 15-yr schedules, then apply bonus depreciation.</div>
+                    </div>
+                    <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",flexShrink:0,marginLeft:12}}>
+                      <input type="checkbox" checked={csEnabled} onChange={e=>upd("tax.costSegEnabled",e.target.checked)} style={{width:15,height:15,accentColor:"var(--accent)",cursor:"pointer"}}/>
+                      <span style={{fontSize:13,fontWeight:700,color:csEnabled?"var(--accent)":"var(--muted)"}}>{csEnabled?"On":"Off"}</span>
+                    </label>
+                  </div>
+                  {!csEnabled && (
+                    <div style={{fontSize:11,color:"var(--muted)",padding:"4px 0 4px"}}>Enable to front-load depreciation via cost segregation + bonus dep (100% under OBBBA).</div>
+                  )}
+                  {csEnabled && (<>
+                    <InputRow label="5-yr Components" value={tax.costSeg5YrPct||15} onChange={v=>upd("tax.costSeg5YrPct",v)} suffix="% of building"/>
+                    <InputRow label="15-yr Components" value={tax.costSeg15YrPct||10} onChange={v=>upd("tax.costSeg15YrPct",v)} suffix="% of building"/>
+                    {/* Component breakdown display */}
+                    {pp2>0 && (
+                      <div style={{background:"var(--accent-soft)",border:"1px solid var(--border-faint)",borderRadius:8,padding:"8px 12px",marginTop:6,marginBottom:4}}>
+                        <div style={{fontSize:10,fontWeight:800,color:"var(--accent)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Component Breakdown</div>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"3px 16px",fontSize:11}}>
+                          <span style={{color:"var(--muted)"}}>Land (excluded)</span><span style={{fontWeight:700,color:"var(--text)"}}>{FMT_USD(landAmt)}</span>
+                          <span style={{color:"var(--muted)"}}>27.5-yr Structure</span><span style={{fontWeight:700,color:"var(--text)"}}>{FMT_USD(structAmt)}</span>
+                          <span style={{color:"var(--muted)"}}>5-yr Personal Prop.</span><span style={{fontWeight:700,color:"var(--accent2)"}}>{FMT_USD(cs5Amt)}</span>
+                          <span style={{color:"var(--muted)"}}>15-yr Land Improve.</span><span style={{fontWeight:700,color:"var(--accent2)"}}>{FMT_USD(cs15Amt)}</span>
+                        </div>
+                      </div>
+                    )}
+                    {/* Bonus Dep */}
+                    <InputRow label="Bonus Dep. %" value={tax.bonusDepPct||100} onChange={v=>upd("tax.bonusDepPct",v)} suffix="% (Yr 1)"/>
+                    <div style={{fontSize:11,color:"var(--muted)",padding:"2px 0 6px"}}>
+                      Permanently 100% under OBBBA (signed July 4, 2025) for property placed in service after Jan. 19, 2025. Applies to 5-yr and 15-yr components only.
+                    </div>
+                    {/* Section 179 */}
+                    <InputRow label="Section 179 (Yr 1)" value={tax.sec179Amount||0} onChange={v=>upd("tax.sec179Amount",v)} prefix="$"/>
+                    <div style={{fontSize:11,color:"var(--muted)",padding:"2px 0 4px"}}>
+                      OBBBA raised limit to $2.5M. Applied to 5-yr components before bonus dep. Max: {FMT_USD(cs5Amt)}.
+                    </div>
+                  </>)}
+                </div>
+              </>)}
+            </div>
+          )}
+        </div>
+      );
+    })()}
     </div>
   </div>);
 }
