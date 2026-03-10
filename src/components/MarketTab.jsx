@@ -119,7 +119,7 @@ function MarketTab({deal}){
 
   const floodZone=deal?.assumptions?.floodZone;
   const fzInfo=floodZoneInfo(floodZone);
-  const fmtK=v=>v>=1000?`$${(v/1000).toFixed(0)}K`:FMT_USD(v);
+  const fmtK=v=>v>=1000000?`$${(v/1000000).toFixed(2)}M`:v>=1000?`$${(v/1000).toFixed(0)}K`:FMT_USD(v);
 
   if(!zip)return(<div style={{padding:'16px 0'}}><EmptyState icon="🗺️" title="Enter a property address" sub="Market data will load automatically once an address with a zip code is set."/></div>);
   if(loading)return(<div style={{padding:'16px 0'}}><div style={{textAlign:'center',padding:48,color:'var(--muted)'}}><div style={{fontSize:28,marginBottom:12}}>⏳</div><div style={{fontSize:13,fontWeight:700,color:'var(--text)'}}>Loading market data…</div><div style={{fontSize:12,marginTop:4}}>Fetching Rentcast + Census data for ZIP {zip}</div></div></div>);
