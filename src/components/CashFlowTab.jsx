@@ -60,9 +60,11 @@ function CashFlowTab({result,deal}){
           {/* Owner Utilities — below debt service, amber, only during OO years */}
           {oo&&(<tr><td style={{...tdL(false,true,"#f59e0b")}}>↳ − Owner Utilities (Yr 1–{result.ooYears})</td>{result.years.map(y=>(<td key={y.yr} style={{...tdR(!!y.ooUtilities,null),color:y.ooUtilities>0?"#f59e0b":"var(--muted)"}}>{y.ooUtilities>0?`(${FMT_USD(y.ooUtilities)})`:"—"}</td>))}</tr>)}
 
+          {/* Remodel outflow — above Cash Flow so it reads as a deduction leading into the total */}
+          {result.vaEnabled&&(<tr><td style={{...tdL(false,true),color:"#a78bfa"}}>↳ Remodel Cost (Yr1–2)</td>{result.years.map(y=>(<td key={y.yr} style={{...tdR(y.vaRemodelOutflow>0,null),color:y.vaRemodelOutflow>0?"#a78bfa":"var(--muted)"}}>{y.vaRemodelOutflow>0?`(${FMT_USD(y.vaRemodelOutflow)})`:"—"}</td>))}</tr>)}
+
           {/* Cash Flow — unified bottom line */}
           <R label="Cash Flow" bold color="accent"><Yr bold color="accent">{y=>FMT_USD(y.cashFlow)}</Yr></R>
-          {result.vaEnabled&&(<tr><td style={{...tdL(false,true),color:"#a78bfa"}}>↳ Remodel (Yr1–2)</td>{result.years.map(y=>(<td key={y.yr} style={{...tdR(y.vaRemodelOutflow>0,null),color:y.vaRemodelOutflow>0?"#a78bfa":"var(--muted)"}}>{y.vaRemodelOutflow>0?`(${FMT_USD(y.vaRemodelOutflow)})`:"—"}</td>))}</tr>)}
 
           {/* Monthly Net */}
           <tr><td style={{...tdL(false,true),color:"var(--accent2)",fontStyle:"italic"}}>↳ Monthly Net</td>{result.years.map(y=>{const mc=y.monthlyCashFlow;return(<td key={y.yr} style={{...tdR(true,null),color:mc>=0?"var(--accent2)":"#ef4444",fontStyle:"italic"}}>{mc>=0?FMT_USD(mc):`(${FMT_USD(Math.abs(mc))})`}</td>);})}</tr>
@@ -73,11 +75,18 @@ function CashFlowTab({result,deal}){
           {/* ── Tax Implications ── */}
           <CFSectionHeader label="② Tax Implications"/>
 
+          {/* OO pro-rate notice — only during OO years */}
+          {oo&&result.years.some(y=>y.ooTaxProrateRatio<1)&&(
+            <tr><td colSpan={11} style={{padding:"4px 8px",fontSize:10,color:"#f59e0b",fontStyle:"italic",background:"rgba(245,158,11,0.06)"}}>
+              ⚠ During owner-occupancy years, only the rental unit share ({result.ooEnabled&&result.years[0]?.ooTaxProrateRatio<1?`${Math.round(result.years[0].ooTaxProrateRatio*100)}%`:"100%"}) of mortgage interest and depreciation is deductible.
+            </td></tr>
+          )}
+
           {/* NOI reference row — muted, shows derivation starting point */}
           <tr><td style={{...tdL(false,false),color:"var(--muted)",fontStyle:"italic"}}>NOI (from above)</td>{result.years.map(y=><td key={y.yr} style={{...tdR(false,null),color:"var(--muted)",fontStyle:"italic"}}>{FMT_USD(y.noi)}</td>)}</tr>
 
-          {/* Mortgage Interest */}
-          <R label="− Mortgage Interest" color="red"><Yr color="red">{y=>FMT_USD(y.interest)}</Yr></R>
+          {/* Mortgage Interest — prorated during OO years */}
+          <tr><td style={tdL(false,false)}>− Mortgage Interest</td>{result.years.map(y=><td key={y.yr} style={tdR(false,"red")}>{FMT_USD(y.interest*y.ooTaxProrateRatio)}</td>)}</tr>
 
           {/* Depreciation — clickable to expand */}
           <tr style={{cursor:"pointer"}} onClick={()=>setShowTaxDetail(v=>!v)}>
