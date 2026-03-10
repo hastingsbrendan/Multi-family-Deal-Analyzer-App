@@ -15,13 +15,13 @@ function DealSummaryTab({deal, result, onUpdate}) {
   const insMo = (result.baseExpBreakdown?.insurance||0)/12;
   const piti = pAndI + taxMo + insMo;
 
-  // EGI excluding owner unit (for Effective Mortgage calc)
+  // EGI excluding owner unit (for Effective Mortgage display — matches new calc engine)
   const ooUnit = result.ooEnabled ? result.ooUnit : -1;
   const egiExOO = (() => {
     const vac = (+a.vacancyRate||0)/100;
     const units = a.units.slice(0, a.numUnits);
     return units.reduce((s, u, i) => {
-      if (i === ooUnit && result.ooEnabled && result.years[0]?.ooRentLost > 0) return s;
+      if (i === ooUnit && result.ooEnabled) return s;
       return s + (+(u.rent||u.listedRent)||0) * 12 * (1-vac) / 12;
     }, 0);
   })();
@@ -29,16 +29,14 @@ function DealSummaryTab({deal, result, onUpdate}) {
   const effectiveMortgage = piti - egiExOO;
   const emPos = effectiveMortgage >= 0; // positive = still owe money after rents
 
-  // Monthly cash flows from year 1
+  // Unified monthly cash flow (Year 1) — OO adjustments are now baked into cashFlow
   const regularCF = result.years[0]?.monthlyCashFlow||0;
-  const ooCF = result.years[0]?.ooMonthlyCashFlow;
+  const ooCF = result.ooEnabled ? regularCF : null; // same value, kept for alt-rent comparison logic
 
   // Alt rent comparison
   const altRent = result.ooAltRentMonthly||0;
-  // vsRent: altRent (what you'd pay to rent, positive) + ooCF (signed net of owning)
-  // Positive = buying is cheaper. e.g. altRent=3500, ooCF=-4638 → -1138 (pricier to buy)
-  // e.g. altRent=3500, ooCF=+4638 → +8138 (much cheaper to buy)
-  const vsRent = ooCF != null ? altRent + ooCF : 0;
+  // vsRent: altRent (what you'd pay to rent, positive) + monthly CF (signed net of owning)
+  const vsRent = result.ooEnabled ? altRent + regularCF : 0;
 
   // Property detail fields
   const beds = a.beds||"—", baths = a.baths||"—";
@@ -171,9 +169,9 @@ function DealSummaryTab({deal, result, onUpdate}) {
       {/* Owner-Occ Cash Flow — HERO */}
       {result.ooEnabled&&ooCF!=null ? (
         <Panel accent>
-          <SLbl>Owner-Occ. Cash Flow · You in Unit {(result.ooUnit||0)+1}, Yr 1–{result.ooYears}</SLbl>
-          <div style={{fontSize:44,fontWeight:900,letterSpacing:"-2px",color:ooCF>=0?"#16a34a":"var(--accent2)",lineHeight:1,marginBottom:2}}>
-            {ooCF>=0?"+":"-"}{FMT_USD(Math.abs(ooCF))}<span style={{fontSize:14,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
+          <SLbl>Monthly Cash Flow · You in Unit {(result.ooUnit||0)+1}, Yr 1</SLbl>
+          <div style={{fontSize:44,fontWeight:900,letterSpacing:"-2px",color:regularCF>=0?"#16a34a":"var(--accent2)",lineHeight:1,marginBottom:2}}>
+            {regularCF>=0?"+":"-"}{FMT_USD(Math.abs(regularCF))}<span style={{fontSize:14,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
           </div>
           <div style={{margin:"10px 0"}}>
             <div style={{display:"flex",justifyContent:"space-between",fontFamily:"system-ui",fontSize:11,color:"var(--muted)",marginBottom:4}}>

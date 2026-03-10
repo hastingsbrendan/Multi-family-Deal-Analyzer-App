@@ -9,7 +9,8 @@ function RedFlagsTab({deal,result,onChange,prefs=DEFAULT_PREFS}){
   const [exp,setExp]=useState({});
   const yr1=result.years?.[0];
   const expR=yr1&&yr1.egi>0?yr1.expenses/yr1.egi:null;
-  const dscr=yr1?.dscr??null;
+  // BACK-018: Red Flags uses lender-view DSCR (full-building rent, no OO deduction) — how a lender underwrites
+  const dscr=yr1?.dscrLenderView??yr1?.dscr??null;
   const cr=yr1?.capRate??null;
   const dscrFloor = prefs.dscrFloor ?? 1.2;
   const crFloor   = prefs.capRateFloor ?? 0.06;

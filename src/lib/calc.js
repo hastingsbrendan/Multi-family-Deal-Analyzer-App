@@ -247,11 +247,15 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
       refiEvent={cashOut:refiCashOut,newLoanAmt,newRate:a.refi.newRate};
     }
     const vaRentLiftThisYr=vaEnabled&&yr>=vaCompletionYr?vaRentBump:0;
-    const ooRentLostThisYr=ooEnabled&&yr<=ooYears?ooAnnualRentLost:0;
+    // OO rent deduction: full owner-unit rent grown by rentGrowth (no vacancy — unit is occupied, not vacant).
+    // Applied BEFORE vacancy so vacancy rate acts only on tenant-collectible rent.
+    const ooRentDeductionThisYr=ooEnabled&&yr<=ooYears?ooAnnualRentLost*Math.pow(1+rentGrowth,yr-1):0;
     const ooUtilitiesThisYr=ooEnabled&&yr<=ooYears?ooAnnualUtilities*Math.pow(1+(+a.expenseGrowth||0)/100,yr-1):0;
-    // Gross rent grows each year; VA rent bump added once renovation is complete
+    // Gross rent (all units) grows each year; VA bump added once renovation complete
     const grossRent=(grossRentYear0+vaRentLiftThisYr)*Math.pow(1+rentGrowth,yr-1);
-    const vacancyLoss=grossRent*vacRate, egi=grossRent-vacancyLoss;
+    // Tenant-only rent after OO deduction; vacancy applies only to tenant-collectible rent
+    const rentAfterOO=grossRent-ooRentDeductionThisYr;
+    const vacancyLoss=rentAfterOO*vacRate, egi=rentAfterOO-vacancyLoss;
     // Expenses compounded by expenseGrowth; uses Year-0 base resolved by resolveExpenses()
     const mult=Math.pow(1+expGrowth,yr-1);
     const expBreakdown={propertyTax:baseExp.propertyTax*mult,insurance:baseExp.insurance*mult,maintenance:baseExp.maintenance*mult,capex:baseExp.capex*mult,propertyMgmt:baseExp.propertyMgmt*mult,utilities:baseExp.utilities*mult};
@@ -262,11 +266,14 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     balance=newBalance;
     // Value-add reno cost: spread 50% yr1 / 50% yr2 (construction draw model)
     const vaRemodelOutflow=yr===1?vaReModelCost/2:yr===2?vaReModelCost/2:0;
-    const cashFlow=noi-currentAnnualDebtService+(refiEvent?refiEvent.cashOut:0)-vaRemodelOutflow;
+    // Owner utilities: below-the-line outflow (not an operating expense, doesn't affect NOI)
+    const cashFlow=noi-currentAnnualDebtService-ooUtilitiesThisYr+(refiEvent?refiEvent.cashOut:0)-vaRemodelOutflow;
     const monthlyCashFlow=cashFlow/12;
     // CoC = (NOI - debt service) / total cash invested; does NOT include refi cash-out
     const cocReturn=totalCashWithVA>0?(noi-currentAnnualDebtService)/totalCashWithVA:0;
     const capRate=pp>0?noi/pp:0, dscr=currentAnnualDebtService>0?noi/currentAnnualDebtService:0;
+    // BACK-018: lender-view DSCR uses full-building rent (all units, no OO deduction) — how a lender underwrites
+    const dscrLenderView=currentAnnualDebtService>0?(grossRent*(1-vacRate)-expenses)/currentAnnualDebtService:0;
     // Depreciation: 80% of purchase price (land excluded) / 27.5yr residential schedule
     const annualDepreciation=(pp*0.8)/27.5, taxableIncome=noi-interest-annualDepreciation;
     // QBI deduction: 20% of qualified business income (IRC §199A) if positive
@@ -308,15 +315,12 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     const effectiveTaxIncAdv=taxAdvEnabled?(taxableIncomeAdv>=0?taxableIncomeAdv:-palAllowedLoss):taxableIncome;
     const qbiAdv=effectiveTaxIncAdv>0?effectiveTaxIncAdv*0.2:0;
     const taxEffectAdv=taxAdvEnabled?((effectiveTaxIncAdv-qbiAdv)*bracketRate):taxEffect;
-    const afterTaxCFAdv=taxAdvEnabled?((noi-currentAnnualDebtService)-taxEffectAdv+(refiEvent?refiEvent.cashOut:0)-vaRemodelOutflow):afterTaxCashFlow;
+    const afterTaxCFAdv=taxAdvEnabled?((noi-currentAnnualDebtService)-ooUtilitiesThisYr-taxEffectAdv+(refiEvent?refiEvent.cashOut:0)-vaRemodelOutflow):afterTaxCashFlow;
     // VA implied value lift: rent bump capitalized at Year-0 cap rate (NOI / pp)
     const baseCapRate=grossRentYear0*(1-vacRate)-baseExpenses>0&&pp>0?(grossRentYear0*(1-vacRate)-baseExpenses)/pp:0.06;
     const vaImpliedValueLift=vaEnabled&&yr>=vaCompletionYr&&baseCapRate>0?(vaRentBump*(1-vacRate))/baseCapRate:0;
     const propertyValue=pp*Math.pow(1+appRate,yr)+vaImpliedValueLift;
-    // OO cash flow: subtract lost rent and owner utilities while owner is in residence
-    const ooCashFlow=ooEnabled&&yr<=ooYears?cashFlow-ooRentLostThisYr-ooUtilitiesThisYr:null;
-    const ooMonthlyCashFlow=ooCashFlow!==null?ooCashFlow/12:null;
-    years.push({yr,grossRent,vacancyLoss,egi,expenses,expBreakdown,noi,debtService:currentAnnualDebtService,cashFlow,monthlyCashFlow,cocReturn,capRate,dscr,principal,interest,balance:newBalance,depreciation:annualDepreciation,taxableIncome,qbi,taxEffect,afterTaxCashFlow,propertyValue,equity:propertyValue-newBalance,appreciationGain:propertyValue-pp,principalPaydown:loanAmt-newBalance,refiEvent,vaRemodelOutflow,vaRentLift:vaRentLiftThisYr,ooRentLost:ooRentLostThisYr,ooUtilities:ooUtilitiesThisYr,ooCashFlow,ooMonthlyCashFlow,slDepreciation,cs5Depreciation:cs5Dep,cs15Depreciation:cs15Dep,totalDepreciation,taxableIncomeAdv,palAllowedLoss,effectiveTaxIncAdv,qbiAdv,taxEffectAdv,afterTaxCFAdv});
+    years.push({yr,grossRent,ooRentDeduction:ooRentDeductionThisYr,rentAfterOO,vacancyLoss,egi,expenses,expBreakdown,noi,debtService:currentAnnualDebtService,cashFlow,monthlyCashFlow,cocReturn,capRate,dscr,dscrLenderView,principal,interest,balance:newBalance,depreciation:annualDepreciation,taxableIncome,qbi,taxEffect,afterTaxCashFlow,propertyValue,equity:propertyValue-newBalance,appreciationGain:propertyValue-pp,principalPaydown:loanAmt-newBalance,refiEvent,vaRemodelOutflow,vaRentLift:vaRentLiftThisYr,ooUtilities:ooUtilitiesThisYr,slDepreciation,cs5Depreciation:cs5Dep,cs15Depreciation:cs15Dep,totalDepreciation,taxableIncomeAdv,palAllowedLoss,effectiveTaxIncAdv,qbiAdv,taxEffectAdv,afterTaxCFAdv});
   }
   // Exit analysis: long-term capital gains tax assumed at 15% federal rate
   const exitValue=years[9]?.propertyValue||pp*Math.pow(1+appRate,10);
@@ -330,7 +334,7 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
   const breakEvenOccupancy=grossRentYear0>0?(annualDebtService+baseExpenses)/grossRentYear0:0;
   let irrWithoutVA=irr,irrWithVA=irr;
   if(vaEnabled){const d2=JSON.parse(JSON.stringify(deal));d2.assumptions.valueAdd={...va,enabled:false};irrWithoutVA=calcDeal(d2,{_isRecursive:true}).irr;irrWithVA=irr;}
-  return {totalCash:totalCashWithVA,totalCashBase:totalCash,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExpenses,baseExpBreakdown:baseExp,noi:years[0]?.noi||0,cocReturn:years[0]?.cocReturn||0,capRate:years[0]?.capRate||0,dscr:years[0]?.dscr||0,irr,equityMultiple,breakEvenOccupancy,exitValue,netProceeds,capitalGainsTax,years,refiCashOut,refiYear:refiEnabled?refiYear:null,vaEnabled,vaReModelCost,vaRentBump,vaCompletionYr,irrWithoutVA,irrWithVA,ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,taxAdvEnabled};
+  return {totalCash:totalCashWithVA,totalCashBase:totalCash,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExpenses,baseExpBreakdown:baseExp,noi:years[0]?.noi||0,cocReturn:years[0]?.cocReturn||0,capRate:years[0]?.capRate||0,dscr:years[0]?.dscr||0,dscrLenderView:years[0]?.dscrLenderView||0,irr,equityMultiple,breakEvenOccupancy,exitValue,netProceeds,capitalGainsTax,years,refiCashOut,refiYear:refiEnabled?refiYear:null,vaEnabled,vaReModelCost,vaRentBump,vaCompletionYr,irrWithoutVA,irrWithVA,ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,taxAdvEnabled};
 }
 
 function calcSensitivity(deal) {
