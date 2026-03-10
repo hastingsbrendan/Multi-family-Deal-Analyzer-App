@@ -154,7 +154,7 @@ function CashFlowTab({result,deal}){
           {/* Carryforward tax benefit sub-row — shows the tax saved by CF absorption this year */}
           {result.taxAdvEnabled&&result.years.some(y=>y.taxBenefitFromCF>0)&&(
             <tr>
-              <td style={{...tdL(false,true),color:"#10b981"}}>↳ CF Saves (This Yr)</td>
+              <td style={{...tdL(false,true),color:"#10b981"}}>↳ Carryforward Saves (This Yr)</td>
               {result.years.map(y=>(
                 <td key={y.yr} style={{...tdR(false,null),color:y.taxBenefitFromCF>0?"#10b981":"var(--muted)"}}>
                   {y.taxBenefitFromCF>0?`(${FMT_USD(y.taxBenefitFromCF)})`:"—"}
@@ -162,7 +162,7 @@ function CashFlowTab({result,deal}){
               ))}
             </tr>
           )}
-          <R label="After-Tax CF" bold color="accent"><Yr bold color="accent">{y=>FMT_USD(result.taxAdvEnabled?y.afterTaxCFAdv:y.afterTaxCashFlow)}</Yr></R>
+          <R label="After-Tax Cash Flow" bold color="accent"><Yr bold color="accent">{y=>FMT_USD(result.taxAdvEnabled?y.afterTaxCFAdv:y.afterTaxCashFlow)}</Yr></R>
 
           {/* ── PAL Carryforward Balance — collapsible row after After-Tax CF ────────────
                Shows the running deferred tax asset balance across 10 years.
