@@ -117,8 +117,26 @@ function CashFlowTab({result,deal}){
           {result.taxAdvEnabled?(
             <>
               <R label="= Taxable Income (Gross)" bold><Yr bold>{y=>FMT_USD(y.taxableIncomeAdv)}</Yr></R>
+              {/* PAL Allowance Used — deductible portion of this year's loss */}
               {showTaxDetail&&result.years.some(y=>y.palAllowedLoss>0)&&(
                 <tr style={{background:"var(--row-sub)"}}><td style={{...tdL(false,true,"#f59e0b"),background:"var(--row-sub)"}}>&#x21b3; PAL Allowance Used</td>{result.years.map(y=><td key={y.yr} style={{...tdR(false,null),color:y.palAllowedLoss>0?"#f59e0b":"var(--muted)"}}>{y.palAllowedLoss>0?FMT_USD(y.palAllowedLoss):"—"}</td>)}</tr>
+              )}
+              {/* Suspended Loss This Year — the portion that could NOT be deducted, added to carryforward */}
+              {showTaxDetail&&result.years.some(y=>y.suspendedLossThisYr>0)&&(
+                <tr style={{background:"var(--row-sub)"}}><td style={{...tdL(false,true,"#f59e0b"),background:"var(--row-sub)"}}>&#x21b3; Suspended (This Yr)</td>{result.years.map(y=><td key={y.yr} style={{...tdR(false,null),color:y.suspendedLossThisYr>0?"#f59e0b":"var(--muted)"}}>{y.suspendedLossThisYr>0?`(${FMT_USD(y.suspendedLossThisYr)})`:"—"}</td>)}</tr>
+              )}
+              {/* Carryforward Applied — prior suspended losses absorbing taxable income this year */}
+              {showTaxDetail&&result.years.some(y=>y.carryforwardUsedThisYr>0)&&(
+                <tr style={{background:"var(--row-sub)"}}><td style={{...tdL(false,true),color:"var(--accent)",background:"var(--row-sub)"}}>&#x21b3; Carryforward Applied</td>{result.years.map(y=><td key={y.yr} style={{...tdR(false,null),color:y.carryforwardUsedThisYr>0?"var(--accent)":"var(--muted)"}}>{y.carryforwardUsedThisYr>0?`(${FMT_USD(y.carryforwardUsedThisYr)})`:"—"}</td>)}</tr>
+              )}
+              {/* Cumulative Carryforward — always visible when there are accumulated losses; amber running total */}
+              {result.years.some(y=>y.cumulativeCarryforward>0)&&(
+                <tr style={{background:"rgba(245,158,11,0.05)"}}><td style={{...tdL(false,false),color:"#f59e0b",fontWeight:700,fontSize:11}}>Cumul. Carryforward Balance</td>{result.years.map(y=><td key={y.yr} style={{...tdR(true,null),color:y.cumulativeCarryforward>0?"#f59e0b":"var(--muted)"}}>{y.cumulativeCarryforward>0?FMT_USD(y.cumulativeCarryforward):"—"}</td>)}</tr>
+              )}
+              {result.years.some(y=>y.cumulativeCarryforward>0)&&(
+                <tr><td colSpan={11} style={{padding:"2px 8px 7px 8px",fontSize:10,color:"var(--muted)",fontStyle:"italic",lineHeight:1.4}}>
+                  Releases in full upon taxable sale (see exit analysis). Not released by a 1031 exchange.
+                </td></tr>
               )}
               <R label="= Eff. Taxable Income" bold><Yr bold>{y=>FMT_USD(y.effectiveTaxIncAdv)}</Yr></R>
               <R label="− QBI Deduction (20%)" color="red"><Yr color="red">{y=>y.effectiveTaxIncAdv>0?FMT_USD(y.qbiAdv):"—"}</Yr></R>

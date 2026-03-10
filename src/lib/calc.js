@@ -234,6 +234,10 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
   const sec179=csEnabled?Math.min(+taxCfg.sec179Amount||0,cs5Val):0; // capped at 5-yr basis
   const paStatus=taxCfg.paStatus||'active_participant';
   const palAgi=+taxCfg.agi||100000;
+  // BACK-020: PAL carryforward — accumulated suspended losses across years (IRC §469)
+  // Grows when suspended losses exceed PAL allowance; absorbed by future taxable income.
+  // Released in full upon taxable disposition (BACK-021). NOT released by 1031 exchange.
+  let palCarryforward=0;
   for(let yr=1;yr<=10;yr++){
     let refiEvent=null;
     if(refiEnabled&&yr===refiYear){
@@ -313,21 +317,40 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     const totalDepreciation=taxAdvEnabled?(slDepreciation+cs5DepProrated+cs15DepProrated):annualDepreciation;
     // Advanced taxable income: same addback logic — NOI + owner expense share − rental interest − rental depreciation
     const taxableIncomeAdv=taxAdvEnabled?((noi+ooExpAddBack)-(interest*ooTaxProrateRatio)-totalDepreciation):taxableIncome;
-    // PAL limitation: losses from rental real estate are passive unless RE pro or active participant
-    // Active participant: $25k allowance, phases out $1/$2 over $100k AGI, fully phased at $150k
+    // ── BACK-020: PAL carryforward + 4-step suspended loss tracking (IRC §469) ─────
+    // Step 1: compute PAL allowance on current year's paper loss
     let palAllowedLoss=0;
     if(taxAdvEnabled&&taxableIncomeAdv<0){
       const paperLoss=-taxableIncomeAdv;
       if(paStatus==='re_professional'){
-        palAllowedLoss=paperLoss; // RE professional: no PAL limitation
+        palAllowedLoss=paperLoss; // RE professional: unlimited, no PAL restriction
       } else if(paStatus==='active_participant'){
+        // $25k allowance phases out $0.50/$1 above $100k AGI, fully eliminated at $150k
         const phaseout=Math.min(25000,Math.max(0,(palAgi-100000)*0.5));
         palAllowedLoss=Math.min(paperLoss,Math.max(0,25000-phaseout));
       }
-      // passive: palAllowedLoss stays 0 (excess losses carry forward, not modeled here)
+      // passive: palAllowedLoss stays 0 — all losses suspended
     }
-    // Effective taxable income after PAL; losses beyond allowance carry forward (not modeled)
-    const effectiveTaxIncAdv=taxAdvEnabled?(taxableIncomeAdv>=0?taxableIncomeAdv:-palAllowedLoss):taxableIncome;
+    // Step 2: suspended loss this year = paper loss beyond what PAL allowance covers
+    const suspendedLossThisYr=taxAdvEnabled&&taxableIncomeAdv<0
+      ? Math.max(0,(-taxableIncomeAdv)-palAllowedLoss)
+      : 0;
+    if(taxAdvEnabled) palCarryforward+=suspendedLossThisYr;
+    // Step 3: if there IS taxable income this year, carryforward absorbs it first
+    // (the property's own prior suspended losses shelter future rental income)
+    let carryforwardUsedThisYr=0;
+    if(taxAdvEnabled&&taxableIncomeAdv>0&&palCarryforward>0){
+      carryforwardUsedThisYr=Math.min(taxableIncomeAdv,palCarryforward);
+      palCarryforward-=carryforwardUsedThisYr;
+    }
+    // Step 4: effective taxable income — loss years show allowed deduction; income years net carryforward
+    const effectiveTaxIncAdv=taxAdvEnabled
+      ?(taxableIncomeAdv>=0
+          ? taxableIncomeAdv-carryforwardUsedThisYr   // income year: sheltered by carryforward
+          : -palAllowedLoss)                          // loss year: only allowed loss is deductible
+      :taxableIncome;
+    // Snapshot of running carryforward balance after this year's transactions
+    const cumulativeCarryforward=taxAdvEnabled?palCarryforward:0;
     const qbiAdv=effectiveTaxIncAdv>0?effectiveTaxIncAdv*0.2:0;
     const taxEffectAdv=taxAdvEnabled?((effectiveTaxIncAdv-qbiAdv)*bracketRate):taxEffect;
     const afterTaxCFAdv=taxAdvEnabled?((noi-currentAnnualDebtService)-ooUtilitiesThisYr-taxEffectAdv+(refiEvent?refiEvent.cashOut:0)-vaRemodelOutflow):afterTaxCashFlow;
@@ -335,8 +358,11 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     const baseCapRate=grossRentYear0*(1-vacRate)-baseExpenses>0&&pp>0?(grossRentYear0*(1-vacRate)-baseExpenses)/pp:0.06;
     const vaImpliedValueLift=vaEnabled&&yr>=vaCompletionYr&&baseCapRate>0?(vaRentBump*(1-vacRate))/baseCapRate:0;
     const propertyValue=pp*Math.pow(1+appRate,yr)+vaImpliedValueLift;
-    years.push({yr,grossRent,ooRentDeduction:ooRentDeductionThisYr,rentAfterOO,vacancyLoss,egi,expenses,expBreakdown,noi,ooExpAddBack,debtService:currentAnnualDebtService,cashFlow,monthlyCashFlow,cocReturn,capRate,dscr,dscrLenderView,principal,interest,balance:newBalance,depreciation:annualDepreciation,taxableIncome,qbi,taxEffect,afterTaxCashFlow,propertyValue,equity:propertyValue-newBalance,appreciationGain:propertyValue-pp,principalPaydown:loanAmt-newBalance,refiEvent,vaRemodelOutflow,vaRentLift:vaRentLiftThisYr,ooUtilities:ooUtilitiesThisYr,ooTaxProrateRatio,slDepreciation,cs5Depreciation:cs5DepProrated,cs15Depreciation:cs15DepProrated,totalDepreciation,taxableIncomeAdv,palAllowedLoss,effectiveTaxIncAdv,qbiAdv,taxEffectAdv,afterTaxCFAdv});
+    years.push({yr,grossRent,ooRentDeduction:ooRentDeductionThisYr,rentAfterOO,vacancyLoss,egi,expenses,expBreakdown,noi,ooExpAddBack,debtService:currentAnnualDebtService,cashFlow,monthlyCashFlow,cocReturn,capRate,dscr,dscrLenderView,principal,interest,balance:newBalance,depreciation:annualDepreciation,taxableIncome,qbi,taxEffect,afterTaxCashFlow,propertyValue,equity:propertyValue-newBalance,appreciationGain:propertyValue-pp,principalPaydown:loanAmt-newBalance,refiEvent,vaRemodelOutflow,vaRentLift:vaRentLiftThisYr,ooUtilities:ooUtilitiesThisYr,ooTaxProrateRatio,slDepreciation,cs5Depreciation:cs5DepProrated,cs15Depreciation:cs15DepProrated,totalDepreciation,taxableIncomeAdv,palAllowedLoss,suspendedLossThisYr,carryforwardUsedThisYr,cumulativeCarryforward,effectiveTaxIncAdv,qbiAdv,taxEffectAdv,afterTaxCFAdv});
   }
+  // BACK-020: palCarryforward now holds the remaining accumulated suspended loss balance at end of hold.
+  // BACK-021 will use this to release against the sale gain in a taxable disposition.
+  const finalPalCarryforward=palCarryforward;
   // Exit analysis: long-term capital gains tax assumed at 15% federal rate
   const exitValue=years[9]?.propertyValue||pp*Math.pow(1+appRate,10);
   const capitalGains=exitValue-pp, capitalGainsTax=capitalGains*0.15;
@@ -349,7 +375,7 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
   const breakEvenOccupancy=grossRentYear0>0?(annualDebtService+baseExpenses)/grossRentYear0:0;
   let irrWithoutVA=irr,irrWithVA=irr;
   if(vaEnabled){const d2=JSON.parse(JSON.stringify(deal));d2.assumptions.valueAdd={...va,enabled:false};irrWithoutVA=calcDeal(d2,{_isRecursive:true}).irr;irrWithVA=irr;}
-  return {totalCash:totalCashWithVA,totalCashBase:totalCash,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExpenses,baseExpBreakdown:baseExp,noi:years[0]?.noi||0,cocReturn:years[0]?.cocReturn||0,capRate:years[0]?.capRate||0,dscr:years[0]?.dscr||0,dscrLenderView:years[0]?.dscrLenderView||0,irr,equityMultiple,breakEvenOccupancy,exitValue,netProceeds,capitalGainsTax,years,refiCashOut,refiYear:refiEnabled?refiYear:null,vaEnabled,vaReModelCost,vaRentBump,vaCompletionYr,irrWithoutVA,irrWithVA,ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,taxAdvEnabled};
+  return {totalCash:totalCashWithVA,totalCashBase:totalCash,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExpenses,baseExpBreakdown:baseExp,noi:years[0]?.noi||0,cocReturn:years[0]?.cocReturn||0,capRate:years[0]?.capRate||0,dscr:years[0]?.dscr||0,dscrLenderView:years[0]?.dscrLenderView||0,irr,equityMultiple,breakEvenOccupancy,exitValue,netProceeds,capitalGainsTax,years,refiCashOut,refiYear:refiEnabled?refiYear:null,vaEnabled,vaReModelCost,vaRentBump,vaCompletionYr,irrWithoutVA,irrWithVA,ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,taxAdvEnabled,finalPalCarryforward};
 }
 
 function calcSensitivity(deal) {
