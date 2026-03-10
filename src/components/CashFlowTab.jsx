@@ -6,7 +6,6 @@ import CFSectionHeader from './ui/CFSectionHeader';
 
 function CashFlowTab({result,deal}){
   const [showExpDetail,setShowExpDetail]=useState(false);
-  const [showTaxDetail,setShowTaxDetail]=useState(false);
   const EXP_KEYS=[["propertyTax","Property Tax"],["insurance","Property Insurance"],["maintenance","Maintenance"],["capex","CapEx Reserve"],["propertyMgmt","Prop. Mgmt"],["utilities","Utilities"]];
   const tdR=(bold,color)=>({padding:"6px 8px",textAlign:"right",fontSize:11,fontWeight:bold?700:400,whiteSpace:"nowrap",color:color==="accent"?"var(--accent)":color==="red"?"#ef4444":"var(--text)"});
   const tdL=(bold,indent,col)=>({padding:`6px 8px 6px ${indent?20:8}px`,color:col||(bold?"var(--text)":"var(--muted)"),fontWeight:bold?700:400,fontSize:indent?10:11,whiteSpace:"nowrap",position:"sticky",left:0,background:"var(--bg)",zIndex:1});
@@ -51,43 +50,12 @@ function CashFlowTab({result,deal}){
             <tr><td style={{...tdL(false,false),color:"var(--muted)"}}>Alt. Rent (if renting)</td>{result.years.map(y=>(<td key={y.yr} style={{...tdR(false,null),color:"var(--muted)",fontStyle:"italic"}}>{y.ooRentLost>0?`(${FMT_USD(result.ooAltRentMonthly)}/mo)`:"—"}</td>))}</tr>
           </>)}
           <CFSectionHeader label={result.ooEnabled?"③ Tax Implications":"② Tax Implications"}/>
-          {/* Depreciation row — clickable toggle for detail */}
-          <tr style={{cursor:"pointer"}} onClick={()=>setShowTaxDetail(v=>!v)}>
-            <td style={{...tdL(false,false),userSelect:"none"}}>
-              <span style={{color:"var(--accent)",marginRight:4,fontSize:9,display:"inline-block",transform:showTaxDetail?"rotate(90deg)":"rotate(0)"}}>&#9658;</span>
-              {result.taxAdvEnabled?"Total Depreciation":"Depreciation (27.5yr)"}
-            </td>
-            {result.years.map(y=><td key={y.yr} style={tdR(false,"red")}>{FMT_USD(result.taxAdvEnabled?y.totalDepreciation:y.depreciation)}</td>)}
-          </tr>
-          {/* Detail rows — expanded */}
-          {showTaxDetail&&(<>
-            {result.taxAdvEnabled&&(<>
-              <tr style={{background:"var(--row-sub)"}}><td style={{...tdL(false,true),background:"var(--row-sub)"}}>&#x21b3; SL Dep (27.5yr)</td>{result.years.map(y=><td key={y.yr} style={tdR(false,null)}>{FMT_USD(y.slDepreciation)}</td>)}</tr>
-              {result.years.some(y=>y.cs5Depreciation>0)&&(
-                <tr style={{background:"var(--row-sub)"}}><td style={{...tdL(false,true),background:"var(--row-sub)",color:"var(--accent2)"}}>&#x21b3; Cost Seg 5-yr</td>{result.years.map(y=><td key={y.yr} style={{...tdR(false,null),color:y.cs5Depreciation>0?"var(--accent2)":"var(--muted)"}}>{y.cs5Depreciation>0?FMT_USD(y.cs5Depreciation):"—"}</td>)}</tr>
-              )}
-              {result.years.some(y=>y.cs15Depreciation>0)&&(
-                <tr style={{background:"var(--row-sub)"}}><td style={{...tdL(false,true),background:"var(--row-sub)",color:"var(--accent2)"}}>&#x21b3; Cost Seg 15-yr</td>{result.years.map(y=><td key={y.yr} style={{...tdR(false,null),color:y.cs15Depreciation>0?"var(--accent2)":"var(--muted)"}}>{y.cs15Depreciation>0?FMT_USD(y.cs15Depreciation):"—"}</td>)}</tr>
-              )}
-            </>)}
-            <R label="Mortgage Interest" color="red"><Yr color="red">{y=>FMT_USD(y.interest)}</Yr></R>
-            {result.taxAdvEnabled?(<>
-              <R label="Taxable Income (Gross)" bold><Yr bold>{y=>FMT_USD(y.taxableIncomeAdv)}</Yr></R>
-              {result.years.some(y=>y.palAllowedLoss>0)&&(
-                <tr style={{background:"var(--row-sub)"}}><td style={{...tdL(false,true,"#f59e0b"),background:"var(--row-sub)"}}>&#x21b3; PAL Allowance Used</td>{result.years.map(y=><td key={y.yr} style={{...tdR(false,null),color:y.palAllowedLoss>0?"#f59e0b":"var(--muted)"}}>{y.palAllowedLoss>0?FMT_USD(y.palAllowedLoss):"—"}</td>)}</tr>
-              )}
-              <R label="Eff. Taxable Income" bold><Yr bold>{y=>FMT_USD(y.effectiveTaxIncAdv)}</Yr></R>
-              <R label="QBI Deduction (20%)" color="red"><Yr color="red">{y=>y.effectiveTaxIncAdv>0?FMT_USD(y.qbiAdv):"—"}</Yr></R>
-            </>):(<>
-              <R label="Taxable RE Income" bold><Yr bold>{y=>FMT_USD(y.taxableIncome)}</Yr></R>
-              <R label="QBI Deduction (20%)" color="red"><Yr color="red">{y=>y.taxableIncome>0?FMT_USD(y.qbi):"—"}</Yr></R>
-            </>)}
-          </>)}
-          {/* Federal Tax / Benefit — always visible */}
-          <tr><td style={tdL(true,false)}>Federal Tax / (Benefit)</td>
-            {result.years.map(y=>{const te=result.taxAdvEnabled?y.taxEffectAdv:y.taxEffect;return(<td key={y.yr} style={{...tdR(true,null),color:te<0?"#10b981":"#ef4444"}}>{te<0?`(${FMT_USD(Math.abs(te))})`:FMT_USD(te)}</td>);})}
-          </tr>
-          <R label="After-Tax CF" bold color="accent"><Yr bold color="accent">{y=>FMT_USD(result.taxAdvEnabled?y.afterTaxCFAdv:y.afterTaxCashFlow)}</Yr></R>
+          <R label="Depreciation (27.5yr)"><Yr>{y=>FMT_USD(y.depreciation)}</Yr></R>
+          <R label="Mortgage Interest" color="red"><Yr color="red">{y=>FMT_USD(y.interest)}</Yr></R>
+          <R label="Taxable RE Income" bold><Yr bold>{y=>FMT_USD(y.taxableIncome)}</Yr></R>
+          <R label="QBI Deduction (20%)" color="red"><Yr color="red">{y=>y.taxableIncome>0?FMT_USD(y.qbi):"—"}</Yr></R>
+          <tr><td style={tdL(true,false)}>Federal Tax / (Benefit)</td>{result.years.map(y=>(<td key={y.yr} style={{...tdR(true,null),color:y.taxEffect<0?"#10b981":"#ef4444"}}>{y.taxEffect<0?`(${FMT_USD(Math.abs(y.taxEffect))})`:FMT_USD(y.taxEffect)}</td>))}</tr>
+          <R label="After-Tax CF" bold color="accent"><Yr bold color="accent">{y=>FMT_USD(y.afterTaxCashFlow)}</Yr></R>
           <CFSectionHeader label={result.ooEnabled?"④ Equity Accumulation":"③ Equity Accumulation"}/>
           <R label="Property Value"><Yr>{y=>FMT_USD(y.propertyValue)}</Yr></R>
           <R label="Loan Balance" color="red"><Yr color="red">{y=>FMT_USD(y.balance)}</Yr></R>
