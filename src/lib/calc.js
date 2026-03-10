@@ -274,13 +274,19 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     const capRate=pp>0?noi/pp:0, dscr=currentAnnualDebtService>0?noi/currentAnnualDebtService:0;
     // BACK-018: lender-view DSCR uses full-building rent (all units, no OO deduction) — how a lender underwrites
     const dscrLenderView=currentAnnualDebtService>0?(grossRent*(1-vacRate)-expenses)/currentAnnualDebtService:0;
-    // OO tax pro-rate: only rental units are deductible. During OO years, prorate expenses,
-    // interest, and depreciation by (numUnits - 1) / numUnits. After OO period, 100% deductible.
-    // e.g. 3-unit OO = 2/3 deductible; 2-unit OO = 1/2 deductible; non-OO = 1.0
+    // OO tax pro-rate: only the rental-unit share of deductions applies.
+    // Rental ratio = (numUnits-1)/numUnits during OO years; 1.0 once owner moves out.
+    // e.g. 3-unit OO → 2/3 deductible, 1/3 owner's personal share.
     const ooTaxProrateRatio=(ooEnabled&&yr<=ooYears&&a.numUnits>1)?(a.numUnits-1)/a.numUnits:1.0;
-    // Depreciation: 80% of purchase price (land excluded) / 27.5yr residential schedule
+    const ooOwnerExpShare=ooEnabled&&yr<=ooYears?(1-ooTaxProrateRatio):0; // e.g. 1/3
+    // NOI already excludes owner-unit rent. But NOI was computed net of ALL operating expenses
+    // including the owner's personal share (1/N) which is NOT deductible for rental purposes.
+    // Add back the owner's non-deductible expense share so taxable income reflects rental activity only.
+    const ooExpAddBack=expenses*ooOwnerExpShare; // owner's share of expenses — not deductible
+    // Depreciation: full 27.5yr schedule × rental ratio only
     const annualDepreciation=((pp*0.8)/27.5)*ooTaxProrateRatio;
-    const taxableIncome=noi-(interest*ooTaxProrateRatio)-annualDepreciation;
+    // Taxable rental income: NOI + owner expense add-back − rental interest − rental depreciation
+    const taxableIncome=(noi+ooExpAddBack)-(interest*ooTaxProrateRatio)-annualDepreciation;
     // QBI deduction: 20% of qualified business income (IRC §199A) if positive
     const qbi=taxableIncome>0?taxableIncome*0.2:0, federalTaxable=taxableIncome-qbi;
     const bracketRate=(+a.taxBracket||22)/100, taxEffect=federalTaxable*bracketRate;
@@ -305,8 +311,8 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     const cs5DepProrated=cs5Dep*ooTaxProrateRatio;
     const cs15DepProrated=cs15Dep*ooTaxProrateRatio;
     const totalDepreciation=taxAdvEnabled?(slDepreciation+cs5DepProrated+cs15DepProrated):annualDepreciation;
-    // Taxable income: interest and depreciation both prorated by OO rental ratio
-    const taxableIncomeAdv=taxAdvEnabled?(noi-(interest*ooTaxProrateRatio)-totalDepreciation):taxableIncome;
+    // Advanced taxable income: same addback logic — NOI + owner expense share − rental interest − rental depreciation
+    const taxableIncomeAdv=taxAdvEnabled?((noi+ooExpAddBack)-(interest*ooTaxProrateRatio)-totalDepreciation):taxableIncome;
     // PAL limitation: losses from rental real estate are passive unless RE pro or active participant
     // Active participant: $25k allowance, phases out $1/$2 over $100k AGI, fully phased at $150k
     let palAllowedLoss=0;
@@ -329,7 +335,7 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     const baseCapRate=grossRentYear0*(1-vacRate)-baseExpenses>0&&pp>0?(grossRentYear0*(1-vacRate)-baseExpenses)/pp:0.06;
     const vaImpliedValueLift=vaEnabled&&yr>=vaCompletionYr&&baseCapRate>0?(vaRentBump*(1-vacRate))/baseCapRate:0;
     const propertyValue=pp*Math.pow(1+appRate,yr)+vaImpliedValueLift;
-    years.push({yr,grossRent,ooRentDeduction:ooRentDeductionThisYr,rentAfterOO,vacancyLoss,egi,expenses,expBreakdown,noi,debtService:currentAnnualDebtService,cashFlow,monthlyCashFlow,cocReturn,capRate,dscr,dscrLenderView,principal,interest,balance:newBalance,depreciation:annualDepreciation,taxableIncome,qbi,taxEffect,afterTaxCashFlow,propertyValue,equity:propertyValue-newBalance,appreciationGain:propertyValue-pp,principalPaydown:loanAmt-newBalance,refiEvent,vaRemodelOutflow,vaRentLift:vaRentLiftThisYr,ooUtilities:ooUtilitiesThisYr,ooTaxProrateRatio,slDepreciation,cs5Depreciation:cs5DepProrated,cs15Depreciation:cs15DepProrated,totalDepreciation,taxableIncomeAdv,palAllowedLoss,effectiveTaxIncAdv,qbiAdv,taxEffectAdv,afterTaxCFAdv});
+    years.push({yr,grossRent,ooRentDeduction:ooRentDeductionThisYr,rentAfterOO,vacancyLoss,egi,expenses,expBreakdown,noi,ooExpAddBack,debtService:currentAnnualDebtService,cashFlow,monthlyCashFlow,cocReturn,capRate,dscr,dscrLenderView,principal,interest,balance:newBalance,depreciation:annualDepreciation,taxableIncome,qbi,taxEffect,afterTaxCashFlow,propertyValue,equity:propertyValue-newBalance,appreciationGain:propertyValue-pp,principalPaydown:loanAmt-newBalance,refiEvent,vaRemodelOutflow,vaRentLift:vaRentLiftThisYr,ooUtilities:ooUtilitiesThisYr,ooTaxProrateRatio,slDepreciation,cs5Depreciation:cs5DepProrated,cs15Depreciation:cs15DepProrated,totalDepreciation,taxableIncomeAdv,palAllowedLoss,effectiveTaxIncAdv,qbiAdv,taxEffectAdv,afterTaxCFAdv});
   }
   // Exit analysis: long-term capital gains tax assumed at 15% federal rate
   const exitValue=years[9]?.propertyValue||pp*Math.pow(1+appRate,10);

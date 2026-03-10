@@ -77,16 +77,23 @@ function CashFlowTab({result,deal}){
 
           {/* OO pro-rate notice — only during OO years */}
           {oo&&result.years.some(y=>y.ooTaxProrateRatio<1)&&(
-            <tr><td colSpan={11} style={{padding:"4px 8px",fontSize:10,color:"#f59e0b",fontStyle:"italic",background:"rgba(245,158,11,0.06)"}}>
-              ⚠ During owner-occupancy years, only the rental unit share ({result.ooEnabled&&result.years[0]?.ooTaxProrateRatio<1?`${Math.round(result.years[0].ooTaxProrateRatio*100)}%`:"100%"}) of mortgage interest and depreciation is deductible.
+            <tr><td colSpan={11} style={{padding:"5px 8px",fontSize:10,color:"#f59e0b",fontStyle:"italic",background:"rgba(245,158,11,0.06)"}}>
+              ⚠ During owner-occupancy years only the rental share ({result.years[0]?.ooTaxProrateRatio<1?`${Math.round(result.years[0].ooTaxProrateRatio*100)}%`:"100%"}) of interest &amp; depreciation is deductible. The owner's share of operating expenses is added back to NOI since those costs were not incurred for rental purposes.
             </td></tr>
           )}
 
-          {/* NOI reference row — muted, shows derivation starting point */}
+          {/* NOI reference row — starting point for tax derivation */}
           <tr><td style={{...tdL(false,false),color:"var(--muted)",fontStyle:"italic"}}>NOI (from above)</td>{result.years.map(y=><td key={y.yr} style={{...tdR(false,null),color:"var(--muted)",fontStyle:"italic"}}>{FMT_USD(y.noi)}</td>)}</tr>
 
-          {/* Mortgage Interest — prorated during OO years */}
-          <tr><td style={tdL(false,false)}>− Mortgage Interest</td>{result.years.map(y=><td key={y.yr} style={tdR(false,"red")}>{FMT_USD(y.interest*y.ooTaxProrateRatio)}</td>)}</tr>
+          {/* Owner expense addback — only non-zero during OO years */}
+          {oo&&result.years.some(y=>y.ooExpAddBack>0)&&(
+            <tr><td style={{...tdL(false,true,"#f59e0b")}}>↳ + Owner Exp. Add-back ({result.years[0]?.ooTaxProrateRatio<1?`${Math.round((1-result.years[0].ooTaxProrateRatio)*100)}%`:""} non-deductible)</td>
+              {result.years.map(y=><td key={y.yr} style={{...tdR(false,null),color:y.ooExpAddBack>0?"#f59e0b":"var(--muted)"}}>{y.ooExpAddBack>0?`+${FMT_USD(y.ooExpAddBack)}`:"—"}</td>)}
+            </tr>
+          )}
+
+          {/* Mortgage Interest — prorated to rental units only during OO years */}
+          <tr><td style={tdL(false,false)}>− Mortgage Interest {oo&&result.years[0]?.ooTaxProrateRatio<1?`(${Math.round(result.years[0].ooTaxProrateRatio*100)}% rental share)`:""}</td>{result.years.map(y=><td key={y.yr} style={tdR(false,"red")}>{FMT_USD(y.interest*y.ooTaxProrateRatio)}</td>)}</tr>
 
           {/* Depreciation — clickable to expand */}
           <tr style={{cursor:"pointer"}} onClick={()=>setShowTaxDetail(v=>!v)}>
