@@ -2,6 +2,13 @@
 import { createClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/react';
 
+// ─── Environment flag ─────────────────────────────────────────────────────────
+// IS_PROD = true on renthack.io (main branch).
+// IS_PROD = false on the Cloudflare `develop` preview URL and local dev.
+// To enable dev-only features on Cloudflare `develop` branch:
+//   Pages → develop branch → Settings → Environment variables → VITE_APP_ENV = development
+const IS_PROD = import.meta.env.VITE_APP_ENV === 'production';
+
 const STORAGE_KEY = "re_deal_analyzer_v2";
 const SB_URL      = import.meta.env.VITE_SB_URL;
 const SB_ANON_KEY = import.meta.env.VITE_SB_ANON_KEY;
@@ -209,4 +216,4 @@ const mapsUrl = (addr) => addr ? `https://maps.google.com/?q=${encodeURIComponen
 const GMAPS_KEY    = import.meta.env.VITE_GMAPS_KEY;
 const RENTCAST_KEY = import.meta.env.VITE_RENTCAST_KEY;
 
-export { STORAGE_KEY, GMAPS_KEY, RENTCAST_KEY, SB_URL, SB_ANON_KEY, SB_BUCKET, sbClient, loadLocal, saveLocal, validateDealShape, sbRead, sbWrite, sbWriteDeal, sbDeleteDeal, sbWritePrefs, sbUploadPhoto, sbDeletePhoto, authSignInWithGoogle, authSignUp, authSignIn, authSignOut, authResetPassword, authUpdatePassword, authUpdateProfile, authGetSession, STATUS_OPTIONS, STATUS_COLORS, FMT_USD, FMT_PCT, FMT_X, mapsUrl };
+export { IS_PROD, STORAGE_KEY, GMAPS_KEY, RENTCAST_KEY, SB_URL, SB_ANON_KEY, SB_BUCKET, sbClient, loadLocal, saveLocal, validateDealShape, sbRead, sbWrite, sbWriteDeal, sbDeleteDeal, sbWritePrefs, sbUploadPhoto, sbDeletePhoto, authSignInWithGoogle, authSignUp, authSignIn, authSignOut, authResetPassword, authUpdatePassword, authUpdateProfile, authGetSession, STATUS_OPTIONS, STATUS_COLORS, FMT_USD, FMT_PCT, FMT_X, mapsUrl };

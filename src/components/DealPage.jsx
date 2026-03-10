@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useIsMobile } from '../lib/hooks';
-import { FMT_USD, FMT_PCT, STATUS_OPTIONS, STATUS_COLORS } from '../lib/constants';
+import { FMT_USD, FMT_PCT, STATUS_OPTIONS, STATUS_COLORS, IS_PROD } from '../lib/constants';
 import { calcDeal, DEFAULT_PREFS } from '../lib/calc';
 import AddressAutocomplete from './AddressAutocomplete';
 import CommentsPanel from './CommentsPanel';
@@ -18,8 +18,10 @@ const SensitivityTab = React.lazy(() => import('./SensitivityTab'));
 const MarketTab      = React.lazy(() => import('./MarketTab'));
 const LoanTypeTab    = React.lazy(() => import('./LoanTypeTab'));
 
-const TABS_MOBILE=["Summary","Assumptions","Cash Flow","Comps","Market","Showing","Red Flags","Sensitivity","Loan Type"];
-const TABS_DESK  =["Deal Summary","Assumptions","Cash Flow","Rent Comps","Market","Showing","Red Flags","Sensitivity","Loan Type"];
+const TABS_MOBILE_ALL=["Summary","Assumptions","Cash Flow","Comps","Market","Showing","Red Flags","Sensitivity","Loan Type"];
+const TABS_DESK_ALL  =["Deal Summary","Assumptions","Cash Flow","Rent Comps","Market","Showing","Red Flags","Sensitivity","Loan Type"];
+const TABS_MOBILE = IS_PROD ? TABS_MOBILE_ALL.slice(0, 8) : TABS_MOBILE_ALL;
+const TABS_DESK   = IS_PROD ? TABS_DESK_ALL.slice(0, 8)   : TABS_DESK_ALL;
 
 const TabFallback = () => (
   <div style={{padding:40,textAlign:'center',color:'var(--muted)',fontSize:13}}>Loading…</div>
@@ -86,7 +88,7 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
           <SensitivityTab deal={deal}/>
         </BlurGate>
       )}
-      {tab===8&&<LoanTypeTab deal={deal}/>}
+      {tab===8&&!IS_PROD&&<LoanTypeTab deal={deal}/>}
     </Suspense></div>
     {activeGroup && deal._deal_id && (
       <CommentsPanel
