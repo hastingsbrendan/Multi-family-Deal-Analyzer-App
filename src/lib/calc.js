@@ -238,6 +238,9 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
   // Grows when suspended losses exceed PAL allowance; absorbed by future taxable income.
   // Released in full upon taxable disposition (BACK-021). NOT released by 1031 exchange.
   let palCarryforward=0;
+  // BACK-021: track cumulative depreciation taken for §1250 unrecaptured gain calculation at exit
+  // §1250 recapture portion of the gain is taxed at 25% (not 15% LTCG rate)
+  let cumulativeDepreciationTaken=0;
   for(let yr=1;yr<=10;yr++){
     let refiEvent=null;
     if(refiEnabled&&yr===refiYear){
@@ -358,15 +361,43 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     const baseCapRate=grossRentYear0*(1-vacRate)-baseExpenses>0&&pp>0?(grossRentYear0*(1-vacRate)-baseExpenses)/pp:0.06;
     const vaImpliedValueLift=vaEnabled&&yr>=vaCompletionYr&&baseCapRate>0?(vaRentBump*(1-vacRate))/baseCapRate:0;
     const propertyValue=pp*Math.pow(1+appRate,yr)+vaImpliedValueLift;
+    // Accumulate depreciation taken this year for §1250 recapture at exit (BACK-021)
+    cumulativeDepreciationTaken+=taxAdvEnabled?totalDepreciation:annualDepreciation;
     years.push({yr,grossRent,ooRentDeduction:ooRentDeductionThisYr,rentAfterOO,vacancyLoss,egi,expenses,expBreakdown,noi,ooExpAddBack,debtService:currentAnnualDebtService,cashFlow,monthlyCashFlow,cocReturn,capRate,dscr,dscrLenderView,principal,interest,balance:newBalance,depreciation:annualDepreciation,taxableIncome,qbi,taxEffect,afterTaxCashFlow,propertyValue,equity:propertyValue-newBalance,appreciationGain:propertyValue-pp,principalPaydown:loanAmt-newBalance,refiEvent,vaRemodelOutflow,vaRentLift:vaRentLiftThisYr,ooUtilities:ooUtilitiesThisYr,ooTaxProrateRatio,slDepreciation,cs5Depreciation:cs5DepProrated,cs15Depreciation:cs15DepProrated,totalDepreciation,taxableIncomeAdv,palAllowedLoss,suspendedLossThisYr,carryforwardUsedThisYr,cumulativeCarryforward,effectiveTaxIncAdv,qbiAdv,taxEffectAdv,afterTaxCFAdv});
   }
   // BACK-020: palCarryforward now holds the remaining accumulated suspended loss balance at end of hold.
-  // BACK-021 will use this to release against the sale gain in a taxable disposition.
   const finalPalCarryforward=palCarryforward;
-  // Exit analysis: long-term capital gains tax assumed at 15% federal rate
+  // ── BACK-021: Exit analysis with §1250 recapture + PAL carryforward release ─────────────────
+  // §1250 unrecaptured gain: cumulative depreciation taken is taxed at 25% (not 15% LTCG).
+  // PAL carryforward: released in full upon taxable disposition — reduces ordinary income tax at sale.
+  // A 1031 exchange defers ALL of these taxes (not modeled here; noted in UI).
+  //
+  // Tax stack at exit:
+  //   Total gain = exitValue − purchasePrice
+  //   §1250 recapture portion = min(cumulativeDepreciation, totalGain) — taxed at 25%
+  //   True LTCG = totalGain − recapturePortion — taxed at 15%
+  //   PAL carryforward release reduces taxable income at ordinary rate (bracketRate)
+  //   Net tax on sale = recaptureTax + ltcgTax − palTaxBenefit
+  //   Net proceeds = exitValue − loanBalance − netTaxOnSale
+  //
+  // Note: basis adjustments (improvements, closing costs) not modeled — kept conservative.
   const exitValue=years[9]?.propertyValue||pp*Math.pow(1+appRate,10);
-  const capitalGains=exitValue-pp, capitalGainsTax=capitalGains*0.15;
-  const netProceeds=exitValue-(years[9]?.balance||0)-capitalGainsTax;
+  const exitLoanBalance=years[9]?.balance||0;
+  const totalGainOnSale=Math.max(0,exitValue-pp);
+  // §1250 recapture: capped at the actual gain (can't exceed what you're selling for)
+  const sec1250RecapturePortion=Math.min(cumulativeDepreciationTaken,totalGainOnSale);
+  const trueLTCGPortion=Math.max(0,totalGainOnSale-sec1250RecapturePortion);
+  const recaptureTax=sec1250RecapturePortion*0.25;
+  const ltcgTax=trueLTCGPortion*0.15;
+  // PAL carryforward release: reduces taxable income at ordinary rate.
+  // It offsets the gain dollar-for-dollar up to the amount of the gain; any excess offsets other income.
+  // We model it as reducing the total tax bill (capped at total tax — cannot create a refund here).
+  const bracketRateExit=(+(deal.assumptions?.taxBracket)||22)/100;
+  const palTaxBenefit=taxAdvEnabled?Math.min(finalPalCarryforward*bracketRateExit, recaptureTax+ltcgTax):0;
+  const netTaxOnSale=Math.max(0,recaptureTax+ltcgTax-palTaxBenefit);
+  // Legacy field kept for backward compat (IRR calc, equity multiple)
+  const capitalGains=totalGainOnSale, capitalGainsTax=netTaxOnSale;
+  const netProceeds=exitValue-exitLoanBalance-netTaxOnSale;
   // IRR: Newton-Raphson on cash flow series [-initialCash, cf1..cf10+netProceeds]
   const irrCFs=[-totalCashWithVA,...years.map(y=>y.cashFlow)]; irrCFs[10]+=netProceeds;
   let irr=0.1;
@@ -375,7 +406,7 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
   const breakEvenOccupancy=grossRentYear0>0?(annualDebtService+baseExpenses)/grossRentYear0:0;
   let irrWithoutVA=irr,irrWithVA=irr;
   if(vaEnabled){const d2=JSON.parse(JSON.stringify(deal));d2.assumptions.valueAdd={...va,enabled:false};irrWithoutVA=calcDeal(d2,{_isRecursive:true}).irr;irrWithVA=irr;}
-  return {totalCash:totalCashWithVA,totalCashBase:totalCash,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExpenses,baseExpBreakdown:baseExp,noi:years[0]?.noi||0,cocReturn:years[0]?.cocReturn||0,capRate:years[0]?.capRate||0,dscr:years[0]?.dscr||0,dscrLenderView:years[0]?.dscrLenderView||0,irr,equityMultiple,breakEvenOccupancy,exitValue,netProceeds,capitalGainsTax,years,refiCashOut,refiYear:refiEnabled?refiYear:null,vaEnabled,vaReModelCost,vaRentBump,vaCompletionYr,irrWithoutVA,irrWithVA,ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,taxAdvEnabled,finalPalCarryforward};
+  return {totalCash:totalCashWithVA,totalCashBase:totalCash,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExpenses,baseExpBreakdown:baseExp,noi:years[0]?.noi||0,cocReturn:years[0]?.cocReturn||0,capRate:years[0]?.capRate||0,dscr:years[0]?.dscr||0,dscrLenderView:years[0]?.dscrLenderView||0,irr,equityMultiple,breakEvenOccupancy,exitValue,exitLoanBalance,totalGainOnSale,sec1250RecapturePortion,trueLTCGPortion,recaptureTax,ltcgTax,palTaxBenefit,netTaxOnSale,netProceeds,capitalGainsTax,years,refiCashOut,refiYear:refiEnabled?refiYear:null,vaEnabled,vaReModelCost,vaRentBump,vaCompletionYr,irrWithoutVA,irrWithVA,ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,taxAdvEnabled,finalPalCarryforward,cumulativeDepreciationTaken};
 }
 
 function calcSensitivity(deal) {

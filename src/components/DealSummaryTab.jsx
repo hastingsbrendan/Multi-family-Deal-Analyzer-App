@@ -280,9 +280,38 @@ function DealSummaryTab({deal, result, onUpdate}) {
         </Panel>
         <Panel>
           <SLbl>Exit (Year 10)</SLbl>
+          {/* Gross proceeds waterfall */}
           <KV label="Exit Value" value={FMT_USD(result.exitValue)}/>
-          <KV label="Cap Gains Tax" value={FMT_USD(result.capitalGainsTax)}/>
+          <KV label="− Loan Payoff" value={"("+FMT_USD(result.exitLoanBalance)+")"} color="var(--red)"/>
+          <KV label="= Gross Proceeds" value={FMT_USD(result.exitValue-result.exitLoanBalance)} bold/>
+          {/* Tax stack */}
+          <div style={{marginTop:6,marginBottom:2,fontSize:9,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:"var(--muted)",fontFamily:"system-ui"}}>Tax on Sale</div>
+          <KV label="Total Gain" value={FMT_USD(result.totalGainOnSale)}/>
+          <KV label="§1250 Recapture (25%)" value={"("+FMT_USD(result.recaptureTax)+")"} color="var(--red)"/>
+          <KV label="LTCG (15%)" value={"("+FMT_USD(result.ltcgTax)+")"} color="var(--red)"/>
+          {/* PAL carryforward benefit — deferred tax asset, not cash */}
+          {result.taxAdvEnabled&&result.palTaxBenefit>0&&(
+            <div style={{background:"rgba(245,158,11,0.07)",border:"1px solid rgba(245,158,11,0.25)",borderRadius:6,padding:"5px 8px",margin:"4px 0"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
+                <span style={{fontSize:10,color:"#f59e0b",fontFamily:"system-ui",fontWeight:700}}>Suspended Loss Tax Benefit</span>
+                <span style={{fontSize:11,color:"#f59e0b",fontWeight:700,fontFamily:"system-ui"}}>+{FMT_USD(result.palTaxBenefit)}</span>
+              </div>
+              <div style={{fontSize:9,color:"var(--muted)",fontFamily:"system-ui",marginTop:2,lineHeight:1.4}}>
+                Deferred tax asset — reduces tax owed at sale, not additional cash proceeds. Releases {FMT_USD(result.finalPalCarryforward)} of accumulated suspended losses at your {Math.round((result.taxAdvEnabled&&deal?.assumptions?.taxBracket)||22)}% bracket.
+              </div>
+            </div>
+          )}
+          <KV label="Net Tax on Sale" value={"("+FMT_USD(result.netTaxOnSale)+")"} color="var(--red)" bold/>
+          <div style={{height:1,background:"var(--border)",margin:"6px 0"}}/>
           <KV label="Net Proceeds" value={FMT_USD(result.netProceeds)} color="var(--accent)" bold last/>
+          {!result.taxAdvEnabled&&result.finalPalCarryforward>0&&(
+            <div style={{fontSize:9,color:"var(--muted)",fontStyle:"italic",fontFamily:"system-ui",marginTop:4,lineHeight:1.4}}>
+              Enable Advanced Tax Modeling to see §1250 recapture and suspended loss tax benefit.
+            </div>
+          )}
+          <div style={{fontSize:9,color:"var(--muted)",fontStyle:"italic",fontFamily:"system-ui",marginTop:4,lineHeight:1.4}}>
+            A 1031 exchange defers all taxes shown above — suspended losses are not released.
+          </div>
         </Panel>
       </div>
 
