@@ -8,7 +8,6 @@ function CashFlowTab({result,deal}){
   const [showExpDetail,setShowExpDetail]=useState(false);
   const [showTaxDetail,setShowTaxDetail]=useState(false);
   const [showCFDetail,setShowCFDetail]=useState(false);
-  const [showCFDetail,setShowCFDetail]=useState(false);
   const EXP_KEYS=[["propertyTax","Property Tax"],["insurance","Property Insurance"],["maintenance","Maintenance"],["capex","CapEx Reserve"],["propertyMgmt","Prop. Mgmt"],["utilities","Utilities"]];
   const tdR=(bold,color)=>({padding:"6px 8px",textAlign:"right",fontSize:11,fontWeight:bold?700:400,whiteSpace:"nowrap",color:color==="accent"?"var(--accent)":color==="red"?"#ef4444":"var(--text)"});
   const tdL=(bold,indent,col)=>({padding:`6px 8px 6px ${indent?20:8}px`,color:col||(bold?"var(--text)":"var(--muted)"),fontWeight:bold?700:400,fontSize:indent?10:11,whiteSpace:"nowrap",position:"sticky",left:0,background:"var(--bg)",zIndex:1});
@@ -16,6 +15,7 @@ function CashFlowTab({result,deal}){
   const R=({label,children,bold,color,indent,labelColor})=>(<tr><td style={tdL(bold,indent,labelColor)}>{label}</td>{children}</tr>);
   const oo=result.ooEnabled;
   const altRent=result.ooAltRentMonthly||0;
+  const hasCF=result.taxAdvEnabled&&result.years.some(y=>y.cumulativeCarryforward>0||y.suspendedLossThisYr>0);
 
   return(<div style={{padding:"16px 0"}}>
     <div style={{fontSize:11,color:"var(--muted)",marginBottom:8}}>← Swipe to see all years</div>
@@ -74,48 +74,6 @@ function CashFlowTab({result,deal}){
           {/* Alt Rent — muted, informational, only during OO years */}
           {oo&&altRent>0&&(<tr><td style={{...tdL(false,false),color:"var(--muted)"}}>Alt. Rent (if renting)</td>{result.years.map(y=>(<td key={y.yr} style={{...tdR(false,null),color:"var(--muted)",fontStyle:"italic"}}>{y.ooRentDeduction>0?`(${FMT_USD(altRent)}/mo)`:"—"}</td>))}</tr>)}
 
-          {/* PAL Carryforward Balance — collapsible, only when advanced tax + carryforward exists */}
-          {result.taxAdvEnabled&&result.years.some(y=>y.cumulativeCarryforward>0||y.carryforwardUsedThisYr>0)&&(
-            <>
-              <tr style={{cursor:"pointer",background:"rgba(245,158,11,0.04)"}} onClick={()=>setShowCFDetail(v=>!v)}>
-                <td style={{...tdL(false,false,"#f59e0b"),userSelect:"none",fontWeight:700}}>
-                  <span style={{color:"#f59e0b",marginRight:4,fontSize:9,display:"inline-block",transform:showCFDetail?"rotate(90deg)":"rotate(0)"}}>&#9658;</span>
-                  PAL Carryforward Balance
-                </td>
-                {result.years.map(y=>{
-                  const delta=y.suspendedLossThisYr-y.carryforwardUsedThisYr;
-                  const isAdd=y.suspendedLossThisYr>0&&y.carryforwardUsedThisYr===0;
-                  const isDraw=y.carryforwardUsedThisYr>0;
-                  const isFlat=delta===0&&y.cumulativeCarryforward===0;
-                  return(<td key={y.yr} style={{...tdR(true,null),color:isDraw?"var(--accent)":isAdd?"#f59e0b":"var(--muted)"}}>
-                    {isFlat?"—":FMT_USD(y.cumulativeCarryforward)}
-                  </td>);
-                })}
-              </tr>
-              {showCFDetail&&result.years.map(y=>{
-                const hasAdd=y.suspendedLossThisYr>0;
-                const hasDraw=y.carryforwardUsedThisYr>0;
-                if(!hasAdd&&!hasDraw) return null;
-                return(<React.Fragment key={y.yr}>
-                  {/* We render per-year detail as a column would be too wide — show as expandable note */}
-                </React.Fragment>);
-              })}
-              {showCFDetail&&(
-                <>
-                  {result.years.some(y=>y.suspendedLossThisYr>0)&&(
-                    <tr style={{background:"var(--row-sub)"}}><td style={{...tdL(false,true,"#f59e0b"),background:"var(--row-sub)"}}>&#x21b3; + Added (Suspended This Yr)</td>{result.years.map(y=><td key={y.yr} style={{...tdR(false,null),color:y.suspendedLossThisYr>0?"#f59e0b":"var(--muted)"}}>{y.suspendedLossThisYr>0?`+${FMT_USD(y.suspendedLossThisYr)}`:"—"}</td>)}</tr>
-                  )}
-                  {result.years.some(y=>y.carryforwardUsedThisYr>0)&&(
-                    <tr style={{background:"var(--row-sub)"}}><td style={{...tdL(false,true),color:"var(--accent)",background:"var(--row-sub)"}}>&#x21b3; − Applied Against Income</td>{result.years.map(y=><td key={y.yr} style={{...tdR(false,null),color:y.carryforwardUsedThisYr>0?"var(--accent)":"var(--muted)"}}>{y.carryforwardUsedThisYr>0?`(${FMT_USD(y.carryforwardUsedThisYr)})`:"—"}</td>)}</tr>
-                  )}
-                  <tr><td colSpan={11} style={{padding:"3px 8px 8px 20px",fontSize:9,color:"var(--muted)",fontStyle:"italic",lineHeight:1.5}}>
-                    Deferred tax asset — accumulated suspended passive losses (IRC §469). Releases in full on a taxable sale. Not released by a 1031 exchange.
-                  </td></tr>
-                </>
-              )}
-            </>
-          )}
-
           {/* ── Tax Implications ── */}
           <CFSectionHeader label="② Tax Implications"/>
 
@@ -157,20 +115,19 @@ function CashFlowTab({result,deal}){
             )}
           </>)}
 
-          {/* Taxable Income line */}
+          {/* ── Taxable Income derivation ─────────────────────────────────────────────
+               Flow: NOI + addbacks − interest − depreciation = Taxable Income (Gross)
+                     − Carryforward Applied                   = Eff. Taxable Income
+                     − QBI Deduction (20%)                    → Federal Tax             */}
           {result.taxAdvEnabled?(
             <>
+              {/* Step 1: Gross taxable income before carryforward offset */}
               <R label="= Taxable Income (Gross)" bold><Yr bold>{y=>FMT_USD(y.taxableIncomeAdv)}</Yr></R>
-              {/* PAL Allowance Used — deductible portion of this year's loss (detail, collapsed) */}
-              {showTaxDetail&&result.years.some(y=>y.palAllowedLoss>0)&&(
-                <tr style={{background:"var(--row-sub)"}}><td style={{...tdL(false,true,"#f59e0b"),background:"var(--row-sub)"}}>&#x21b3; PAL Allowance Used</td>{result.years.map(y=><td key={y.yr} style={{...tdR(false,null),color:y.palAllowedLoss>0?"#f59e0b":"var(--muted)"}}>{y.palAllowedLoss>0?FMT_USD(y.palAllowedLoss):"—"}</td>)}</tr>
-              )}
-              {/* Suspended Loss This Year — detail only */}
-              {showTaxDetail&&result.years.some(y=>y.suspendedLossThisYr>0)&&(
-                <tr style={{background:"var(--row-sub)"}}><td style={{...tdL(false,true,"#f59e0b"),background:"var(--row-sub)"}}>&#x21b3; Suspended This Yr</td>{result.years.map(y=><td key={y.yr} style={{...tdR(false,null),color:y.suspendedLossThisYr>0?"#f59e0b":"var(--muted)"}}>{y.suspendedLossThisYr>0?`(${FMT_USD(y.suspendedLossThisYr)})`:"—"}</td>)}</tr>
-              )}
-              {/* Carryforward Applied — ALWAYS VISIBLE line item; shows derivation from Taxable Income to Eff. Taxable Income */}
-              {result.years.some(y=>y.cumulativeCarryforward>0||y.carryforwardUsedThisYr>0)&&(
+
+              {/* Step 2: Carryforward Applied — always visible when there is any CF activity.
+                   Shows "—" in years where no prior losses offset income; teal when active.
+                   This line makes the Gross → Eff. derivation explicit and auditable. */}
+              {hasCF&&(
                 <tr>
                   <td style={{...tdL(false,true),color:"var(--accent)"}}>↳ − Carryforward Applied</td>
                   {result.years.map(y=><td key={y.yr} style={{...tdR(false,null),color:y.carryforwardUsedThisYr>0?"var(--accent)":"var(--muted)"}}>
@@ -178,6 +135,8 @@ function CashFlowTab({result,deal}){
                   </td>)}
                 </tr>
               )}
+
+              {/* Step 3: Effective taxable income after carryforward */}
               <R label="= Eff. Taxable Income" bold><Yr bold>{y=>FMT_USD(y.effectiveTaxIncAdv)}</Yr></R>
               <R label="− QBI Deduction (20%)" color="red"><Yr color="red">{y=>y.effectiveTaxIncAdv>0?FMT_USD(y.qbiAdv):"—"}</Yr></R>
             </>
@@ -194,14 +153,12 @@ function CashFlowTab({result,deal}){
           </tr>
           <R label="After-Tax CF" bold color="accent"><Yr bold color="accent">{y=>FMT_USD(result.taxAdvEnabled?y.afterTaxCFAdv:y.afterTaxCashFlow)}</Yr></R>
 
-
-          {/* ── PAL Carryforward Balance — collapsible, after After-Tax CF ─────────────
-               Running balance of deferred tax asset (suspended losses not yet used).
-               Expand to see: additions (suspended this yr) and subtractions (applied this yr).
-               This is NOT cash — it reduces future tax bills and releases at taxable sale. */}
-          {result.taxAdvEnabled&&result.years.some(y=>y.cumulativeCarryforward>0||y.suspendedLossThisYr>0)&&(
+          {/* ── PAL Carryforward Balance — collapsible row after After-Tax CF ────────────
+               Shows the running deferred tax asset balance across 10 years.
+               Expands to show: + Suspended This Yr (adds to balance), − Applied This Yr (draws it down).
+               Framed clearly as a deferred tax asset, not cash. */}
+          {hasCF&&(
             <>
-              {/* Collapsible header — shows running balance each year */}
               <tr style={{cursor:"pointer",background:"rgba(245,158,11,0.04)"}} onClick={()=>setShowCFDetail(v=>!v)}>
                 <td style={{...tdL(false,false,"#f59e0b"),userSelect:"none",fontWeight:700}}>
                   <span style={{color:"#f59e0b",marginRight:4,fontSize:9,display:"inline-block",transform:showCFDetail?"rotate(90deg)":"rotate(0)"}}>&#9658;</span>
@@ -214,7 +171,7 @@ function CashFlowTab({result,deal}){
                 ))}
               </tr>
 
-              {/* Expanded: +Suspended this year — loss that couldn't be deducted, adds to balance */}
+              {/* Expanded: losses added this year (increases balance) */}
               {showCFDetail&&result.years.some(y=>y.suspendedLossThisYr>0)&&(
                 <tr style={{background:"var(--row-sub)"}}>
                   <td style={{...tdL(false,true,"#f59e0b"),background:"var(--row-sub)"}}>&#x21b3; + Suspended This Yr</td>
@@ -226,7 +183,7 @@ function CashFlowTab({result,deal}){
                 </tr>
               )}
 
-              {/* Expanded: −Applied this year — prior losses drawn down against this year's income */}
+              {/* Expanded: prior losses drawn down against this year's income (decreases balance) */}
               {showCFDetail&&result.years.some(y=>y.carryforwardUsedThisYr>0)&&(
                 <tr style={{background:"var(--row-sub)"}}>
                   <td style={{...tdL(false,true),color:"var(--accent)",background:"var(--row-sub)"}}>&#x21b3; − Applied This Yr</td>
@@ -238,7 +195,6 @@ function CashFlowTab({result,deal}){
                 </tr>
               )}
 
-              {/* Framing note */}
               <tr><td colSpan={11} style={{padding:"2px 8px 8px 8px",fontSize:10,color:"var(--muted)",fontStyle:"italic",lineHeight:1.5}}>
                 Deferred tax asset — not cash. Reduces future taxable income and releases in full upon taxable sale. Not released by a 1031 exchange.
               </td></tr>
