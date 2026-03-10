@@ -97,7 +97,7 @@ function MarketTab({deal}){
   const bedroomRents=rd?.dataByBedrooms?Object.entries(rd.dataByBedrooms).sort(([a],[b])=>+a-+b).map(([beds,d])=>({beds:beds==='0'?'Studio':`${beds} BR`,avg:d.averageRent,median:d.medianRent,count:d.totalListings})):[];
   // Multi-family sale data: look for 'Multi Family' in dataByPropertyType (already in the response, no extra API call)
   // RentCast property type strings: 'Single Family', 'Multi Family', 'Condo', 'Townhouse', etc.
-  const MF_TYPES=['Multi Family','Duplex','Triplex','Quadruplex'];
+  const MF_TYPES=['Multi-Family','Duplex','Triplex','Quadruplex'];
   const sdMF=sd?.dataByPropertyType?.find(t=>MF_TYPES.includes(t.propertyType))||null;
   // Multi-family sale trend from history — filter history dataByPropertyType if available
   const saleTrendMF=sd?.history
