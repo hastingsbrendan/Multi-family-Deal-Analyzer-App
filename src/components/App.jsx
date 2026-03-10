@@ -11,6 +11,7 @@ import PortfolioPage from './PortfolioPage';
 import DealPage from './DealPage';
 import ProfilePage from './ProfilePage';
 import SettingsPage from './SettingsPage';
+import AppSettingsPage from './AppSettingsPage';
 import GroupsPage from './GroupsPage';
 import ShareDealModal from './ShareDealModal';
 import GuidedTour, { TOUR_STEPS } from './GuidedTour';
@@ -50,33 +51,36 @@ function App() {
 
   const theme = dark ? "dark" : "light";
 
-  // Bootstrap: restore session from localStorage on mount, then listen for changes
+  // Bootstrap: restore session from localStorage, then pull cloud state.
+  // Extracted to `bootstrapUser` to avoid duplicating this pattern in onAuthStateChange.
+  const bootstrapUser = useCallback((u, { loadPrefs = false, showTourIfEmpty = false } = {}) => {
+    Sentry.setUser({ id: u.id, email: u.email });
+    const local = loadLocal(u.id);
+    setDeals(local);
+    setTimeout(() => {
+      sbRead()
+        .then(({ data: cloudDeals, prefs: cloudPrefs, updated_at }) => {
+          setLastCloudUpdate(updated_at);
+          if (loadPrefs && cloudPrefs) { setPrefs({ ...DEFAULT_PREFS, ...cloudPrefs }); }
+          if (cloudDeals.length > 0) {
+            setDeals(cloudDeals);
+            saveLocal(cloudDeals, u.id);
+          } else if (local.length > 0) {
+            sbWrite(local).catch(() => {});
+          } else if (showTourIfEmpty) {
+            setTourStep(0);
+          }
+        })
+        .catch(() => {});
+    }, 300);
+  }, [setDeals, setLastCloudUpdate]);
+
   useEffect(() => {
     authGetSession().then(({ data: { session } }) => {
       const u = session?.user || false;
       setUser(u);
       setAuthLoading(false);
-      if (u) {
-        Sentry.setUser({ id: u.id, email: u.email });
-        const local = loadLocal(u.id);
-        setDeals(local);
-        setTimeout(() => {
-          sbRead()
-            .then(({ data: cloudDeals, prefs: cloudPrefs, updated_at }) => {
-              setLastCloudUpdate(updated_at);
-              if (cloudPrefs) { const p = { ...DEFAULT_PREFS, ...cloudPrefs }; setPrefs(p); }
-              if (cloudDeals.length > 0) {
-                setDeals(cloudDeals);
-                saveLocal(cloudDeals, u.id);
-              } else if (local.length > 0) {
-                sbWrite(local).catch(() => {});
-              } else {
-                setTourStep(0);
-              }
-            })
-            .catch(() => {});
-        }, 300);
-      }
+      if (u) bootstrapUser(u, { loadPrefs: true, showTourIfEmpty: true });
     });
     const { data: { subscription } } = sbClient.auth.onAuthStateChange((evt, session) => {
       const u = session?.user || false;
@@ -87,17 +91,7 @@ function App() {
         if (window.location.hash.includes("access_token")) {
           window.history.replaceState(null, "", window.location.pathname);
         }
-        const local = loadLocal(u.id);
-        setDeals(local);
-        setTimeout(() => {
-          sbRead()
-            .then(({ data: cloudDeals, updated_at }) => {
-              setLastCloudUpdate(updated_at);
-              if (cloudDeals.length > 0) { setDeals(cloudDeals); saveLocal(cloudDeals, u.id); }
-              else if (local.length > 0) { sbWrite(local).catch(() => {}); }
-            })
-            .catch(() => {});
-        }, 300);
+        bootstrapUser(u);
       }
       if (!u) { setDeals([]); setActiveDealId(null); setShowProfile(false); }
     });
@@ -267,53 +261,14 @@ function App() {
   if (showAppSettings) return (
     <div data-theme={theme} style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
       <div style={{padding:"0 16px"}}>
-        <div style={{maxWidth:480, margin:"0 auto", paddingBottom:40}}>
-          <div style={{display:"flex", alignItems:"center", gap:12, margin:"20px 0 24px"}}>
-            <button onClick={()=>setShowAppSettings(false)} style={{background:"var(--card)", border:"1px solid var(--border)",
-              borderRadius:8, padding:"8px 14px", color:"var(--text)", fontSize:13, cursor:"pointer", fontWeight:600}}>
-              ← Back
-            </button>
-            <div style={{fontWeight:800, fontSize:18}}>Settings</div>
-          </div>
-          <div style={{background:"var(--card)", border:"1px solid var(--border)", borderRadius:12, padding:24, marginBottom:14}}>
-            <div style={{fontWeight:700, fontSize:14, marginBottom:14}}>Appearance</div>
-            <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
-              <div>
-                <div style={{fontSize:14, fontWeight:500}}>Dark mode</div>
-                <div style={{fontSize:12, color:"var(--muted)", marginTop:2}}>Easy on the eyes for late-night deal analysis</div>
-              </div>
-              <button onClick={()=>{const nd=!dark;setDark(nd);localStorage.setItem("rh_dark",nd);}} style={{background:dark?"var(--accent)":"#cbd5e1",
-                border:"none", borderRadius:20, width:46, height:24, position:"relative", cursor:"pointer",
-                transition:"background 0.2s", flexShrink:0}}>
-                <div style={{width:16, height:16, background:"#fff", borderRadius:"50%", position:"absolute",
-                  top:4, left:dark?26:4, transition:"left 0.2s"}}/>
-              </button>
-            </div>
-          </div>
-          <div style={{background:"var(--card)", border:"1px solid var(--border)", borderRadius:12, padding:24, marginBottom:14}}>
-            <div style={{fontWeight:700, fontSize:14, marginBottom:14}}>Account</div>
-            <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
-              <div>
-                <div style={{fontSize:14, fontWeight:500}}>{user?.user_metadata?.display_name || "No name set"}</div>
-                <div style={{fontSize:12, color:"var(--muted)", marginTop:2}}>{user?.email}</div>
-              </div>
-              <button onClick={()=>{setShowAppSettings(false); setShowProfile(true);}}
-                style={{background:"none", border:"1px solid var(--border)", borderRadius:7,
-                  padding:"7px 14px", fontSize:13, cursor:"pointer", color:"var(--text)", fontWeight:600}}>
-                Edit Profile
-              </button>
-            </div>
-          </div>
-          <div style={{background:"var(--card)", border:"1px solid var(--border)", borderRadius:12, padding:24}}>
-            <div style={{fontWeight:700, fontSize:14, marginBottom:4}}>Sign Out</div>
-            <div style={{color:"var(--muted)", fontSize:13, marginBottom:14}}>You'll need to sign back in to access your deals.</div>
-            <button onClick={handleSignOut}
-              style={{background:"#fee2e2", color:"#991b1b", border:"1px solid #fca5a5",
-                borderRadius:8, padding:"10px 20px", fontSize:14, fontWeight:700, cursor:"pointer"}}>
-              Sign Out
-            </button>
-          </div>
-        </div>
+        <AppSettingsPage
+          user={user}
+          dark={dark}
+          setDark={setDark}
+          onBack={()=>setShowAppSettings(false)}
+          onEditProfile={()=>{setShowAppSettings(false); setShowProfile(true);}}
+          onSignOut={handleSignOut}
+        />
       </div>
     </div>
   );

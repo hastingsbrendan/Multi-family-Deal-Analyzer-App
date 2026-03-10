@@ -14,6 +14,14 @@ function PortfolioPage({deals, onSelect, onAdd, onDelete, onExport, onReorder, d
   const [dragOverIdx, setDragOverIdx] = useState(null);
   const [toast, setToast] = useState(null); // { message, deals }
   const isMobile = useIsMobile();
+  // Memoize all calcDeal results keyed by deal array reference.
+  // Without this, calcDeal runs for every deal on every keystroke/re-render.
+  const resultsByDealId = useMemo(() => {
+    const map = {};
+    (deals || []).forEach(d => { map[d.id] = calcDeal(d); });
+    return map;
+  }, [deals]);
+
   const filtered = (filter==="All" ? deals : (deals||[]).filter(d=>d.status===filter))
     .slice().sort((a,b) => {
       const aPass = a.status==="Pass" ? 1 : 0;
@@ -63,7 +71,7 @@ function PortfolioPage({deals, onSelect, onAdd, onDelete, onExport, onReorder, d
     {filterBar}
     <PortfolioMap deals={filtered} onSelect={onSelect}/>
     {filtered.length===0?(<div data-tour="portfolio-list" style={{textAlign:"center",padding:"60px 20px",color:"var(--muted)"}}>{(deals||[]).length===0?<><div style={{fontSize:48,marginBottom:12}}>🏘</div><div>No deals yet. Tap <strong style={{color:"var(--text)"}}>+ Add</strong> to start.</div></>:"No deals match this filter."}</div>):(
-      <div data-tour="portfolio-list">{filtered.map((d,i)=>{const r=calcDeal(d);return(<div key={d.id} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:14,marginBottom:10}}>
+      <div data-tour="portfolio-list">{filtered.map((d,i)=>{const r=resultsByDealId[d.id]||{};return(<div key={d.id} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:14,marginBottom:10}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10,gap:8}}>
           <div style={{flex:1,minWidth:0}} onClick={()=>onSelect(d.id)}>
             <div style={{fontWeight:800,fontSize:14,color:"var(--text)",marginBottom:3}}>{d.address||<em style={{color:"var(--muted)"}}>Untitled</em>}</div>
@@ -113,7 +121,7 @@ function PortfolioPage({deals, onSelect, onAdd, onDelete, onExport, onReorder, d
     {filtered.length===0?(<div data-tour="portfolio-list" style={{textAlign:"center",padding:"80px 20px",color:"var(--muted)"}}>{(deals||[]).length===0?<><div style={{fontSize:48,marginBottom:16}}>🏘</div><div style={{fontSize:16}}>No deals yet. Click <strong style={{color:"var(--text)"}}>+ New Deal</strong> to get started.</div></>:"No deals match this filter."}</div>):(
       <div data-tour="portfolio-list" style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
         <thead><tr>{["","Address","Status","Showing","Price","Cash In","NOI Yr1","CoC Yr1","Cap Rate","IRR 10yr","EqMult","DSCR",""].map(h=>(<th key={h} style={{padding:"10px 12px",textAlign:"left",color:"var(--muted)",fontWeight:700,fontSize:11,letterSpacing:"0.06em",textTransform:"uppercase",borderBottom:"2px solid var(--border)",whiteSpace:"nowrap",background:"var(--table-head)"}}>{h}</th>))}</tr></thead>
-        <tbody>{filtered.map((d,i)=>{const r=calcDeal(d);const isDragging=dragIdx===i;const isOver=dragOverIdx===i&&dragIdx!==i;return(<tr key={d.id} draggable onDragStart={e=>handleDragStart(e,i)} onDragOver={e=>handleDragOver(e,i)} onDrop={e=>handleDrop(e,i)} onDragEnd={handleDragEnd} onClick={()=>onSelect(d.id)} style={{cursor:"pointer",borderBottom:"1px solid var(--border-faint)",opacity:isDragging?0.4:1,background:isOver?"var(--accent-soft)":"transparent",transition:"background 0.1s"}} onMouseEnter={e=>{if(!isDragging)e.currentTarget.style.background="var(--row-hover)";}} onMouseLeave={e=>{e.currentTarget.style.background=isOver?"var(--accent-soft)":"transparent";}}>
+        <tbody>{filtered.map((d,i)=>{const r=resultsByDealId[d.id]||{};const isDragging=dragIdx===i;const isOver=dragOverIdx===i&&dragIdx!==i;return(<tr key={d.id} draggable onDragStart={e=>handleDragStart(e,i)} onDragOver={e=>handleDragOver(e,i)} onDrop={e=>handleDrop(e,i)} onDragEnd={handleDragEnd} onClick={()=>onSelect(d.id)} style={{cursor:"pointer",borderBottom:"1px solid var(--border-faint)",opacity:isDragging?0.4:1,background:isOver?"var(--accent-soft)":"transparent",transition:"background 0.1s"}} onMouseEnter={e=>{if(!isDragging)e.currentTarget.style.background="var(--row-hover)";}} onMouseLeave={e=>{e.currentTarget.style.background=isOver?"var(--accent-soft)":"transparent";}}>
           <td onClick={e=>e.stopPropagation()} style={{padding:"8px 6px 8px 12px",color:"var(--muted)",cursor:"grab",fontSize:16,userSelect:"none"}} title="Drag to reorder">⠿</td>
           <td style={{padding:"12px",fontWeight:700,color:"var(--text)"}}>{d.address||<span style={{color:"var(--muted)",fontStyle:"italic"}}>Untitled</span>}</td>
           <td style={{padding:"12px"}}><span style={{background:STATUS_COLORS[d.status]+"22",color:STATUS_COLORS[d.status],borderRadius:4,padding:"2px 8px",fontSize:11,fontWeight:700}}>{d.status}</span></td>

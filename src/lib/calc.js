@@ -1,4 +1,62 @@
 // ─── Financial calculation engine ────────────────────────────────────────────
+//
+// FIELD GLOSSARY (deal.assumptions)
+// ─────────────────────────────────
+// purchasePrice         Agreed purchase price (USD)
+// downPaymentPct        Down payment as % of purchase price (e.g. 25 = 25%)
+// downPaymentDollar     Mirror field kept in sync with downPaymentPct; used when
+//                       purchasePrice is 0 (dollar-first entry mode)
+// interestRate          Annual mortgage rate (e.g. 7.0 = 7%)
+// amortYears            Amortization period in years (typically 30)
+// numUnits              2 | 3 | 4 — number of rentable units
+// units[]               Array of 4 unit objects (slice to numUnits for calcs):
+//   .rent               Current/expected monthly rent (what we underwrite)
+//   .listedRent         MLS listed rent (informational)
+//   .rentcastRent       RentCast API estimate (informational)
+// ownerOccupied         True = owner lives in one unit (house-hack)
+// ownerUnit             Index of the owner-occupied unit (0-based)
+// ownerOccupancyYears   How many years the owner plans to live there
+// alternativeRent       What the owner would pay to rent elsewhere (opportunity cost)
+// ownerUseUtilities     Monthly utility cost for the owner unit (added to expenses)
+// vacancyRate           Annual vacancy assumption as % (e.g. 5 = 5%)
+// rentGrowth            Annual rent growth rate as % (e.g. 3 = 3%)
+// expenseGrowth         Annual operating expense growth rate as %
+// appreciationRate      Annual property appreciation rate as %
+// taxBracket            Federal income tax bracket as % (e.g. 22 = 22%)
+// pmi                   Monthly PMI payment (USD) — set by loanEngine when < 20% down
+// sellerConcessions     Seller-paid costs reducing cash needed at close (USD)
+// loanLimit             Optional conforming/FHA loan limit cap (USD); 0 = no cap
+// closingCosts          Itemized closing costs object (title, transferTax, etc.)
+// insuranceUpfront      True = first-year insurance premium paid at close (not monthly)
+// expenses              Operating expense values (USD or % depending on expenseModes)
+// expenseModes          Per-expense mode: "pct" (% of gross rent) | "value" (USD/yr)
+//   .propertyTax        Annual property tax
+//   .insurance          Landlord insurance
+//   .maintenance        Routine maintenance/repairs
+//   .capex              Capital expenditure reserve
+//   .propertyMgmt       Property management fee (0 if selfManage=true)
+//   .utilities          Landlord-paid utilities (water, trash, etc.)
+// selfManage            True = skip property management expense
+// annualPropertyTax     Raw value from Rentcast/Zillow API; written to expenses.propertyTax
+// refi                  Refinance scenario object:
+//   .enabled            True = model a cash-out refi at .year
+//   .year               Year (1-9) when refi closes
+//   .newRate            New interest rate after refi (%)
+//   .newLTV             LTV used to compute new loan amount (%)
+// valueAdd              Value-add renovation scenario:
+//   .enabled            True = model renovation costs and rent bump
+//   .reModelCost        Total renovation budget (USD); spread 50/50 over yr1 and yr2
+//   .rentBumpPerUnit    Monthly rent increase per renovated unit (USD)
+//   .unitsRenovated     Number of units renovated (≤ numUnits)
+//   .completionYear     Year renovation is complete and rent bump takes effect
+//
+// DEPRECATED / UNUSED FIELDS (kept for backward compat, not read by calcDeal)
+// ─────────────────────────────────────────────────────────────────────────────
+// assumptions.loanAmount       Never read; loanAmt is computed internally in calcDeal
+// assumptions.*Source fields   (purchasePriceSource, interestRateSource, etc.)
+//                              UI-ready annotation fields; not yet displayed in any tab.
+//                              Keep in newDeal() for future "sources" feature.
+//
 import * as Sentry from '@sentry/react';
 const DEFAULT_PREFS = {
   // Default assumptions applied to every new deal
@@ -30,7 +88,7 @@ const newDeal = (prefs) => {
   assumptions: {
     purchasePrice: 450000, purchasePriceSource: "",
     downPaymentPct: p.downPaymentPct, downPaymentSource: "", downPaymentDollar: 0,
-    loanLimit: 0, loanAmount: 0,
+    loanLimit: 0, // conforming/FHA cap; 0 = no cap; set by LoanTypeTab
     interestRate: p.interestRate, interestRateSource: "",
     amortYears: p.amortYears, amortSource: "",
     closingCosts: { ...p.closingCosts },
@@ -123,9 +181,14 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
   const insUpfront=a.insuranceUpfront?(+a.expenses?.insurance||0):0;
   const closingCostsTotal=Object.values(a.closingCosts).reduce((s,v)=>s+(+v||0),0)+insUpfront;
   const totalCash=dp+closingCostsTotal-(+a.sellerConcessions||0);
+  // naturalLoanCalc = purchase price minus down payment minus any seller concessions.
+  // loanAmt = capped at loanLimit if set; otherwise equals naturalLoanCalc.
+  // Bug note: previously the non-limit path was `pp - dp` (missing sellerConcessions).
   const naturalLoanCalc=Math.max(0,pp-dp-(+a.sellerConcessions||0));
   const loanLimitCalc=+a.loanLimit||0;
-  const loanAmt=loanLimitCalc>0?Math.min(naturalLoanCalc,loanLimitCalc):pp-dp, rate=(+a.interestRate||7)/100/12, n=(+a.amortYears||30)*12;
+  const loanAmt=loanLimitCalc>0?Math.min(naturalLoanCalc,loanLimitCalc):naturalLoanCalc;
+  const rate=(+a.interestRate||7)/100/12;  // monthly interest rate
+  const n=(+a.amortYears||30)*12;          // total payment periods
   const monthlyPayment=loanAmt>0&&rate>0?loanAmt*(rate*Math.pow(1+rate,n))/(Math.pow(1+rate,n)-1):loanAmt/n;
   const annualDebtService=monthlyPayment*12;
   const grossRentYear0=a.units.slice(0,a.numUnits).reduce((s,u)=>s+(+(u.rent||u.listedRent)||0)*12,0);
@@ -154,6 +217,8 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
   for(let yr=1;yr<=10;yr++){
     let refiEvent=null;
     if(refiEnabled&&yr===refiYear){
+      // Refi: estimate property value at refi year, compute new loan at target LTV,
+      // cash-out = new loan minus remaining balance (floored at 0)
       const pv=pp*Math.pow(1+appRate,yr-1), newLoanAmt=pv*refiLTV;
       refiCashOut=Math.max(0,newLoanAmt-balance);
       const refiN=(+a.amortYears||30)*12;
@@ -164,33 +229,44 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     const vaRentLiftThisYr=vaEnabled&&yr>=vaCompletionYr?vaRentBump:0;
     const ooRentLostThisYr=ooEnabled&&yr<=ooYears?ooAnnualRentLost:0;
     const ooUtilitiesThisYr=ooEnabled&&yr<=ooYears?ooAnnualUtilities*Math.pow(1+(+a.expenseGrowth||0)/100,yr-1):0;
+    // Gross rent grows each year; VA rent bump added once renovation is complete
     const grossRent=(grossRentYear0+vaRentLiftThisYr)*Math.pow(1+rentGrowth,yr-1);
     const vacancyLoss=grossRent*vacRate, egi=grossRent-vacancyLoss;
+    // Expenses compounded by expenseGrowth; uses Year-0 base resolved by resolveExpenses()
     const mult=Math.pow(1+expGrowth,yr-1);
     const expBreakdown={propertyTax:baseExp.propertyTax*mult,insurance:baseExp.insurance*mult,maintenance:baseExp.maintenance*mult,capex:baseExp.capex*mult,propertyMgmt:baseExp.propertyMgmt*mult,utilities:baseExp.utilities*mult};
     const expenses=baseExpenses*mult, noi=egi-expenses;
+    // Amortization: monthly principal/interest split using outstanding balance
     let principal=0,interest=0,newBalance=balance;
     if(balance>0){for(let m=0;m<12;m++){const intPay=newBalance*(refiEnabled&&yr>=refiYear?refiRate:rate);const prinPay=currentMonthlyPayment-intPay;interest+=intPay;principal+=prinPay;newBalance-=prinPay;}}
     balance=newBalance;
+    // Value-add reno cost: spread 50% yr1 / 50% yr2 (construction draw model)
     const vaRemodelOutflow=yr===1?vaReModelCost/2:yr===2?vaReModelCost/2:0;
     const cashFlow=noi-currentAnnualDebtService+(refiEvent?refiEvent.cashOut:0)-vaRemodelOutflow;
     const monthlyCashFlow=cashFlow/12;
+    // CoC = (NOI - debt service) / total cash invested; does NOT include refi cash-out
     const cocReturn=totalCashWithVA>0?(noi-currentAnnualDebtService)/totalCashWithVA:0;
     const capRate=pp>0?noi/pp:0, dscr=currentAnnualDebtService>0?noi/currentAnnualDebtService:0;
+    // Depreciation: 80% of purchase price (land excluded) / 27.5yr residential schedule
     const annualDepreciation=(pp*0.8)/27.5, taxableIncome=noi-interest-annualDepreciation;
+    // QBI deduction: 20% of qualified business income (IRC §199A) if positive
     const qbi=taxableIncome>0?taxableIncome*0.2:0, federalTaxable=taxableIncome-qbi;
     const bracketRate=(+a.taxBracket||22)/100, taxEffect=federalTaxable*bracketRate;
     const afterTaxCashFlow=(noi-currentAnnualDebtService)-taxEffect+(refiEvent?refiEvent.cashOut:0)-vaRemodelOutflow;
+    // VA implied value lift: rent bump capitalized at Year-0 cap rate (NOI / pp)
     const baseCapRate=grossRentYear0*(1-vacRate)-baseExpenses>0&&pp>0?(grossRentYear0*(1-vacRate)-baseExpenses)/pp:0.06;
     const vaImpliedValueLift=vaEnabled&&yr>=vaCompletionYr&&baseCapRate>0?(vaRentBump*(1-vacRate))/baseCapRate:0;
     const propertyValue=pp*Math.pow(1+appRate,yr)+vaImpliedValueLift;
+    // OO cash flow: subtract lost rent and owner utilities while owner is in residence
     const ooCashFlow=ooEnabled&&yr<=ooYears?cashFlow-ooRentLostThisYr-ooUtilitiesThisYr:null;
     const ooMonthlyCashFlow=ooCashFlow!==null?ooCashFlow/12:null;
     years.push({yr,grossRent,vacancyLoss,egi,expenses,expBreakdown,noi,debtService:currentAnnualDebtService,cashFlow,monthlyCashFlow,cocReturn,capRate,dscr,principal,interest,balance:newBalance,depreciation:annualDepreciation,taxableIncome,qbi,taxEffect,afterTaxCashFlow,propertyValue,equity:propertyValue-newBalance,appreciationGain:propertyValue-pp,principalPaydown:loanAmt-newBalance,refiEvent,vaRemodelOutflow,vaRentLift:vaRentLiftThisYr,ooRentLost:ooRentLostThisYr,ooUtilities:ooUtilitiesThisYr,ooCashFlow,ooMonthlyCashFlow});
   }
+  // Exit analysis: long-term capital gains tax assumed at 15% federal rate
   const exitValue=years[9]?.propertyValue||pp*Math.pow(1+appRate,10);
   const capitalGains=exitValue-pp, capitalGainsTax=capitalGains*0.15;
   const netProceeds=exitValue-(years[9]?.balance||0)-capitalGainsTax;
+  // IRR: Newton-Raphson on cash flow series [-initialCash, cf1..cf10+netProceeds]
   const irrCFs=[-totalCashWithVA,...years.map(y=>y.cashFlow)]; irrCFs[10]+=netProceeds;
   let irr=0.1;
   for(let i=0;i<100;i++){let npv=0,dnpv=0;irrCFs.forEach((cf,t)=>{npv+=cf/Math.pow(1+irr,t);dnpv-=t*cf/Math.pow(1+irr,t+1);});if(Math.abs(npv)<0.01)break;irr-=npv/dnpv;}

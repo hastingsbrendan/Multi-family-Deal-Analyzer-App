@@ -64,6 +64,14 @@ describe('calcDeal', () => {
     expect(r.loanAmt).toBe(300000);
   });
 
+  it('loanAmt correctly subtracts seller concessions (regression: was ignoring them)', () => {
+    const deal = makeDeal({ purchasePrice: 400000, downPaymentPct: 25 });
+    deal.assumptions.sellerConcessions = 10000;
+    const r = calcDeal(deal);
+    // loanAmt = 400000 - 100000 (dp) - 10000 (concessions) = 290000
+    expect(r.loanAmt).toBe(290000);
+  });
+
   it('calculates correct gross rent year 0', () => {
     const deal = makeDeal({ rents: [1500, 1200], numUnits: 2 });
     const r = calcDeal(deal);

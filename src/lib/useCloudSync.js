@@ -56,10 +56,13 @@ export function useCloudSync(user, isOnline) {
     }, 800);
   }, [deals, isOnline]);
 
-  // Re-pull from cloud when tab regains visibility or window is focused
+  // Re-pull from cloud when tab regains visibility or window is focused.
+  // Guard: skip if there are unsaved local changes queued to be written — pulling
+  // would overwrite them before the debounced save fires.
   useEffect(() => {
     const pull = () => {
       if (!user || !isOnline || syncStatus === "saving") return;
+      if (pendingDealIds.current.size > 0) return; // local changes not yet flushed
       sbRead()
         .then(({ data: cloudDeals, updated_at }) => {
           if (updated_at && updated_at === lastCloudUpdate.current) return;
