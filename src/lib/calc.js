@@ -78,7 +78,9 @@ const DEFAULT_PREFS = {
   // Red flag thresholds
   dscrFloor:        1.2,
   capRateFloor:     0.06,
-  expRatioCeiling:  0.50 };
+  expRatioCeiling:  0.50,
+  // Advanced Tax Modeling defaults (BACK-013)
+  tax: { enabled:false, landValuePct:20, costSegEnabled:false, costSeg5YrPct:15, costSeg15YrPct:10, bonusDepPct:100, sec179Amount:0, paStatus:'active_participant', agi:100000 } };
 
 // newDeal accepts optional user prefs to seed defaults
 const newDeal = (prefs) => {
@@ -110,7 +112,8 @@ const newDeal = (prefs) => {
     selfManage:false, rentGrowth: p.rentGrowth, expenseGrowth: p.expenseGrowth, appreciationRate: p.appreciationRate, taxBracket: p.taxBracket,
     ownerOccupied:true, ownerUnit:0, ownerOccupancyYears:2, alternativeRent:0, ownerUseUtilities:0,
     refi: { enabled:false, year:5, newRate:6.5, newLTV:75 },
-    valueAdd: { enabled:false, reModelCost:40000, rentBumpPerUnit:200, unitsRenovated:2, completionYear:3 } },
+    valueAdd: { enabled:false, reModelCost:40000, rentBumpPerUnit:200, unitsRenovated:2, completionYear:3 },
+    tax: { ...(p.tax||DEFAULT_PREFS.tax) } },
   comps: Array(5).fill(null).map(() => ({ address:"", source:"", units:Array(4).fill(null).map(()=>({rent:0})), numUnits:2, distance:"" })),
   showing: {
     impression: "",
@@ -214,6 +217,23 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
   const vaReModelCost=vaEnabled?(+va.reModelCost||0):0;
   const vaRentBump=vaEnabled?(+va.rentBumpPerUnit||0)*Math.min(+va.unitsRenovated||0,a.numUnits)*12:0;
   const totalCashWithVA=totalCash+vaReModelCost;
+  // ── Advanced Tax Modeling config (BACK-013) ───────────────────────────────────
+  // Bonus dep: 100% permanent under OBBBA (signed Jul 4, 2025) for property acquired after Jan 19, 2025.
+  // Structure (27.5yr) does NOT qualify for bonus dep — only 5-yr and 15-yr components do.
+  const taxCfg=a.tax||{};
+  const taxAdvEnabled=!!taxCfg.enabled;
+  const landPct=taxAdvEnabled?Math.min(0.95,Math.max(0,(+taxCfg.landValuePct||20)/100)):0.20;
+  const buildingVal=pp*(1-landPct);
+  const csEnabled=taxAdvEnabled&&!!taxCfg.costSegEnabled;
+  const cs5Pct=csEnabled?Math.min(0.95,Math.max(0,(+taxCfg.costSeg5YrPct||15)/100)):0;
+  const cs15Pct=csEnabled?Math.min(0.95,Math.max(0,(+taxCfg.costSeg15YrPct||10)/100)):0;
+  const cs5Val=buildingVal*cs5Pct;
+  const cs15Val=buildingVal*Math.min(cs15Pct,Math.max(0,1-cs5Pct)); // guard sum ≤ 100%
+  const structureVal=buildingVal-cs5Val-cs15Val; // 27.5-yr remainder
+  const bonusPct=csEnabled?Math.min(1,Math.max(0,(+taxCfg.bonusDepPct||100)/100)):0;
+  const sec179=csEnabled?Math.min(+taxCfg.sec179Amount||0,cs5Val):0; // capped at 5-yr basis
+  const paStatus=taxCfg.paStatus||'active_participant';
+  const palAgi=+taxCfg.agi||100000;
   for(let yr=1;yr<=10;yr++){
     let refiEvent=null;
     if(refiEnabled&&yr===refiYear){
@@ -253,6 +273,42 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     const qbi=taxableIncome>0?taxableIncome*0.2:0, federalTaxable=taxableIncome-qbi;
     const bracketRate=(+a.taxBracket||22)/100, taxEffect=federalTaxable*bracketRate;
     const afterTaxCashFlow=(noi-currentAnnualDebtService)-taxEffect+(refiEvent?refiEvent.cashOut:0)-vaRemodelOutflow;
+    // ── Advanced Tax: cost seg depreciation + PAL (BACK-013) ─────────────────────
+    // 5-yr property: Sec 179 applied first, bonus dep on remaining basis in Yr1, then SL on non-bonus remainder Yr1–5
+    // 15-yr property: bonus dep in Yr1, SL on non-bonus remainder Yr1–15
+    // Structure: 27.5-yr SL throughout (NOT eligible for bonus dep)
+    let cs5Dep=0,cs15Dep=0;
+    if(csEnabled){
+      const cs5BonusBase=Math.max(0,cs5Val-sec179);  // basis eligible for bonus dep (after Sec 179)
+      const cs5SLBasis=cs5BonusBase*(1-bonusPct);    // remaining basis for 5-yr SL
+      if(yr===1){cs5Dep=sec179+cs5BonusBase*bonusPct+cs5SLBasis/5;}
+      else if(yr<=5){cs5Dep=cs5SLBasis/5;}
+      const cs15SLBasis=cs15Val*(1-bonusPct);        // remaining 15-yr basis after bonus dep
+      if(yr===1){cs15Dep=cs15Val*bonusPct+cs15SLBasis/15;}
+      else if(yr<=15){cs15Dep=cs15SLBasis/15;}
+    }
+    const slDepreciation=taxAdvEnabled?(structureVal/27.5):annualDepreciation;
+    const totalDepreciation=taxAdvEnabled?(slDepreciation+cs5Dep+cs15Dep):annualDepreciation;
+    // Taxable income using full depreciation stack
+    const taxableIncomeAdv=taxAdvEnabled?(noi-interest-totalDepreciation):taxableIncome;
+    // PAL limitation: losses from rental real estate are passive unless RE pro or active participant
+    // Active participant: $25k allowance, phases out $1/$2 over $100k AGI, fully phased at $150k
+    let palAllowedLoss=0;
+    if(taxAdvEnabled&&taxableIncomeAdv<0){
+      const paperLoss=-taxableIncomeAdv;
+      if(paStatus==='re_professional'){
+        palAllowedLoss=paperLoss; // RE professional: no PAL limitation
+      } else if(paStatus==='active_participant'){
+        const phaseout=Math.min(25000,Math.max(0,(palAgi-100000)*0.5));
+        palAllowedLoss=Math.min(paperLoss,Math.max(0,25000-phaseout));
+      }
+      // passive: palAllowedLoss stays 0 (excess losses carry forward, not modeled here)
+    }
+    // Effective taxable income after PAL; losses beyond allowance carry forward (not modeled)
+    const effectiveTaxIncAdv=taxAdvEnabled?(taxableIncomeAdv>=0?taxableIncomeAdv:-palAllowedLoss):taxableIncome;
+    const qbiAdv=effectiveTaxIncAdv>0?effectiveTaxIncAdv*0.2:0;
+    const taxEffectAdv=taxAdvEnabled?((effectiveTaxIncAdv-qbiAdv)*bracketRate):taxEffect;
+    const afterTaxCFAdv=taxAdvEnabled?((noi-currentAnnualDebtService)-taxEffectAdv+(refiEvent?refiEvent.cashOut:0)-vaRemodelOutflow):afterTaxCashFlow;
     // VA implied value lift: rent bump capitalized at Year-0 cap rate (NOI / pp)
     const baseCapRate=grossRentYear0*(1-vacRate)-baseExpenses>0&&pp>0?(grossRentYear0*(1-vacRate)-baseExpenses)/pp:0.06;
     const vaImpliedValueLift=vaEnabled&&yr>=vaCompletionYr&&baseCapRate>0?(vaRentBump*(1-vacRate))/baseCapRate:0;
@@ -260,7 +316,7 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     // OO cash flow: subtract lost rent and owner utilities while owner is in residence
     const ooCashFlow=ooEnabled&&yr<=ooYears?cashFlow-ooRentLostThisYr-ooUtilitiesThisYr:null;
     const ooMonthlyCashFlow=ooCashFlow!==null?ooCashFlow/12:null;
-    years.push({yr,grossRent,vacancyLoss,egi,expenses,expBreakdown,noi,debtService:currentAnnualDebtService,cashFlow,monthlyCashFlow,cocReturn,capRate,dscr,principal,interest,balance:newBalance,depreciation:annualDepreciation,taxableIncome,qbi,taxEffect,afterTaxCashFlow,propertyValue,equity:propertyValue-newBalance,appreciationGain:propertyValue-pp,principalPaydown:loanAmt-newBalance,refiEvent,vaRemodelOutflow,vaRentLift:vaRentLiftThisYr,ooRentLost:ooRentLostThisYr,ooUtilities:ooUtilitiesThisYr,ooCashFlow,ooMonthlyCashFlow});
+    years.push({yr,grossRent,vacancyLoss,egi,expenses,expBreakdown,noi,debtService:currentAnnualDebtService,cashFlow,monthlyCashFlow,cocReturn,capRate,dscr,principal,interest,balance:newBalance,depreciation:annualDepreciation,taxableIncome,qbi,taxEffect,afterTaxCashFlow,propertyValue,equity:propertyValue-newBalance,appreciationGain:propertyValue-pp,principalPaydown:loanAmt-newBalance,refiEvent,vaRemodelOutflow,vaRentLift:vaRentLiftThisYr,ooRentLost:ooRentLostThisYr,ooUtilities:ooUtilitiesThisYr,ooCashFlow,ooMonthlyCashFlow,slDepreciation,cs5Depreciation:cs5Dep,cs15Depreciation:cs15Dep,totalDepreciation,taxableIncomeAdv,palAllowedLoss,effectiveTaxIncAdv,qbiAdv,taxEffectAdv,afterTaxCFAdv});
   }
   // Exit analysis: long-term capital gains tax assumed at 15% federal rate
   const exitValue=years[9]?.propertyValue||pp*Math.pow(1+appRate,10);
@@ -274,7 +330,7 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
   const breakEvenOccupancy=grossRentYear0>0?(annualDebtService+baseExpenses)/grossRentYear0:0;
   let irrWithoutVA=irr,irrWithVA=irr;
   if(vaEnabled){const d2=JSON.parse(JSON.stringify(deal));d2.assumptions.valueAdd={...va,enabled:false};irrWithoutVA=calcDeal(d2,{_isRecursive:true}).irr;irrWithVA=irr;}
-  return {totalCash:totalCashWithVA,totalCashBase:totalCash,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExpenses,baseExpBreakdown:baseExp,noi:years[0]?.noi||0,cocReturn:years[0]?.cocReturn||0,capRate:years[0]?.capRate||0,dscr:years[0]?.dscr||0,irr,equityMultiple,breakEvenOccupancy,exitValue,netProceeds,capitalGainsTax,years,refiCashOut,refiYear:refiEnabled?refiYear:null,vaEnabled,vaReModelCost,vaRentBump,vaCompletionYr,irrWithoutVA,irrWithVA,ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly};
+  return {totalCash:totalCashWithVA,totalCashBase:totalCash,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExpenses,baseExpBreakdown:baseExp,noi:years[0]?.noi||0,cocReturn:years[0]?.cocReturn||0,capRate:years[0]?.capRate||0,dscr:years[0]?.dscr||0,irr,equityMultiple,breakEvenOccupancy,exitValue,netProceeds,capitalGainsTax,years,refiCashOut,refiYear:refiEnabled?refiYear:null,vaEnabled,vaReModelCost,vaRentBump,vaCompletionYr,irrWithoutVA,irrWithVA,ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,taxAdvEnabled};
 }
 
 function calcSensitivity(deal) {
