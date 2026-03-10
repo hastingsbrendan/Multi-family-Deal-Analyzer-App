@@ -101,14 +101,15 @@ const newDeal = (prefs) => {
     numUnits: 2,
     beds: "", baths: "", yearBuilt: "", sqftTotal: "", lotSize: "", annualPropertyTax: "", expectedCloseDate: "",
     vacancyRate: p.vacancyRate, vacancySource: "",
-    expenseModes: { propertyTax:"pct", insurance:"pct", maintenance:"pct", capex:"pct", propertyMgmt:"pct", utilities:"value" },
+    expenseModes: { propertyTax:"pct", insurance:"pct", maintenance:"pct", capex:"pct", propertyMgmt:"pct", utilities:"value", costSegFee:"value" },
     expenses: {
       propertyTax:6000, propertyTaxSource:"", propertyTaxPct: p.propertyTaxPct,
       insurance:1800, insuranceSource:"", insurancePct: p.insurancePct,
       maintenance:2400, maintenanceSource:"", maintenancePct: p.maintenancePct,
       capex:2400, capexSource:"", capexPct: p.capexPct,
       propertyMgmt:2160, propertyMgmtSource:"", propertyMgmtPct: p.propertyMgmtPct,
-      utilities:0, utilitiesSource:"", utilitiesPct:0 },
+      utilities:0, utilitiesSource:"", utilitiesPct:0,
+      costSegFee:0 },
     selfManage:false, rentGrowth: p.rentGrowth, expenseGrowth: p.expenseGrowth, appreciationRate: p.appreciationRate, taxBracket: p.taxBracket,
     ownerOccupied:true, ownerUnit:0, ownerOccupancyYears:2, alternativeRent:0, ownerUseUtilities:0,
     refi: { enabled:false, year:5, newRate:6.5, newLTV:75 },
@@ -154,7 +155,7 @@ function resolveExpenses(a, grossRentYear0) {
   const mgmt = a.selfManage ? 0 : val("propertyMgmt","propertyMgmtPct");
   const pt=val("propertyTax","propertyTaxPct"), ins=val("insurance","insurancePct");
   const maint=val("maintenance","maintenancePct"), capex=val("capex","capexPct"), util=val("utilities","utilitiesPct");
-  return { propertyTax:pt, insurance:ins, maintenance:maint, capex, propertyMgmt:mgmt, utilities:util, total:pt+ins+maint+capex+mgmt+util };
+  return { propertyTax:pt, insurance:ins, maintenance:maint, capex, propertyMgmt:mgmt, utilities:util, costSegFee:0, total:pt+ins+maint+capex+mgmt+util };
 }
 
 function calcDeal(deal, { _isRecursive = false } = {}) {
@@ -265,8 +266,10 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     const vacancyLoss=rentAfterOO*vacRate, egi=rentAfterOO-vacancyLoss;
     // Expenses compounded by expenseGrowth; uses Year-0 base resolved by resolveExpenses()
     const mult=Math.pow(1+expGrowth,yr-1);
-    const expBreakdown={propertyTax:baseExp.propertyTax*mult,insurance:baseExp.insurance*mult,maintenance:baseExp.maintenance*mult,capex:baseExp.capex*mult,propertyMgmt:baseExp.propertyMgmt*mult,utilities:baseExp.utilities*mult};
-    const expenses=baseExpenses*mult, noi=egi-expenses;
+    // costSegFee is one-time Year 1 only — stored under a.tax (alongside cost seg settings), not grown by expenseGrowth
+    const costSegFeeThisYr=(yr===1)?(+taxCfg.costSegFee||0):0;
+    const expBreakdown={propertyTax:baseExp.propertyTax*mult,insurance:baseExp.insurance*mult,maintenance:baseExp.maintenance*mult,capex:baseExp.capex*mult,propertyMgmt:baseExp.propertyMgmt*mult,utilities:baseExp.utilities*mult,costSegFee:costSegFeeThisYr};
+    const expenses=baseExpenses*mult+costSegFeeThisYr, noi=egi-expenses;
     // Amortization: monthly principal/interest split using outstanding balance
     let principal=0,interest=0,newBalance=balance;
     if(balance>0){for(let m=0;m<12;m++){const intPay=newBalance*(refiEnabled&&yr>=refiYear?refiRate:rate);const prinPay=currentMonthlyPayment-intPay;interest+=intPay;principal+=prinPay;newBalance-=prinPay;}}

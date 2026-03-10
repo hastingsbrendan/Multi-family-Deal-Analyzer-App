@@ -8,7 +8,7 @@ function CashFlowTab({result,deal}){
   const [showExpDetail,setShowExpDetail]=useState(false);
   const [showTaxDetail,setShowTaxDetail]=useState(false);
   const [showCFDetail,setShowCFDetail]=useState(false);
-  const EXP_KEYS=[["propertyTax","Property Tax"],["insurance","Property Insurance"],["maintenance","Maintenance"],["capex","CapEx Reserve"],["propertyMgmt","Prop. Mgmt"],["utilities","Utilities"]];
+  const EXP_KEYS=[["propertyTax","Property Tax"],["insurance","Property Insurance"],["maintenance","Maintenance"],["capex","CapEx Reserve"],["propertyMgmt","Prop. Mgmt"],["utilities","Utilities"],["costSegFee","Cost Seg. Study Fee"]];
   const tdR=(bold,color)=>({padding:"6px 8px",textAlign:"right",fontSize:11,fontWeight:bold?700:400,whiteSpace:"nowrap",color:color==="accent"?"var(--accent)":color==="red"?"#ef4444":"var(--text)"});
   const tdL=(bold,indent,col)=>({padding:`6px 8px 6px ${indent?20:8}px`,color:col||(bold?"var(--text)":"var(--muted)"),fontWeight:bold?700:400,fontSize:indent?10:11,whiteSpace:"nowrap",position:"sticky",left:0,background:"var(--bg)",zIndex:1});
   const Yr=({children,bold,color})=>result.years.map(y=>(<td key={y.yr} style={tdR(bold,color)}>{children(y)}</td>));
@@ -47,7 +47,7 @@ function CashFlowTab({result,deal}){
             <td style={{...tdL(false,false),userSelect:"none"}}><span style={{color:"var(--accent)",marginRight:4,fontSize:9,display:"inline-block",transform:showExpDetail?"rotate(90deg)":"rotate(0)"}}>&#9658;</span>Total Expenses</td>
             {result.years.map(y=><td key={y.yr} style={tdR(false,"red")}>{FMT_USD(y.expenses)}</td>)}
           </tr>
-          {showExpDetail&&EXP_KEYS.map(([k,lbl])=>(<tr key={k} style={{background:"var(--row-sub)"}}><td style={{...tdL(false,true),background:"var(--row-sub)"}}>&#x21b3; {lbl}</td>{result.years.map(y=><td key={y.yr} style={tdR(false,null)}>{FMT_USD(y.expBreakdown[k])}</td>)}</tr>))}
+          {showExpDetail&&EXP_KEYS.filter(([k])=>k!=="costSegFee"||result.years.some(y=>y.expBreakdown?.costSegFee>0)).map(([k,lbl])=>(<tr key={k} style={{background:"var(--row-sub)"}}><td style={{...tdL(false,true),background:"var(--row-sub)"}}>&#x21b3; {lbl}</td>{result.years.map(y=><td key={y.yr} style={{...tdR(false,null),color:k==="costSegFee"&&y.expBreakdown[k]>0?"#a78bfa":undefined}}>{k==="costSegFee"&&y.expBreakdown[k]===0?"—":FMT_USD(y.expBreakdown[k])}</td>)}</tr>))}
 
           {/* NOI */}
           <R label="NOI" bold><Yr bold>{y=>FMT_USD(y.noi)}</Yr></R>

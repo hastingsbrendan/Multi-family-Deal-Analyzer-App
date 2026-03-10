@@ -941,6 +941,18 @@ function AssumptionsTab({deal,onChange}){
                     <div style={{fontSize:11,color:"var(--muted)",padding:"2px 0 4px"}}>
                       OBBBA raised limit to $2.5M. Applied to 5-yr components before bonus dep. Max: {FMT_USD(cs5Amt)}.
                     </div>
+                    {/* Cost Seg Study Fee — one-time Year 1 operating expense */}
+                    <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid var(--border-faint)"}}>
+                      <InputRow
+                        label="Study Fee (Yr 1)"
+                        value={tax.costSegFee||0}
+                        onChange={v=>upd("tax.costSegFee",v)}
+                        prefix="$"
+                      />
+                      <div style={{fontSize:11,color:"var(--muted)",padding:"2px 0 4px"}}>
+                        One-time cost of the cost segregation study. Treated as a Year 1 operating expense in the cash flow model.
+                      </div>
+                    </div>
                   </>)}
                 </div>
               </>)}
