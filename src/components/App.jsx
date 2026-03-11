@@ -37,6 +37,7 @@ function App() {
   const [showAppSettings, setShowAppSettings] = useState(false);
   const [tourStep, setTourStep] = useState(null); // null = inactive, number = active step
   const tourDealRef = useRef(null); // track sample deal created for tour
+  const hasBootstrappedRef = useRef(false); // guard against TOKEN_REFRESHED re-bootstrapping
   const [showGroups, setShowGroups] = useState(false);
   const [activeGroup, setActiveGroup] = useState(null); // {id, name, role} or null = personal
   const [groupDeals, setGroupDeals] = useState([]);
@@ -54,6 +55,7 @@ function App() {
   // Bootstrap: restore session from localStorage, then pull cloud state.
   // Extracted to `bootstrapUser` to avoid duplicating this pattern in onAuthStateChange.
   const bootstrapUser = useCallback((u, { loadPrefs = false, showTourIfEmpty = false } = {}) => {
+    hasBootstrappedRef.current = true;
     Sentry.setUser({ id: u.id, email: u.email });
     const local = loadLocal(u.id);
     setDeals(local);
@@ -91,6 +93,10 @@ function App() {
         if (window.location.hash.includes("access_token")) {
           window.history.replaceState(null, "", window.location.pathname);
         }
+        // Supabase fires SIGNED_IN on every token refresh (~hourly) and on
+        // tab-visibility restore. Skip re-bootstrapping if we've already loaded
+        // deals — otherwise it clobbers any unsaved edits the user is making.
+        if (evt === "SIGNED_IN" && hasBootstrappedRef.current) return;
         bootstrapUser(u);
       }
       if (!u) { setDeals([]); setActiveDealId(null); setShowProfile(false); }
