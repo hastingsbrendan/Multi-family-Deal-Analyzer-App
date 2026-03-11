@@ -11,11 +11,8 @@ import Section from './ui/Section';
 function FmtInt({value, onChange, placeholder, style}) {
   const [focused, setFocused] = React.useState(false);
   const [draft, setDraft] = React.useState('');
-  const raw = +value || 0;
+  const raw = Math.round(+value || 0);  // always integer — floats from DB (e.g. 20248.5) must be rounded
   const display = focused ? draft : (raw ? raw.toLocaleString() : '');
-  // Only commit to onChange on blur — not on every keystroke.
-  // Calling onChange on every keystroke passes a stale deal closure into upd(),
-  // which deep-copies the old deal and overwrites any concurrent state updates.
   return (
     <input
       type="text"
@@ -204,7 +201,7 @@ function PropertyLookupPanel({deal, onChange}) {
     if (prop.yearBuilt != null)   a.yearBuilt       = prop.yearBuilt;
     if (prop.squareFootage != null) a.sqftTotal     = prop.squareFootage;
     if (prop.lotSize != null)     a.lotSize         = prop.lotSize;
-    if (annualTax != null) { a.annualPropertyTax = annualTax; a.expenses = a.expenses||{}; a.expenses.propertyTax = annualTax; if(!a.expenseModes) a.expenseModes={}; a.expenseModes.propertyTax = "value"; }
+    if (annualTax != null) { a.annualPropertyTax = Math.round(annualTax); a.expenses = a.expenses||{}; a.expenses.propertyTax = Math.round(annualTax); if(!a.expenseModes) a.expenseModes={}; a.expenseModes.propertyTax = "value"; }
     a.rentcastData = {
       fetchedAt: new Date().toLocaleDateString(),
       bedsPerUnit: preview.bedsPerUnit || null,
@@ -445,7 +442,7 @@ function AssumptionsTab({deal,onChange}){
               {a.rentcastData?.annualTax && !ptAnnual &&
                 <div style={{fontSize:11,color:"var(--muted)",marginTop:3}}>
                   Rentcast: ${(+a.rentcastData.annualTax).toLocaleString()}/yr
-                  <button onClick={()=>{upd("expenses.propertyTax", a.rentcastData.annualTax); upd("expenseModes.propertyTax","value");}}
+                  <button onClick={()=>{upd("expenses.propertyTax", Math.round(a.rentcastData.annualTax)); upd("expenseModes.propertyTax","value");}}
                     style={{marginLeft:6,fontSize:11,color:"var(--accent)",background:"none",border:"none",cursor:"pointer",padding:0,fontFamily:"inherit"}}>
                     Use this
                   </button>
