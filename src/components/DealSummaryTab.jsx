@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import { iSty } from './ui/InputRow';
 import { FMT_USD, FMT_PCT, mapsUrl } from '../lib/constants';;
 import PhotoGallery from './PhotoGallery';
@@ -162,55 +162,51 @@ function DealSummaryTab({deal, result, onUpdate}) {
       const returnItems = [
         {label:"IRR (10-Year)",val:FMT_PCT(result.irr),good:result.irr>0.12,note:"Target: >12%"},
         {label:"Cap Rate Yr 1",val:FMT_PCT(result.capRate),good:result.capRate>0.05,note:"Target: >5%"},
+        {label:"CoC Return",val:FMT_PCT(result.cocReturn),good:result.cocReturn>0.07,note:"Target: >7%"},
+        {label:"Equity Multiple",val:FMT_X(result.equityMultiple),good:result.equityMultiple>2,note:"Target: >2x"},
       ];
       return(
-        <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:10}}>
-          {/* Row 1: Hero (thinner, 2/3 width) + IRR & Cap Rate side-by-side (1/3 width) */}
-          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:10}}>
-            {/* Hero card — thinner */}
-            <Panel accent>
-              <SLbl>Avg. Monthly Equity Growth · 10-Year Hold</SLbl>
-              <div style={{fontSize:38,fontWeight:900,letterSpacing:"-2px",color:"var(--accent)",lineHeight:1,marginBottom:6}}>
-                {avgMonthlyEquity>=0?"+":""}{FMT_USD(avgMonthlyEquity)}<span style={{fontSize:13,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
-              </div>
-              <div style={{borderTop:"1px solid var(--border)",paddingTop:8,display:"flex",flexDirection:"column",gap:3}}>
-                {[
-                  ["Avg. Monthly Appreciation",     avgMonthlyAppreciation, "var(--accent)"],
-                  ["Avg. Monthly Principal Paydown", avgMonthlyPrincipal,    "var(--accent2)"],
-                  ["Avg. Monthly Cash Flow",         avgMonthlyCashFlow,     avgMonthlyCashFlow>=0?"var(--green)":"var(--red)"],
-                  ["Avg. Monthly Tax Benefit",       avgMonthlyTaxBenefit,   avgMonthlyTaxBenefit>=0?"var(--green)":"var(--red)"],
-                ].map(([l,v,col])=>(
-                  <div key={l} style={{display:"flex",justifyContent:"space-between",fontFamily:"system-ui",fontSize:11.5}}>
-                    <span style={{color:"var(--muted)"}}>{l}</span>
-                    <span style={{fontWeight:700,color:col}}>{v>=0?"+":""}{FMT_USD(v)}/mo</span>
-                  </div>
-                ))}
-              </div>
-            </Panel>
-            {/* IRR + Cap Rate stacked in right column */}
-            <div style={{display:"flex",flexDirection:"column",gap:10}}>
-              {returnItems.map(({label,val,good,note})=>(
-                <Panel key={label} style={{flex:1}}>
-                  <div style={{fontSize:10,color:"var(--muted)",fontFamily:"system-ui",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>{label}</div>
-                  <div style={{fontSize:22,fontWeight:900,color:good?"var(--accent)":"var(--accent2)",lineHeight:1}}>{val}</div>
-                  <div style={{fontSize:10,color:"var(--muted)",fontFamily:"system-ui",marginTop:4}}>{note}</div>
-                </Panel>
+        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 2fr",gap:10,marginBottom:10,alignItems:"stretch"}}>
+          {/* Col 1: Hero card */}
+          <Panel accent style={{minHeight:280}}>
+            <SLbl>Avg. Monthly Equity Growth · 10-Year Hold</SLbl>
+            <div style={{fontSize:36,fontWeight:900,letterSpacing:"-2px",color:"var(--accent)",lineHeight:1,marginBottom:6}}>
+              {avgMonthlyEquity>=0?"+":""}{FMT_USD(avgMonthlyEquity)}<span style={{fontSize:13,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
+            </div>
+            <div style={{borderTop:"1px solid var(--border)",paddingTop:8,display:"flex",flexDirection:"column",gap:4}}>
+              {[
+                ["Avg. Monthly Appreciation",     avgMonthlyAppreciation, "var(--accent)"],
+                ["Avg. Monthly Principal Paydown", avgMonthlyPrincipal,    "var(--accent2)"],
+                ["Avg. Monthly Cash Flow",         avgMonthlyCashFlow,     avgMonthlyCashFlow>=0?"var(--green)":"var(--red)"],
+                ["Avg. Monthly Tax Benefit",       avgMonthlyTaxBenefit,   avgMonthlyTaxBenefit>=0?"var(--green)":"var(--red)"],
+              ].map(([l,v,col])=>(
+                <div key={l} style={{display:"flex",justifyContent:"space-between",fontFamily:"system-ui",fontSize:11.5}}>
+                  <span style={{color:"var(--muted)"}}>{l}</span>
+                  <span style={{fontWeight:700,color:col}}>{v>=0?"+":""}{FMT_USD(v)}/mo</span>
+                </div>
               ))}
             </div>
+          </Panel>
+          {/* Col 2: 4 metric cards stacked */}
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {returnItems.map(({label,val,good,note})=>(
+              <Panel key={label} style={{flex:1}}>
+                <div style={{fontSize:10,color:"var(--muted)",fontFamily:"system-ui",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>{label}</div>
+                <div style={{fontSize:20,fontWeight:900,color:good?"var(--accent)":"var(--accent2)",lineHeight:1}}>{val}</div>
+                <div style={{fontSize:10,color:"var(--muted)",fontFamily:"system-ui",marginTop:4}}>{note}</div>
+              </Panel>
+            ))}
           </div>
-          {/* Row 2: Cumulative equity build-up chart */}
-          <Panel style={{padding:"14px 16px 10px"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-              <div>
-                <div style={{fontSize:11,fontWeight:800,color:"var(--text)",letterSpacing:"-0.1px",fontFamily:"'Fraunces',serif"}}>Cumulative Equity Build-Up · 10-Year Hold</div>
-                <div style={{fontSize:10,color:"var(--muted)",marginTop:1}}>Stacked by source of return</div>
-              </div>
-              <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+          {/* Col 3: Stacked bar chart — Cumulative Equity Build-Up */}
+          <Panel style={{padding:"14px 16px 10px",display:"flex",flexDirection:"column"}}>
+            <div style={{marginBottom:8}}>
+              <div style={{fontSize:11,fontWeight:800,color:"var(--text)",letterSpacing:"-0.1px",fontFamily:"'Fraunces',serif"}}>Cumulative Equity Build-Up</div>
+              <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:4}}>
                 {[
                   ["Appreciation","var(--accent)"],
-                  ["Principal Paydown","var(--accent2)"],
+                  ["Principal","var(--accent2)"],
                   ["Cash Flow","var(--green)"],
-                  ["Tax Benefit","#a78bfa"],
+                  ["Tax","#a78bfa"],
                 ].map(([label,color])=>(
                   <div key={label} style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:"var(--muted)"}}>
                     <div style={{width:8,height:8,borderRadius:2,background:color,flexShrink:0}}/>
@@ -219,36 +215,20 @@ function DealSummaryTab({deal, result, onUpdate}) {
                 ))}
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={170}>
-              <AreaChart data={chartDataCumulative} margin={{top:4,right:4,left:0,bottom:0}} stackOffset="sign">
-                <defs>
-                  <linearGradient id="gradAppreciation" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.25}/>
-                    <stop offset="95%" stopColor="var(--accent)" stopOpacity={0.06}/>
-                  </linearGradient>
-                  <linearGradient id="gradPrincipal" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#D97706" stopOpacity={0.25}/>
-                    <stop offset="95%" stopColor="#D97706" stopOpacity={0.06}/>
-                  </linearGradient>
-                  <linearGradient id="gradCF" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.25}/>
-                    <stop offset="95%" stopColor="#10B981" stopOpacity={0.06}/>
-                  </linearGradient>
-                  <linearGradient id="gradTax" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#a78bfa" stopOpacity={0.25}/>
-                    <stop offset="95%" stopColor="#a78bfa" stopOpacity={0.06}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
-                <XAxis dataKey="yr" tick={{fontSize:10,fill:"var(--muted)"}} axisLine={false} tickLine={false}/>
-                <YAxis tick={{fontSize:10,fill:"var(--muted)"}} tickFormatter={fmtChartY} width={52} axisLine={false} tickLine={false}/>
-                <Tooltip content={<ChartTooltipContent/>}/>
-                <Area type="monotone" dataKey="Appreciation"        stackId="1" stroke="var(--accent)" strokeWidth={1.5} fill="url(#gradAppreciation)"/>
-                <Area type="monotone" dataKey="Principal Paydown"   stackId="1" stroke="#D97706"       strokeWidth={1.5} fill="url(#gradPrincipal)"/>
-                <Area type="monotone" dataKey="Cash Flow"           stackId="1" stroke="#10B981"       strokeWidth={1.5} fill="url(#gradCF)"/>
-                <Area type="monotone" dataKey="Tax Benefit"         stackId="1" stroke="#a78bfa"       strokeWidth={1.5} fill="url(#gradTax)"/>
-              </AreaChart>
-            </ResponsiveContainer>
+            <div style={{flex:1,minHeight:220}}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartDataCumulative} margin={{top:4,right:4,left:0,bottom:0}} barCategoryGap="25%">
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
+                  <XAxis dataKey="yr" tick={{fontSize:9,fill:"var(--muted)"}} axisLine={false} tickLine={false}/>
+                  <YAxis tick={{fontSize:9,fill:"var(--muted)"}} tickFormatter={fmtChartY} width={46} axisLine={false} tickLine={false}/>
+                  <Tooltip content={<ChartTooltipContent/>}/>
+                  <Bar dataKey="Appreciation"      stackId="eq" fill="var(--accent)"  radius={[0,0,0,0]}/>
+                  <Bar dataKey="Principal Paydown" stackId="eq" fill="#D97706"        radius={[0,0,0,0]}/>
+                  <Bar dataKey="Cash Flow"         stackId="eq" fill="#10B981"        radius={[0,0,0,0]}/>
+                  <Bar dataKey="Tax Benefit"       stackId="eq" fill="#a78bfa"        radius={[2,2,0,0]}/>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </Panel>
         </div>
       );
