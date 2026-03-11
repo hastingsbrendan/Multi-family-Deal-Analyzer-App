@@ -430,7 +430,7 @@ function AssumptionsTab({deal,onChange}){
                 <span style={{color:"var(--muted)",fontSize:13}}>$</span>
                 <FmtInt
                   value={a.expenses?.propertyTax||0}
-                  onChange={v=>{upd("expenses.propertyTax",v);upd("expenseModes.propertyTax","value");}}
+                  onChange={v=>{const d=JSON.parse(JSON.stringify(deal));d.assumptions.expenses=d.assumptions.expenses||{};d.assumptions.expenses.propertyTax=v;d.assumptions.expenseModes=d.assumptions.expenseModes||{};d.assumptions.expenseModes.propertyTax="value";onChange(d);}}
                   placeholder="e.g. 23,707"
                   style={{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit",flex:1,maxWidth:200}}/>
               </div>
@@ -442,7 +442,7 @@ function AssumptionsTab({deal,onChange}){
               {a.rentcastData?.annualTax && !ptAnnual &&
                 <div style={{fontSize:11,color:"var(--muted)",marginTop:3}}>
                   Rentcast: ${(+a.rentcastData.annualTax).toLocaleString()}/yr
-                  <button onClick={()=>{upd("expenses.propertyTax", Math.round(a.rentcastData.annualTax)); upd("expenseModes.propertyTax","value");}}
+                  <button onClick={()=>{const d=JSON.parse(JSON.stringify(deal));d.assumptions.expenses=d.assumptions.expenses||{};d.assumptions.expenses.propertyTax=Math.round(a.rentcastData.annualTax);d.assumptions.expenseModes=d.assumptions.expenseModes||{};d.assumptions.expenseModes.propertyTax="value";onChange(d);}}
                     style={{marginLeft:6,fontSize:11,color:"var(--accent)",background:"none",border:"none",cursor:"pointer",padding:0,fontFamily:"inherit"}}>
                     Use this
                   </button>
