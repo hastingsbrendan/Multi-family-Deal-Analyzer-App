@@ -13,6 +13,9 @@ function FmtInt({value, onChange, placeholder, style}) {
   const [draft, setDraft] = React.useState('');
   const raw = +value || 0;
   const display = focused ? draft : (raw ? raw.toLocaleString() : '');
+  // Only commit to onChange on blur — not on every keystroke.
+  // Calling onChange on every keystroke passes a stale deal closure into upd(),
+  // which deep-copies the old deal and overwrites any concurrent state updates.
   return (
     <input
       type="text"
@@ -21,7 +24,7 @@ function FmtInt({value, onChange, placeholder, style}) {
       placeholder={placeholder}
       onFocus={()=>{ setFocused(true); setDraft(raw ? String(raw) : ''); }}
       onBlur={()=>{ setFocused(false); const n = parseInt(draft.replace(/,/g,''),10); onChange(isNaN(n)?0:n); }}
-      onChange={e=>{ setDraft(e.target.value.replace(/[^0-9]/g,'')); const n=parseInt(e.target.value.replace(/,/g,''),10); onChange(isNaN(n)?0:n); }}
+      onChange={e=>{ setDraft(e.target.value.replace(/[^0-9]/g,'')); }}
       style={style}/>
   );
 }
