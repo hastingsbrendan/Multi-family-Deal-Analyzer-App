@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import { iSty } from './ui/InputRow';
 import { FMT_USD, FMT_PCT, mapsUrl } from '../lib/constants';;
 import PhotoGallery from './PhotoGallery';
@@ -264,104 +264,217 @@ function DealSummaryTab({deal, result, onUpdate}) {
       </div>
     </div>)}
 
-    {/* ══ SUBHEADER 2: Monthly Cash Flow (now below Profitability) ══ */}
+    {/* ══ SUBHEADER 2: Monthly Cash Flow ══ */}
     <SubHdr>Understanding Your Monthly Cash Flow</SubHdr>
 
-    {/* Row: OO Cash Flow (hero) + Effective Mortgage + Non-Occ Cash Flow */}
-    <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:10,marginBottom:10}}>
+    {(()=>{
+      // ── derived monthly values ──
+      const grossRentMo   = result.grossRentYear0/12;
+      const vacancyMo     = grossRentMo*(+a.vacancyRate||0)/100;
+      const egiAllMo      = (result.years[0]?.egi||0)/12;
+      const pitiMo        = piti;
+      const opexMo        = result.baseExpenses/12;
+      const cfMo          = regularCF;
 
-      {/* Owner-Occ Cash Flow — HERO */}
-      {result.ooEnabled&&ooCF!=null ? (
-        <Panel accent>
-          <SLbl>Monthly Cash Flow · You in Unit {(result.ooUnit||0)+1}, Yr 1</SLbl>
-          <div style={{fontSize:44,fontWeight:900,letterSpacing:"-2px",color:regularCF>=0?"#16a34a":"var(--accent2)",lineHeight:1,marginBottom:2}}>
-            {regularCF>=0?"+":"-"}{FMT_USD(Math.abs(regularCF))}<span style={{fontSize:14,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
-          </div>
-          <div style={{margin:"10px 0"}}>
-            <div style={{display:"flex",justifyContent:"space-between",fontFamily:"system-ui",fontSize:11,color:"var(--muted)",marginBottom:4}}>
-              <span>Breakdown</span>
-            </div>
-            {[
-              ["Tenant EGI (ex. your unit)", FMT_USD(egiExOO)+"/mo"],
-              ["Expenses", FMT_USD(-result.baseExpenses/12)],
-              ["Debt Service", FMT_USD(-result.annualDebtService/12)],
-            ].map(([l,v])=>(
-              <div key={l} style={{display:"flex",justifyContent:"space-between",fontFamily:"system-ui",fontSize:11,marginBottom:3}}>
-                <span style={{color:"var(--muted)"}}>{l}</span>
-                <span style={{color:"var(--text)",fontWeight:600}}>{v}</span>
-              </div>
-            ))}
-          </div>
-          {/* Alt Rent comparison — only when OO enabled and alt rent set */}
-          {result.ooEnabled&&altRent>0&&(<div style={{background:vsRent>=0?"rgba(13,148,136,0.08)":"rgba(217,119,6,0.08)",border:"1px solid "+(vsRent>=0?"rgba(13,148,136,0.25)":"rgba(217,119,6,0.3)"),borderRadius:8,padding:"9px 12px",marginTop:4}}>
-            <div style={{fontSize:10,fontFamily:"system-ui",fontWeight:800,letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--muted)",marginBottom:6}}>vs. Alternative Rent</div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-              <div style={{fontFamily:"system-ui",fontSize:12}}>
-                <div style={{color:"var(--muted)",marginBottom:2}}>If you rented instead</div>
-                <div style={{fontWeight:800,fontSize:16,color:"#dc2626"}}>−{FMT_USD(altRent)}<span style={{fontSize:11,fontWeight:400,color:"var(--muted)"}}>/mo</span></div>
-              </div>
-              <div style={{fontFamily:"system-ui",fontSize:12,textAlign:"right"}}>
-                <div style={{color:"var(--muted)",marginBottom:2}}>Owner-Occ. Cash Flow</div>
-                <div style={{fontWeight:800,fontSize:16,color:ooCF>=0?"#16a34a":"#dc2626"}}>{ooCF>=0?"+":"-"}{FMT_USD(Math.abs(ooCF))}<span style={{fontSize:11,fontWeight:400,color:"var(--muted)"}}>/mo</span></div>
-              </div>
-              <div style={{background:vsRent>=0?"var(--accent)":"var(--accent2)",color:"#fff",borderRadius:8,padding:"5px 10px",fontFamily:"system-ui",fontSize:12,fontWeight:800,textAlign:"center",whiteSpace:"nowrap"}}>
-                {vsRent>=0?"▼ ":"▲ "}{FMT_USD(Math.abs(vsRent))}/mo<br/>
-                <span style={{fontSize:10,fontWeight:600,opacity:0.85}}>{vsRent>=0?"cheaper to buy":"pricier than renting"}</span>
-              </div>
-            </div>
-          </div>)}
-        </Panel>
-      ) : (
-        <Panel accent style={{opacity:0.6}}>
-          <SLbl>Owner-Occ. Cash Flow</SLbl>
-          <div style={{fontSize:13,color:"var(--muted)",fontFamily:"system-ui",marginTop:8}}>Enable Owner Occupancy in Assumptions to see this.</div>
-        </Panel>
-      )}
+      // PITI slices
+      const pitiSlices = [
+        {name:"P&I",        value:pAndI,  color:"#0D9488"},
+        {name:"Prop. Tax",  value:taxMo,  color:"#0891B2"},
+        {name:"Insurance",  value:insMo,  color:"#7C3AED"},
+      ].filter(s=>s.value>0);
 
-      {/* Effective Mortgage — middle */}
-      <Panel style={{borderTop:"2px solid var(--accent)"}}>
-        <SLbl>Effective Mortgage</SLbl>
-        <div style={{fontSize:11,color:"var(--muted)",fontFamily:"system-ui",marginBottom:8}}>PITI − Tenant Rents (vacancy adj.)</div>
-        <div style={{fontSize:30,fontWeight:900,letterSpacing:"-1px",color:emPos?"#dc2626":"#16a34a",lineHeight:1}}>
-          {emPos?"+":"-"}{FMT_USD(Math.abs(effectiveMortgage))}<span style={{fontSize:14,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
-        </div>
-        <div style={{margin:"10px 0"}}>
-          <div style={{display:"flex",justifyContent:"space-between",fontFamily:"system-ui",fontSize:11,color:"var(--muted)",marginBottom:4}}>
-            <span>Rent coverage of PITI</span>
-            <span style={{fontWeight:800,color:"var(--accent)"}}>{Math.round(Math.min(100,(egiExOO/Math.max(piti,1))*100))}%</span>
-          </div>
-          <div style={{height:5,background:"var(--bg)",borderRadius:99,border:"1px solid var(--border)",overflow:"hidden"}}>
-            <div style={{height:"100%",width:Math.min(100,Math.round((egiExOO/Math.max(piti,1))*100))+"%",background:"linear-gradient(90deg,var(--accent),#34d399)",borderRadius:99}}/>
-          </div>
-          <div style={{display:"flex",justifyContent:"space-between",marginTop:5,fontFamily:"system-ui",fontSize:11}}>
-            <span style={{color:"var(--muted)"}}>PITI: <strong style={{color:"var(--text)"}}>{FMT_USD(piti)}</strong></span>
-            <span style={{color:"var(--muted)"}}>EGI: <strong style={{color:"var(--accent)"}}>{FMT_USD(egiExOO)}</strong></span>
-          </div>
-        </div>
-      </Panel>
+      // OpEx slices — operating only (prop tax + insurance already shown in PITI)
+      const opexSlices = [
+        {name:"Maintenance", value:(expBrk.maintenance||0)/12,  color:"#D97706"},
+        {name:"CapEx",       value:(expBrk.capex||0)/12,        color:"#EA580C"},
+        {name:"Prop. Mgmt",  value:(expBrk.propertyMgmt||0)/12, color:"#DC2626"},
+        {name:"Utilities",   value:(expBrk.utilities||0)/12,    color:"#9333EA"},
+      ].filter(s=>s.value>0);
 
-      {/* Non-Occ Cash Flow — right */}
-      <Panel style={{borderTop:"2px solid "+(regularCF>=0?"var(--accent)":"#ef4444")}}>
-        <SLbl>Non-Occ. Cash Flow</SLbl>
-        <div style={{fontSize:30,fontWeight:900,lineHeight:1,color:regularCF>=0?"#16a34a":"#dc2626",letterSpacing:"-1px"}}>
-          {regularCF>=0?"+":"-"}{FMT_USD(Math.abs(regularCF))}
-        </div>
-        <div style={{fontSize:11,color:"var(--muted)",fontFamily:"system-ui",marginTop:4}}>All {numUnits} units rented · /mo</div>
-        <div style={{marginTop:12,borderTop:"1px solid var(--border)",paddingTop:10}}>
-          <div style={{fontSize:10,fontWeight:700,fontFamily:"system-ui",color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>Breakdown</div>
-          {[
-            ["EGI (all units)", FMT_USD(result.years[0]?.egi/12||0)],
-            ["Expenses", FMT_USD(-result.baseExpenses/12)],
-            ["Debt Service", FMT_USD(-result.annualDebtService/12)],
-          ].map(([l,v])=>(
-            <div key={l} style={{display:"flex",justifyContent:"space-between",fontFamily:"system-ui",fontSize:11,marginBottom:3}}>
-              <span style={{color:"var(--muted)"}}>{l}</span>
-              <span style={{color:"var(--text)",fontWeight:600}}>{v}</span>
+      // Custom donut label renderer — just show pct inside
+      const DonutChart = ({slices, centerLabel, centerSub}) => {
+        const [hovered, setHovered] = React.useState(null);
+        const total = slices.reduce((s,x)=>s+x.value,0);
+        if(!total) return <div style={{fontSize:11,color:"var(--muted)",textAlign:"center",padding:16}}>No data</div>;
+        return(
+          <div style={{position:"relative",width:"100%"}}>
+            <ResponsiveContainer width="100%" height={160}>
+              <PieChart>
+                <Pie
+                  data={slices} cx="50%" cy="50%"
+                  innerRadius="52%" outerRadius="78%"
+                  paddingAngle={2} dataKey="value"
+                  onMouseEnter={(_,i)=>setHovered(i)}
+                  onMouseLeave={()=>setHovered(null)}
+                  strokeWidth={0}
+                >
+                  {slices.map((s,i)=>(
+                    <Cell key={s.name} fill={s.color}
+                      opacity={hovered===null||hovered===i?1:0.35}
+                      style={{cursor:"default",outline:"none"}}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip
+                  content={({active,payload})=>{
+                    if(!active||!payload?.length) return null;
+                    const p=payload[0].payload;
+                    return(
+                      <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:8,padding:"7px 11px",fontSize:11,boxShadow:"0 4px 12px rgba(0,0,0,0.1)"}}>
+                        <div style={{fontWeight:800,color:p.color,marginBottom:2}}>{p.name}</div>
+                        <div style={{color:"var(--text)",fontWeight:700}}>{FMT_USD(p.value)}<span style={{color:"var(--muted)",fontWeight:400}}>/mo</span></div>
+                        <div style={{color:"var(--muted)",fontSize:10}}>{Math.round(p.value/total*100)}% of total</div>
+                      </div>
+                    );
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            {/* Center label */}
+            <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center",pointerEvents:"none"}}>
+              <div style={{fontSize:14,fontWeight:900,color:"var(--text)",lineHeight:1,fontFamily:"system-ui"}}>{FMT_USD(total)}</div>
+              <div style={{fontSize:9,color:"var(--muted)",marginTop:1}}>{centerSub}</div>
             </div>
-          ))}
+          </div>
+        );
+      };
+
+      // Waterfall step bar — rent → expenses → CF
+      const wfTotal = grossRentMo;
+      const WFBar = ({label, value, color, pct, isResult}) => (
+        <div style={{marginBottom:6}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:3,fontFamily:"system-ui",fontSize:11}}>
+            <span style={{color:isResult?"var(--text)":"var(--muted)",fontWeight:isResult?700:500}}>{label}</span>
+            <span style={{fontWeight:700,color:isResult?(value>=0?"var(--green)":"var(--red)"):color}}>
+              {isResult?(value>=0?"+":"")+FMT_USD(value)+"/mo" : FMT_USD(Math.abs(value))+"/mo"}
+            </span>
+          </div>
+          <div style={{height:isResult?8:5,background:"var(--bg2)",borderRadius:99,overflow:"hidden",border:"1px solid var(--border)"}}>
+            <div style={{height:"100%",width:Math.max(0,Math.min(100,pct))+"%",background:color,borderRadius:99,transition:"width 0.3s"}}/>
+          </div>
         </div>
-      </Panel>
-    </div>
+      );
+      const egiPct   = wfTotal>0?Math.min(100,egiAllMo/wfTotal*100):0;
+      const pitiPct  = wfTotal>0?Math.min(100,pitiMo/wfTotal*100):0;
+      const opexPct  = wfTotal>0?Math.min(100,opexMo/wfTotal*100):0;
+      const cfPct    = wfTotal>0?Math.min(100,Math.abs(cfMo)/wfTotal*100):0;
+
+      return(
+        <div style={{marginBottom:10}}>
+
+          {/* ── Row A: CF hero + Effective Mortgage + PITI coverage ── */}
+          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:10,marginBottom:10}}>
+
+            {/* Cash Flow hero */}
+            <Panel accent>
+              <SLbl>{result.ooEnabled?"Monthly Cash Flow · You in Unit "+(( result.ooUnit||0)+1)+", Yr 1":"Non-Occ. Cash Flow · Year 1"}</SLbl>
+              <div style={{fontSize:44,fontWeight:900,letterSpacing:"-2px",color:regularCF>=0?"#16a34a":"var(--accent2)",lineHeight:1,marginBottom:10}}>
+                {regularCF>=0?"+":"-"}{FMT_USD(Math.abs(regularCF))}<span style={{fontSize:14,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
+              </div>
+              {/* Alt rent comparison — OO only */}
+              {result.ooEnabled&&altRent>0&&(
+                <div style={{background:vsRent>=0?"rgba(13,148,136,0.08)":"rgba(217,119,6,0.08)",border:"1px solid "+(vsRent>=0?"rgba(13,148,136,0.25)":"rgba(217,119,6,0.3)"),borderRadius:8,padding:"9px 12px"}}>
+                  <div style={{fontSize:10,fontFamily:"system-ui",fontWeight:800,letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--muted)",marginBottom:6}}>vs. Alternative Rent</div>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                    <div style={{fontFamily:"system-ui",fontSize:12}}>
+                      <div style={{color:"var(--muted)",marginBottom:2}}>If you rented instead</div>
+                      <div style={{fontWeight:800,fontSize:15,color:"#dc2626"}}>−{FMT_USD(altRent)}<span style={{fontSize:11,fontWeight:400,color:"var(--muted)"}}>/mo</span></div>
+                    </div>
+                    <div style={{background:vsRent>=0?"var(--accent)":"var(--accent2)",color:"#fff",borderRadius:8,padding:"5px 10px",fontFamily:"system-ui",fontSize:12,fontWeight:800,textAlign:"center",whiteSpace:"nowrap"}}>
+                      {vsRent>=0?"▼ ":"▲ "}{FMT_USD(Math.abs(vsRent))}/mo<br/>
+                      <span style={{fontSize:10,fontWeight:600,opacity:0.85}}>{vsRent>=0?"cheaper to buy":"pricier than renting"}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </Panel>
+
+            {/* Effective Mortgage */}
+            <Panel style={{borderTop:"2px solid var(--accent)"}}>
+              <SLbl>Effective Mortgage</SLbl>
+              <div style={{fontSize:11,color:"var(--muted)",fontFamily:"system-ui",marginBottom:8}}>PITI − Tenant rents</div>
+              <div style={{fontSize:28,fontWeight:900,letterSpacing:"-1px",color:emPos?"#dc2626":"#16a34a",lineHeight:1,marginBottom:10}}>
+                {emPos?"+":"-"}{FMT_USD(Math.abs(effectiveMortgage))}<span style={{fontSize:13,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
+              </div>
+              <div style={{fontSize:10,fontWeight:700,fontFamily:"system-ui",color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Rent covers PITI</div>
+              <div style={{height:5,background:"var(--bg2)",borderRadius:99,border:"1px solid var(--border)",overflow:"hidden",marginBottom:4}}>
+                <div style={{height:"100%",width:Math.min(100,Math.round((egiExOO/Math.max(piti,1))*100))+"%",background:"linear-gradient(90deg,var(--accent),#34d399)",borderRadius:99}}/>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",fontFamily:"system-ui",fontSize:10,color:"var(--muted)"}}>
+                <span>PITI <strong style={{color:"var(--text)"}}>{FMT_USD(piti)}</strong></span>
+                <span style={{fontWeight:800,color:"var(--accent)"}}>{Math.round(Math.min(100,(egiExOO/Math.max(piti,1))*100))}%</span>
+                <span>EGI <strong style={{color:"var(--accent)"}}>{FMT_USD(egiExOO)}</strong></span>
+              </div>
+            </Panel>
+
+            {/* Income → Cash Flow waterfall bar */}
+            <Panel>
+              <SLbl>Monthly Waterfall</SLbl>
+              <WFBar label="Gross Rent"   value={grossRentMo}  color="var(--accent)"  pct={100}     />
+              <WFBar label="−Vacancy"     value={-vacancyMo}   color="#ef4444"        pct={vacancyMo/wfTotal*100}/>
+              <WFBar label="EGI"          value={egiAllMo}     color="var(--accent)"  pct={egiPct}  />
+              <WFBar label="−PITI"        value={-pitiMo}      color="#0891B2"        pct={pitiPct} />
+              <WFBar label="−OpEx"        value={-opexMo}      color="#D97706"        pct={opexPct} />
+              <WFBar label="Cash Flow"    value={cfMo}         color={cfMo>=0?"#10B981":"#ef4444"} pct={cfPct} isResult/>
+            </Panel>
+          </div>
+
+          {/* ── Row B: PITI donut + OpEx donut ── */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:0}}>
+
+            {/* PITI donut */}
+            <Panel>
+              <SLbl>PITI Breakdown · /mo</SLbl>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,alignItems:"center"}}>
+                <DonutChart slices={pitiSlices} centerSub="total/mo"/>
+                <div>
+                  {pitiSlices.map(s=>(
+                    <div key={s.name} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--border)"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        <div style={{width:8,height:8,borderRadius:2,background:s.color,flexShrink:0}}/>
+                        <span style={{fontSize:11,color:"var(--muted)",fontFamily:"system-ui"}}>{s.name}</span>
+                      </div>
+                      <span style={{fontSize:12,fontWeight:700,color:"var(--text)",fontFamily:"system-ui"}}>{FMT_USD(s.value)}</span>
+                    </div>
+                  ))}
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0"}}>
+                    <span style={{fontSize:11,fontWeight:700,color:"var(--text)",fontFamily:"system-ui"}}>Total</span>
+                    <span style={{fontSize:13,fontWeight:900,color:"var(--text)",fontFamily:"system-ui"}}>{FMT_USD(pitiSlices.reduce((s,x)=>s+x.value,0))}</span>
+                  </div>
+                </div>
+              </div>
+            </Panel>
+
+            {/* OpEx donut */}
+            <Panel>
+              <SLbl>Operating Expenses · /mo (excl. tax &amp; insurance)</SLbl>
+              {opexSlices.length>0?(
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,alignItems:"center"}}>
+                  <DonutChart slices={opexSlices} centerSub="total/mo"/>
+                  <div>
+                    {opexSlices.map(s=>(
+                      <div key={s.name} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--border)"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <div style={{width:8,height:8,borderRadius:2,background:s.color,flexShrink:0}}/>
+                          <span style={{fontSize:11,color:"var(--muted)",fontFamily:"system-ui"}}>{s.name}</span>
+                        </div>
+                        <span style={{fontSize:12,fontWeight:700,color:"var(--text)",fontFamily:"system-ui"}}>{FMT_USD(s.value)}</span>
+                      </div>
+                    ))}
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0"}}>
+                      <span style={{fontSize:11,fontWeight:700,color:"var(--text)",fontFamily:"system-ui"}}>Total</span>
+                      <span style={{fontSize:13,fontWeight:900,color:"var(--text)",fontFamily:"system-ui"}}>{FMT_USD(opexSlices.reduce((s,x)=>s+x.value,0))}</span>
+                    </div>
+                  </div>
+                </div>
+              ):(
+                <div style={{fontSize:11,color:"var(--muted)",fontFamily:"system-ui",padding:"12px 0"}}>No operating expenses configured in Assumptions.</div>
+              )}
+            </Panel>
+          </div>
+        </div>
+      );
+    })()}
     {/* ══ SUBHEADER 3 ══ */}
     <SubHdr>Property Details</SubHdr>
 
