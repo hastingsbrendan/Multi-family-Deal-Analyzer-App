@@ -6,6 +6,26 @@ import InputRow, { iSty, btnSm, srcSty, fmtInputDisplay, parseInputValue } from 
 import { getFloodZoneForAddress, floodZoneInfo } from '../lib/floodZone';
 import Section from './ui/Section';
 
+// Hoisted to module scope — must NOT be defined inside render or IIFE
+// (React would create a new component identity on every render, causing inputs to lose focus)
+function FmtInt({value, onChange, placeholder, style}) {
+  const [focused, setFocused] = React.useState(false);
+  const [draft, setDraft] = React.useState('');
+  const raw = +value || 0;
+  const display = focused ? draft : (raw ? raw.toLocaleString() : '');
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={display}
+      placeholder={placeholder}
+      onFocus={()=>{ setFocused(true); setDraft(raw ? String(raw) : ''); }}
+      onBlur={()=>{ setFocused(false); const n = parseInt(draft.replace(/,/g,''),10); onChange(isNaN(n)?0:n); }}
+      onChange={e=>{ setDraft(e.target.value.replace(/[^0-9]/g,'')); const n=parseInt(e.target.value.replace(/,/g,''),10); onChange(isNaN(n)?0:n); }}
+      style={style}/>
+  );
+}
+
 function ExpenseInputRow({lbl, modeToggle, isItemPct, rawVal, onChange, mobile}) {
   const [focused, setFocused] = useState(false);
   const displayVal = focused
@@ -339,23 +359,7 @@ function AssumptionsTab({deal,onChange}){
     <Section title="Property Details">
       {(()=>{
         // Comma-formatted integer inputs (sqft, lot)
-        const FmtInt = ({value, onChange, placeholder, style}) => {
-          const [focused, setFocused] = React.useState(false);
-          const [draft, setDraft] = React.useState("");
-          const raw = +value || 0;
-          const display = focused ? draft : (raw ? raw.toLocaleString() : "");
-          return (
-            <input
-              type="text"
-              inputMode="numeric"
-              value={display}
-              placeholder={placeholder}
-              onFocus={()=>{ setFocused(true); setDraft(raw ? String(raw) : ""); }}
-              onBlur={()=>{ setFocused(false); const n = parseInt(draft.replace(/,/g,""),10); onChange(isNaN(n)?0:n); }}
-              onChange={e=>{ setDraft(e.target.value.replace(/[^0-9]/g,"")); const n=parseInt(e.target.value.replace(/,/g,""),10); onChange(isNaN(n)?0:n); }}
-              style={style}/>
-          );
-        };
+
         // Property Tax mode toggle (mirrors Expenses section)
         const ptMode = (a.expenseModes?.propertyTax) || "value";
         const isPtPct = ptMode === "pct";
