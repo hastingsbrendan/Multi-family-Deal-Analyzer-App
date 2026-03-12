@@ -279,6 +279,11 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     // Owner utilities: below-the-line outflow (not an operating expense, doesn't affect NOI)
     const cashFlow=noi-currentAnnualDebtService-ooUtilitiesThisYr+(refiEvent?refiEvent.cashOut:0)-vaRemodelOutflow;
     const monthlyCashFlow=cashFlow/12;
+    // Incremental CF = Cash Flow + Alt Rent (OO years only).
+    // Alt rent is what you'd spend renting elsewhere — it's a savings that offsets
+    // negative cash flow. E.g. CF=-$2000/mo + altRent=$2000/mo → incremental≈$0.
+    const ooAltRentAnnual=ooEnabled&&yr<=ooYears?(ooAltRentMonthly*12):0;
+    const incrementalCashFlow=ooEnabled?cashFlow+ooAltRentAnnual:cashFlow;
     // CoC = (NOI - debt service) / total cash invested; does NOT include refi cash-out
     const cocReturn=totalCashWithVA>0?(noi-currentAnnualDebtService)/totalCashWithVA:0;
     const capRate=pp>0?noi/pp:0, dscr=currentAnnualDebtService>0?noi/currentAnnualDebtService:0;
@@ -372,7 +377,7 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     const propertyValue=pp*Math.pow(1+appRate,yr)+vaImpliedValueLift;
     // Accumulate depreciation taken this year for §1250 recapture at exit (BACK-021)
     cumulativeDepreciationTaken+=taxAdvEnabled?totalDepreciation:annualDepreciation;
-    years.push({yr,grossRent,ooRentDeduction:ooRentDeductionThisYr,rentAfterOO,vacancyLoss,egi,expenses,expBreakdown,noi,ooExpAddBack,debtService:currentAnnualDebtService,cashFlow,monthlyCashFlow,cocReturn,capRate,dscr,dscrLenderView,principal,interest,balance:newBalance,depreciation:annualDepreciation,taxableIncome,qbi,taxEffect,afterTaxCashFlow,propertyValue,equity:propertyValue-newBalance,appreciationGain:propertyValue-pp,principalPaydown:loanAmt-newBalance,refiEvent,vaRemodelOutflow,vaRentLift:vaRentLiftThisYr,ooUtilities:ooUtilitiesThisYr,ooTaxProrateRatio,slDepreciation,cs5Depreciation:cs5DepProrated,cs15Depreciation:cs15DepProrated,totalDepreciation,taxableIncomeAdv,palAllowedLoss,suspendedLossThisYr,carryforwardUsedThisYr,cumulativeCarryforward,effectiveTaxIncAdv,qbiAdv,taxEffectAdv,taxBenefitFromCF,afterTaxCFAdv});
+    years.push({yr,grossRent,ooRentDeduction:ooRentDeductionThisYr,rentAfterOO,vacancyLoss,egi,expenses,expBreakdown,noi,ooExpAddBack,debtService:currentAnnualDebtService,cashFlow,monthlyCashFlow,incrementalCashFlow,cocReturn,capRate,dscr,dscrLenderView,principal,interest,balance:newBalance,depreciation:annualDepreciation,taxableIncome,qbi,taxEffect,afterTaxCashFlow,propertyValue,equity:propertyValue-newBalance,appreciationGain:propertyValue-pp,principalPaydown:loanAmt-newBalance,refiEvent,vaRemodelOutflow,vaRentLift:vaRentLiftThisYr,ooUtilities:ooUtilitiesThisYr,ooTaxProrateRatio,slDepreciation,cs5Depreciation:cs5DepProrated,cs15Depreciation:cs15DepProrated,totalDepreciation,taxableIncomeAdv,palAllowedLoss,suspendedLossThisYr,carryforwardUsedThisYr,cumulativeCarryforward,effectiveTaxIncAdv,qbiAdv,taxEffectAdv,taxBenefitFromCF,afterTaxCFAdv});
   }
   // BACK-020: palCarryforward now holds the remaining accumulated suspended loss balance at end of hold.
   const finalPalCarryforward=palCarryforward;

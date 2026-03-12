@@ -102,8 +102,10 @@ function DealSummaryTab({deal, result, onUpdate}) {
       const avgMonthlyAppreciation = (yr10.appreciationGain||0)/10/12;
       const avgMonthlyPrincipal = (yr10.principalPaydown||0)/10/12;
       // Avg monthly cash flow across all 10 years
+      // When OO + alt rent active, use incremental CF (CF + altRent) so the hero
+      // reflects the true cost of owning vs. renting. Falls back to regular monthly CF.
       const avgMonthlyCashFlow = result.years.length
-        ? result.years.reduce((s,y)=>s+(y.monthlyCashFlow||0),0)/result.years.length
+        ? result.years.reduce((s,y)=>s+((y.incrementalCashFlow??y.cashFlow)||0),0)/result.years.length/12
         : 0;
       // Avg monthly tax benefit: negate annual tax effect so a tax saving is positive.
       // Uses advanced tax if enabled, basic otherwise. A net tax cost shows as negative.
@@ -169,14 +171,14 @@ function DealSummaryTab({deal, result, onUpdate}) {
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
             <Panel accent>
               <SLbl>Avg. Monthly Equity Growth · 10-Year Hold</SLbl>
-              <div style={{fontSize:36,fontWeight:900,letterSpacing:"-2px",color:"var(--accent)",lineHeight:1,marginBottom:6}}>
-                {avgMonthlyEquity>=0?"+":""}{FMT_USD(avgMonthlyEquity)}<span style={{fontSize:13,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
+              <div style={{fontSize:36,fontWeight:900,letterSpacing:"-2px",color:avgMonthlyEquity>=0?"var(--accent)":"var(--red)",lineHeight:1,marginBottom:6}}>
+                {avgMonthlyEquity>=0?"+":"-"}{FMT_USD(Math.abs(avgMonthlyEquity))}<span style={{fontSize:13,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
               </div>
               <div style={{borderTop:"1px solid var(--border)",paddingTop:8,display:"flex",flexDirection:"column",gap:4}}>
                 {[
                   ["Avg. Monthly Appreciation",     avgMonthlyAppreciation, "var(--accent)"],
                   ["Avg. Monthly Principal Paydown", avgMonthlyPrincipal,    "var(--accent2)"],
-                  ["Avg. Monthly Cash Flow",         avgMonthlyCashFlow,     avgMonthlyCashFlow>=0?"var(--green)":"var(--red)"],
+                  [result.ooEnabled&&(result.ooAltRentMonthly||0)>0?"Avg. Monthly Incremental CF":"Avg. Monthly Cash Flow", avgMonthlyCashFlow, avgMonthlyCashFlow>=0?"var(--green)":"var(--red)"],
                   ["Avg. Monthly Tax Benefit",       avgMonthlyTaxBenefit,   avgMonthlyTaxBenefit>=0?"var(--green)":"var(--red)"],
                 ].map(([l,v,col])=>(
                   <div key={l} style={{display:"flex",justifyContent:"space-between",fontFamily:"system-ui",fontSize:11.5}}>
