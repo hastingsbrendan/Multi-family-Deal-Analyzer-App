@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { iSty } from './ui/InputRow';
 import { FMT_USD, FMT_PCT } from '../lib/constants';
 import { useIsMobile } from '../lib/hooks';
@@ -8,6 +8,8 @@ function CashFlowTab({result,deal}){
   const [showExpDetail,setShowExpDetail]=useState(false);
   const [showTaxDetail,setShowTaxDetail]=useState(false);
   const [showCFDetail,setShowCFDetail]=useState(false);
+  const [showIncrementalTip,setShowIncrementalTip]=useState(false);
+  const tipRef=useRef(null);
   const EXP_KEYS=[["propertyTax","Property Tax"],["insurance","Property Insurance"],["maintenance","Maintenance"],["capex","CapEx Reserve"],["propertyMgmt","Prop. Mgmt"],["utilities","Utilities"],["costSegFee","Cost Seg. Study Fee"]];
   const tdR=(bold,color)=>({padding:"6px 8px",textAlign:"right",fontSize:11,fontWeight:bold?700:400,whiteSpace:"nowrap",color:color==="accent"?"var(--accent)":color==="red"?"#ef4444":"var(--text)"});
   const tdL=(bold,indent,col)=>({padding:`6px 8px 6px ${indent?20:8}px`,color:col||(bold?"var(--text)":"var(--muted)"),fontWeight:bold?700:400,fontSize:indent?10:11,whiteSpace:"nowrap",position:"sticky",left:0,background:"var(--bg)",zIndex:1});
@@ -73,6 +75,47 @@ function CashFlowTab({result,deal}){
 
           {/* Alt Rent — muted, informational, only during OO years */}
           {oo&&altRent>0&&(<tr><td style={{...tdL(false,false),color:"var(--muted)"}}>Alt. Rent (if renting)</td>{result.years.map(y=>(<td key={y.yr} style={{...tdR(false,null),color:"var(--muted)",fontStyle:"italic"}}>{y.ooRentDeduction>0?`(${FMT_USD(altRent)}/mo)`:"—"}</td>))}</tr>)}
+
+          {/* Incremental Cash Flow — only when OO enabled and alt rent set */}
+          {oo&&altRent>0&&(
+            <tr>
+              <td style={{...tdL(true,false),position:"sticky",left:0,background:"var(--bg)",zIndex:1}}>
+                <span style={{display:"inline-flex",alignItems:"center",gap:4}}>
+                  Incremental Cash Flow
+                  <span
+                    onMouseEnter={()=>setShowIncrementalTip(true)}
+                    onMouseLeave={()=>setShowIncrementalTip(false)}
+                    style={{position:"relative",display:"inline-flex",alignItems:"center",cursor:"help"}}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style={{color:"var(--muted)",flexShrink:0}}>
+                      <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5"/>
+                      <text x="8" y="12" textAnchor="middle" fontSize="10" fill="currentColor" fontWeight="700">?</text>
+                    </svg>
+                    {showIncrementalTip&&(
+                      <div style={{position:"absolute",bottom:"calc(100% + 6px)",left:"50%",transform:"translateX(-50%)",background:"var(--card)",border:"1px solid var(--border)",borderRadius:8,padding:"9px 12px",width:260,zIndex:999,boxShadow:"0 4px 16px rgba(0,0,0,0.18)",pointerEvents:"none"}}>
+                        <div style={{fontSize:11,fontWeight:700,color:"var(--text)",marginBottom:4}}>Incremental Cash Flow</div>
+                        <div style={{fontSize:10,color:"var(--muted)",lineHeight:1.55}}>
+                          Cash Flow minus Alternative Rent (what you'd spend renting instead). Shows the true net cost or benefit of ownership compared to renting — negative means owning costs you more per month than renting would.
+                        </div>
+                        <div style={{marginTop:6,fontSize:10,color:"var(--muted)",fontStyle:"italic",borderTop:"1px solid var(--border)",paddingTop:6}}>
+                          = Cash Flow − Alt. Rent
+                        </div>
+                      </div>
+                    )}
+                  </span>
+                </span>
+              </td>
+              {result.years.map(y=>{
+                const icf=y.incrementalCashFlow;
+                const active=y.ooRentDeduction>0||altRent>0;
+                return(
+                  <td key={y.yr} style={{...tdR(true,null),color:active?(icf>=0?"var(--accent)":"var(--red)"):"var(--muted)"}}>
+                    {active?(icf>=0?"+":"")+FMT_USD(icf/12)+"/mo":"—"}
+                  </td>
+                );
+              })}
+            </tr>
+          )}
 
           {/* ── Tax Implications ── */}
           <CFSectionHeader label="② Tax Implications"/>
