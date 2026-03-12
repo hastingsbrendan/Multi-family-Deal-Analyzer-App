@@ -6,6 +6,7 @@ import AddressAutocomplete from './AddressAutocomplete';
 import CommentsPanel from './CommentsPanel';
 import { BlurGate } from './UpgradeModal';
 import { useFeatureCheck } from './FeatureGate';
+import { trackTabViewed } from '../lib/analytics';
 
 // Lazy-load tab components — only downloaded when the user navigates to that tab
 const DealSummaryTab = React.lazy(() => import('./DealSummaryTab'));
@@ -30,6 +31,11 @@ const TabFallback = () => (
 function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, groupRole, activeGroup, currentUser, prefs, forceTab}) {
   const [tab, setTab] = useState(0);
   useEffect(() => { if (forceTab != null) setTab(forceTab); }, [forceTab]);
+
+  // Track initial tab view and subsequent tab switches
+  useEffect(() => { trackTabViewed(tab, deal?.id); }, [tab, deal?.id]);
+
+  const handleTabChange = (i) => setTab(i);
   const isMobile = useIsMobile();
   const result = useMemo(() => calcDeal(deal), [deal]);
   const tabLabels = isMobile ? TABS_MOBILE : TABS_DESK;
@@ -69,7 +75,7 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
     </div>
     <AddressAutocomplete value={deal.address} onChange={v=>onUpdate({...deal,address:v})} placeholder="Enter property address..." inputStyle={{width:"100%",background:"none",border:"none",borderBottom:"2px solid var(--accent)",fontSize:isMobile?18:24,fontFamily:"'Fraunces',serif",fontWeight:900,color:"var(--text)",padding:"6px 0",marginBottom:14,outline:"none",letterSpacing:"-0.5px"}}/>
     <div data-tour="tab-bar" style={{display:"flex",borderBottom:"1px solid var(--border)",overflowX:"auto",WebkitOverflowScrolling:"touch",scrollbarWidth:"none",msOverflowStyle:"none"}}>
-      {tabLabels.map((t,i)=>(<button key={i} onClick={()=>setTab(i)} style={{background:"none",border:"none",borderBottom:tab===i?"3px solid var(--accent)":"3px solid transparent",padding:isMobile?"10px 12px":"10px 18px",cursor:"pointer",fontSize:isMobile?12:13,fontWeight:tab===i?800:500,color:tab===i?"var(--accent)":"var(--muted)",marginBottom:-1,fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}}>{t}</button>))}
+      {tabLabels.map((t,i)=>(<button key={i} onClick={()=>handleTabChange(i)} style={{background:"none",border:"none",borderBottom:tab===i?"3px solid var(--accent)":"3px solid transparent",padding:isMobile?"10px 12px":"10px 18px",cursor:"pointer",fontSize:isMobile?12:13,fontWeight:tab===i?800:500,color:tab===i?"var(--accent)":"var(--muted)",marginBottom:-1,fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}}>{t}</button>))}
     </div>
     <div data-tour="tab-content"><Suspense fallback={<TabFallback/>}>
       {tab===0&&<DealSummaryTab deal={deal} result={result} onUpdate={onUpdate}/>}

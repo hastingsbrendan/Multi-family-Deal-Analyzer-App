@@ -3,6 +3,7 @@ import { useIsMobile } from '../lib/hooks';
 import {
   LOAN_CATALOG, LOAN_TYPES, QUESTIONS, getQuestionFlow, runRecommendationEngine,
 } from '../lib/loanEngine';
+import { trackLoanQuizStarted, trackLoanQuizCompleted, trackLoanSelected, trackLoanDetailViewed } from '../lib/analytics';
 
 // ─── Shared styles ──────────────────────────────────────────────────────────
 const card = (extra = '') => ({
@@ -624,18 +625,20 @@ function LoanTypeTab({ deal }) {
   const handleQuizComplete = useCallback((answers) => {
     const result = runRecommendationEngine(answers, deal);
     persist({ quizAnswers: answers, engineResult: result, view: 'result' });
+    trackLoanQuizCompleted(deal?.id, result.recommended);
     setShowQuiz(false);
   }, [deal]);
 
   const handleProceed = useCallback((loanType) => {
     persist({ selectedLoan: loanType, view: 'result' });
+    trackLoanSelected(deal?.id, loanType);
     // Scroll to top of tab
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
+  }, [deal]);
 
   const handleExplore = () => persist({ view: 'explore' });
   const handleRestart = () => { persist({ quizAnswers: null, engineResult: null, selectedLoan: null, view: 'start' }); setShowQuiz(true); };
-  const handleDetailLoan = (loanType) => persist({ detailLoan: loanType, view: 'detail' });
+  const handleDetailLoan = (loanType) => { trackLoanDetailViewed(deal?.id, loanType); persist({ detailLoan: loanType, view: 'detail' }); };
   const handleBackFromDetail = () => persist({ view: 'explore' });
 
   // Determine content area
@@ -653,7 +656,7 @@ function LoanTypeTab({ deal }) {
             </p>
           </div>
           <button
-            onClick={() => setShowQuiz(true)}
+            onClick={() => { trackLoanQuizStarted(deal?.id); setShowQuiz(true); }}
             style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 10, padding: '14px 28px', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}
           >
             Get My Recommendation →
