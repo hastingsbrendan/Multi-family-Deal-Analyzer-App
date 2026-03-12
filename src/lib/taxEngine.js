@@ -22,14 +22,19 @@
 //
 // DATA NOTES
 // ──────────
-// • Brackets are 2025 tax year rates (filed 2026).
+// • Brackets are 2026 tax year rates (filed 2027). Source: Tax Foundation, Feb 2026.
+// • 2026 saw significant changes in 10 states vs 2025:
+//   GA 5.09% (was 5.19%), IN 2.95% (3.0%), KY 3.5% (4.0%), MS 4.0% (4.4%),
+//   MT 5.65% top (5.9%), NE 4.55% top (5.2%), NC 3.99% (4.25%),
+//   OH flat 2.75% above $26,050 (was 4-bracket progressive),
+//   OK 3-bracket 4.5% top (was 6-bracket 4.75%), SC 6.0% top (6.2%).
 // • Flat-rate states are stored as a single bracket for code uniformity.
 // • No-income-tax states return { noTaxState: true, totalTax: 0 }.
 // • Maryland local tax is modeled as a required additive layer (3% default county);
 //   user can override via localTaxRate.
 // • New York City local tax is NOT auto-applied; user must add via localTaxRate.
 // • Bracket thresholds are in USD. 'Infinity' marks the top bracket.
-// • Sources: Tax Foundation 2025 State Income Tax Rates & Brackets;
+// • Sources: Tax Foundation 2026 State Income Tax Rates & Brackets (Feb 2026);
 //   state revenue department publications.
 //
 // MAINTENANCE
@@ -217,8 +222,8 @@ export const STATE_TAX_DATA = {
 
   GA: {
     name: 'Georgia', type: 'flat',
-    note: 'Flat 5.19% as of 2025 (down from 5.39%).',
-    single:  [{ rate: 0.0519, min: 0, max: Infinity }],
+    note: 'Flat 5.09% as of 2026 (down from 5.19%; part of a planned annual phasedown toward 4.99%).',
+    single:  [{ rate: 0.0509, min: 0, max: Infinity }],
     married: null,
   },
 
@@ -282,8 +287,8 @@ export const STATE_TAX_DATA = {
 
   IN: {
     name: 'Indiana', type: 'flat',
-    note: 'Flat 3.0% as of 2025 (reduced from 3.05%).',
-    single:  [{ rate: 0.03, min: 0, max: Infinity }],
+    note: 'Flat 2.95% as of 2026 (reduced from 3.0%; further cuts scheduled to 2.9% in 2027, potentially reaching 2.55% by 2030 if revenue triggers met).',
+    single:  [{ rate: 0.0295, min: 0, max: Infinity }],
     married: null,
   },
 
@@ -304,8 +309,8 @@ export const STATE_TAX_DATA = {
 
   KY: {
     name: 'Kentucky', type: 'flat',
-    note: 'Flat 4.0%.',
-    single:  [{ rate: 0.04, min: 0, max: Infinity }],
+    note: 'Flat 3.5% as of 2026 (reduced from 4.0% via revenue trigger mechanism enacted in 2022).',
+    single:  [{ rate: 0.035, min: 0, max: Infinity }],
     married: null,
   },
 
@@ -411,17 +416,17 @@ export const STATE_TAX_DATA = {
 
   MS: {
     name: 'Mississippi', type: 'flat',
-    note: 'Flat 4.4% (reduced from 4.7% in 2025).',
-    single:  [{ rate: 0.044, min: 0, max: Infinity }],
+    note: 'Flat 4.0% as of 2026 (reduced from 4.4%; part of a multi-year phasedown with eventual elimination planned by 2030).',
+    single:  [{ rate: 0.04, min: 0, max: Infinity }],
     married: null,
   },
 
   MT: {
     name: 'Montana', type: 'progressive',
-    note: '2 brackets post-2024 reform. MFJ thresholds double.',
+    note: '2 brackets. Top rate reduced to 5.65% in 2026 (from 5.9%); lower bracket expanded significantly.',
     single: [
-      { rate: 0.047, min: 0,      max: 20500   },
-      { rate: 0.059, min: 20500,  max: Infinity },
+      { rate: 0.047,  min: 0,      max: 47000   },
+      { rate: 0.0565, min: 47000,  max: Infinity },
     ],
     married: null,
   },
@@ -430,8 +435,8 @@ export const STATE_TAX_DATA = {
 
   NC: {
     name: 'North Carolina', type: 'flat',
-    note: 'Flat 4.25% (reduced from 4.5% in 2025).',
-    single:  [{ rate: 0.0425, min: 0, max: Infinity }],
+    note: 'Flat 3.99% as of 2026 (final step in a legislated multi-year phasedown from 4.25%).',
+    single:  [{ rate: 0.0399, min: 0, max: Infinity }],
     married: null,
   },
 
@@ -450,18 +455,18 @@ export const STATE_TAX_DATA = {
 
   NE: {
     name: 'Nebraska', type: 'progressive',
-    note: '4 brackets. Top rate 5.20% (reduced from 5.84% in 2025). MFJ thresholds differ.',
+    note: '4 brackets. Top rate 4.55% as of 2026 (reduced from 5.2%; part of a phasedown to 3.99% by 2027). MFJ thresholds differ.',
     single: [
       { rate: 0.0246, min: 0,      max: 3700    },
       { rate: 0.0351, min: 3700,   max: 22170   },
       { rate: 0.0501, min: 22170,  max: 35730   },
-      { rate: 0.052,  min: 35730,  max: Infinity },
+      { rate: 0.0455, min: 35730,  max: Infinity },
     ],
     married: [
       { rate: 0.0246, min: 0,      max: 7390    },
       { rate: 0.0351, min: 7390,   max: 44340   },
       { rate: 0.0501, min: 44340,  max: 71470   },
-      { rate: 0.052,  min: 71470,  max: Infinity },
+      { rate: 0.0455, min: 71470,  max: Infinity },
     ],
   },
 
@@ -537,28 +542,27 @@ export const STATE_TAX_DATA = {
 
   OH: {
     name: 'Ohio', type: 'progressive',
-    note: '4 brackets. Top rate 3.99%. Many OH cities also levy a municipal income tax (0.5%–3%); add via localTaxRate.',
+    note: 'Flat 2.75% on income above $26,050; income at or below $26,050 is untaxed. Ohio converted to flat rate in 2026 (HB96). Municipal income taxes (0.5%–3%) still apply in many cities — add via localTaxRate.',
     single: [
       { rate: 0.00,   min: 0,       max: 26050   },
-      { rate: 0.0276, min: 26050,   max: 100000  },
-      { rate: 0.0333, min: 100000,  max: 115300  },
-      { rate: 0.0399, min: 115300,  max: Infinity },
+      { rate: 0.0275, min: 26050,   max: Infinity },
     ],
     married: null,
   },
 
   OK: {
     name: 'Oklahoma', type: 'progressive',
-    note: '6 brackets. MFJ thresholds double.',
+    note: '3 brackets as of 2026 (consolidated from 6; HB2764). Top rate reduced from 4.75% to 4.5%. Trigger mechanism may phase out income tax entirely in future years. MFJ thresholds approximately double single.',
     single: [
-      { rate: 0.0025, min: 0,      max: 1000    },
-      { rate: 0.0075, min: 1000,   max: 2500    },
-      { rate: 0.0175, min: 2500,   max: 3750    },
-      { rate: 0.0275, min: 3750,   max: 4900    },
-      { rate: 0.0375, min: 4900,   max: 7200    },
-      { rate: 0.0475, min: 7200,   max: Infinity },
+      { rate: 0.025, min: 0,      max: 1000    },
+      { rate: 0.035, min: 1000,   max: 2500    },
+      { rate: 0.045, min: 2500,   max: Infinity },
     ],
-    married: null,
+    married: [
+      { rate: 0.025, min: 0,      max: 2000    },
+      { rate: 0.035, min: 2000,   max: 5000    },
+      { rate: 0.045, min: 5000,   max: Infinity },
+    ],
   },
 
   OR: {
@@ -604,7 +608,7 @@ export const STATE_TAX_DATA = {
 
   SC: {
     name: 'South Carolina', type: 'progressive',
-    note: 'Top rate 6.0% (reduced from 6.2% in 2025). MFJ thresholds double.',
+    note: 'Top rate 6.0% (reduced from 6.2%; scheduled to revert to 6.2% on July 1, 2026 — conservative to use 6.0% for 2026 tax year planning). MFJ thresholds double.',
     single: [
       { rate: 0.00,  min: 0,      max: 3200    },
       { rate: 0.03,  min: 3200,   max: 6410    },
