@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useSubscription } from '../contexts/SubscriptionContext';
+import { trackUpgradeGateHit } from '../lib/analytics';
 
 // ─── Stripe Checkout redirect ─────────────────────────────────────────────────
 // Creates a Checkout Session via our Supabase Edge Function and redirects.
@@ -29,9 +30,13 @@ async function startCheckout(userEmail) {
 
 // ─── Blur overlay wrapper ─────────────────────────────────────────────────────
 // Wraps any content with a blur + upgrade card overlay when locked.
-export function BlurGate({ feature, children, userEmail }) {
+export function BlurGate({ feature, children, userEmail, dealId }) {
   const { limits } = useSubscription();
   const allowed = limits[feature] !== false;
+
+  useEffect(() => {
+    if (!allowed) trackUpgradeGateHit(feature, dealId);
+  }, [allowed, feature, dealId]);
 
   if (allowed) return children;
 

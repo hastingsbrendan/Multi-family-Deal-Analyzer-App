@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import * as Sentry from '@sentry/react';
+import { initAnalytics, identifyUser, resetAnalyticsUser, trackSignIn, trackSignOut, trackDealCreated, trackDealDeleted, trackDealOpened, trackPDFExported, trackCSVExported } from '../lib/analytics';
 import { iSty } from './ui/InputRow';
 import { sbClient, STORAGE_KEY, STATUS_OPTIONS, FMT_USD, loadLocal, saveLocal, sbRead, sbWrite, sbWriteDeal, sbDeleteDeal, sbWritePrefs, authGetSession, authSignOut } from '../lib/constants';
 import { calcDeal, DEFAULT_PREFS, newDeal, sbGetGroupDeals, sbShareDealToGroup, sbRemoveDealFromGroup, sbReorderGroupDeals } from '../lib/calc';
@@ -18,6 +19,8 @@ import GuidedTour, { TOUR_STEPS } from './GuidedTour';
 import { TrialBanner } from './UpgradeModal';
 import { FeedbackModal } from './FeedbackModal';
 import UndoToast from './ui/UndoToast';
+
+initAnalytics();
 
 function App() {
   const [dark, setDark] = useState(() => localStorage.getItem("rh_dark") === "true");
@@ -55,6 +58,7 @@ function App() {
   // Extracted to `bootstrapUser` to avoid duplicating this pattern in onAuthStateChange.
   const bootstrapUser = useCallback((u, { loadPrefs = false, showTourIfEmpty = false } = {}) => {
     Sentry.setUser({ id: u.id, email: u.email });
+    identifyUser(u);
     const local = loadLocal(u.id);
     setDeals(local);
     setTimeout(() => {
@@ -88,6 +92,8 @@ function App() {
       if (u) Sentry.setUser({ id: u.id, email: u.email });
       else Sentry.setUser(null);
       if (u && (evt === "SIGNED_IN" || evt === "USER_UPDATED")) {
+        identifyUser(u);
+        if (evt === "SIGNED_IN") trackSignIn();
         if (window.location.hash.includes("access_token")) {
           window.history.replaceState(null, "", window.location.pathname);
         }
@@ -98,9 +104,9 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const addDeal      = () => { const d=newDeal(prefs); setDeals(p=>[...p,d]); setActiveDealId(d.id); };
+  const addDeal      = () => { const d=newDeal(prefs); setDeals(p=>[...p,d]); setActiveDealId(d.id); trackDealCreated(d.id); };
   const updateDeal   = useCallback((u) => { markDealDirty(u.id); setDeals(p=>p.map(d=>d.id===u.id?u:d)); }, [markDealDirty]);
-  const deleteDeal   = (id) => setDeals(p=>p.filter(d=>d.id!==id));
+  const deleteDeal   = (id) => { trackDealDeleted(id); setDeals(p=>p.filter(d=>d.id!==id)); };
   const reorderDeals = useCallback((next) => { setDeals(next); }, []);
   const activeDeal   = (activeGroup ? (groupDeals||[]) : (deals||[])).find(d=>d.id===activeDealId);
 
@@ -150,6 +156,8 @@ function App() {
   };
 
   const handleSignOut = async () => {
+    trackSignOut();
+    resetAnalyticsUser();
     await authSignOut();
     Sentry.setUser(null);
     setDeals(null); setActiveDealId(null);
@@ -450,8 +458,8 @@ function App() {
               deal={activeDeal}
               onUpdate={activeGroup ? updateGroupDeal : updateDeal}
               onBack={()=>setActiveDealId(null)}
-              onExport={()=>exportDealCSV(activeDeal)}
-              onExportPDF={()=>exportDealPDF(activeDeal, user)}
+              onExport={()=>{ trackCSVExported(activeDeal.id); exportDealCSV(activeDeal); }}
+              onExportPDF={()=>{ trackPDFExported(activeDeal.id); exportDealPDF(activeDeal, user); }}
               onShare={()=>setShowShareModal(activeDeal)}
               groupRole={activeGroup?.role}
               activeGroup={activeGroup}
