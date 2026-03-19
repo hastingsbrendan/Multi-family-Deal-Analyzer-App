@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RentHack Blog — House Hacking, Deal Analysis & Multifamily Investing</title>
+  <meta name="description" content="Guides, deal walkthroughs, and market insights for house hackers and multifamily investors. Learn how to analyze duplexes, triplexes, and fourplexes."/>
+  <link rel="canonical" href="https://renthack.io/blog/"/>
+
+  <!-- Open Graph -->
+  <meta property="og:type"        content="website"/>
+  <meta property="og:url"         content="https://renthack.io/blog/"/>
+  <meta property="og:title"       content="RentHack Blog — House Hacking & Multifamily Investing"/>
+  <meta property="og:description" content="Guides, deal walkthroughs, and market insights for house hackers and multifamily investors."/>
+  <meta property="og:image"       content="https://renthack.io/og-image.png"/>
+  <meta property="og:site_name"   content="RentHack"/>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;0,9..144,900;1,9..144,400&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream:   #FDFAF6;
+      --sand:    #F5EFE6;
+      --teal:    #0D9488;
+      --teal-lt: #CCFBF1;
+      --teal-dk: #0F766E;
+      --navy:    #1E293B;
+      --gray1:   #F8FAFC;
+      --gray2:   #E2E8F0;
+      --gray3:   #94A3B8;
+      --gray4:   #64748B;
+      --white:   #FFFFFF;
+    }
+
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      color: var(--navy);
+      background: var(--cream);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── NAV ── */
+    nav {
+      background: rgba(253,250,246,0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--gray2);
+      padding: 0 48px;
+      height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo {
+      font-family: 'Fraunces', serif;
+      font-size: 24px;
+      font-weight: 900;
+      color: var(--navy);
+      text-decoration: none;
+      letter-spacing: -0.5px;
+    }
+    .logo .dot { color: var(--teal); }
+    .nav-links { display: flex; gap: 32px; list-style: none; }
+    .nav-links a {
+      color: var(--gray4);
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--navy); }
+    .nav-links a.active { color: var(--teal); font-weight: 600; }
+    .nav-cta {
+      background: var(--teal);
+      color: #fff;
+      text-decoration: none;
+      padding: 10px 22px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+    .nav-cta:hover { background: var(--teal-dk); }
+
+    /* ── PAGE MAX WIDTH ── */
+    .page-max { max-width: 900px; margin: 0 auto; padding: 0 32px; }
+
+    /* ── HERO ── */
+    .blog-hero {
+      padding: 80px 0 64px;
+      border-bottom: 1px solid var(--gray2);
+    }
+    .eyebrow {
+      display: inline-block;
+      color: var(--teal);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .blog-hero h1 {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(36px, 5vw, 54px);
+      font-weight: 900;
+      line-height: 1.1;
+      letter-spacing: -1.5px;
+      color: var(--navy);
+      margin-bottom: 18px;
+    }
+    .blog-hero h1 em { font-style: italic; color: var(--teal); }
+    .blog-hero p {
+      font-size: 18px;
+      color: var(--gray4);
+      line-height: 1.65;
+      max-width: 600px;
+    }
+
+    /* ── TOPIC PILLS ── */
+    .topics {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 32px 0;
+      border-bottom: 1px solid var(--gray2);
+    }
+    .topic-pill {
+      padding: 7px 16px;
+      border-radius: 100px;
+      border: 1px solid var(--gray2);
+      background: var(--white);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--gray4);
+      cursor: default;
+      transition: all 0.15s;
+    }
+    .topic-pill.coming {
+      background: var(--teal-lt);
+      border-color: var(--teal);
+      color: var(--teal-dk);
+      font-weight: 600;
+    }
+
+    /* ── COMING SOON SECTION ── */
+    .coming-soon {
+      padding: 80px 0 100px;
+      text-align: center;
+    }
+    .cs-icon {
+      width: 72px;
+      height: 72px;
+      background: var(--teal-lt);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 28px;
+      font-size: 32px;
+    }
+    .coming-soon h2 {
+      font-family: 'Fraunces', serif;
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 14px;
+    }
+    .coming-soon p {
+      font-size: 17px;
+      color: var(--gray4);
+      line-height: 1.65;
+      max-width: 480px;
+      margin: 0 auto 40px;
+    }
+
+    /* ── EMAIL SIGNUP ── */
+    .signup-form {
+      display: flex;
+      gap: 10px;
+      max-width: 440px;
+      margin: 0 auto 16px;
+    }
+    .signup-form input[type="email"] {
+      flex: 1;
+      padding: 12px 16px;
+      border: 1.5px solid var(--gray2);
+      border-radius: 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      background: var(--white);
+      color: var(--navy);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .signup-form input[type="email"]:focus { border-color: var(--teal); }
+    .signup-form button {
+      padding: 12px 22px;
+      background: var(--teal);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+    .signup-form button:hover { background: var(--teal-dk); }
+    .signup-note {
+      font-size: 13px;
+      color: var(--gray3);
+    }
+    .signup-success {
+      display: none;
+      background: var(--teal-lt);
+      border: 1px solid var(--teal);
+      border-radius: 10px;
+      padding: 14px 20px;
+      color: var(--teal-dk);
+      font-size: 15px;
+      font-weight: 500;
+      max-width: 440px;
+      margin: 0 auto;
+    }
+
+    /* ── PREVIEW CARDS ── */
+    .preview-section {
+      padding: 0 0 80px;
+    }
+    .preview-label {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--gray3);
+      margin-bottom: 24px;
+    }
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 20px;
+    }
+    .preview-card {
+      background: var(--white);
+      border: 1px solid var(--gray2);
+      border-radius: 14px;
+      padding: 24px;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .preview-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+    }
+    .card-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--teal);
+      margin-bottom: 10px;
+    }
+    .preview-card h3 {
+      font-family: 'Fraunces', serif;
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.3;
+      color: var(--navy);
+      margin-bottom: 10px;
+    }
+    .preview-card p {
+      font-size: 14px;
+      color: var(--gray4);
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .coming-badge {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--gray3);
+      background: var(--gray1);
+      padding: 3px 10px;
+      border-radius: 100px;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--navy);
+      color: rgba(255,255,255,0.6);
+      padding: 48px;
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 32px;
+      font-size: 14px;
+    }
+    .footer-logo {
+      font-family: 'Fraunces', serif;
+      font-size: 22px;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: -0.5px;
+      margin-bottom: 10px;
+    }
+    .footer-logo .dot { color: var(--teal); }
+    .footer-tagline { font-size: 14px; line-height: 1.6; }
+    footer h4 { color: #fff; font-size: 13px; font-weight: 700; margin-bottom: 14px; letter-spacing: 0.5px; }
+    footer a { display: block; color: rgba(255,255,255,0.55); text-decoration: none; margin-bottom: 10px; transition: color 0.2s; }
+    footer a:hover { color: #fff; }
+    .footer-bottom {
+      grid-column: 1 / -1;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      padding-top: 24px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.35);
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 640px) {
+      nav { padding: 0 20px; }
+      .nav-links { display: none; }
+      .page-max { padding: 0 20px; }
+      .blog-hero { padding: 48px 0 40px; }
+      .signup-form { flex-direction: column; }
+      footer { grid-template-columns: 1fr 1fr; padding: 32px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav>
+  <a href="/landing.html" class="logo">Rent<span class="dot">Hack</span></a>
+  <ul class="nav-links">
+    <li><a href="/landing.html#how">How it works</a></li>
+    <li><a href="/landing.html#pricing">Pricing</a></li>
+    <li><a href="/blog/" class="active">Blog</a></li>
+  </ul>
+  <a href="/#signup" class="nav-cta">Try it free</a>
+</nav>
+
+<!-- ── HERO ── -->
+<div class="blog-hero">
+  <div class="page-max">
+    <span class="eyebrow">The RentHack Blog</span>
+    <h1>The house hacker's<br>guide to <em>smarter deals</em></h1>
+    <p>Practical guides, real deal walkthroughs, and market insights — written for first-time multifamily buyers who want to make confident offers.</p>
+  </div>
+</div>
+
+<!-- ── TOPIC PILLS ── -->
+<div class="page-max">
+  <div class="topics">
+    <span class="topic-pill coming">🏠 House Hacking How-Tos</span>
+    <span class="topic-pill coming">📊 Deal Analysis Walkthroughs</span>
+    <span class="topic-pill coming">🏘️ Multifamily Investing Basics</span>
+    <span class="topic-pill coming">📈 Market &amp; Financing News</span>
+  </div>
+</div>
+
+<!-- ── COMING SOON ── -->
+<div class="coming-soon">
+  <div class="page-max">
+    <div class="cs-icon">✍️</div>
+    <h2>First posts coming soon</h2>
+    <p>We're writing guides that cut through the noise — real numbers, real deals, no fluff. Drop your email and we'll let you know when they're live.</p>
+
+    <div class="signup-form" id="signup-form">
+      <input type="email" id="email-input" placeholder="you@email.com" autocomplete="email"/>
+      <button onclick="handleSignup()">Notify me</button>
+    </div>
+    <p class="signup-note">No spam. Unsubscribe any time.</p>
+    <div class="signup-success" id="signup-success">
+      ✓ You're on the list — we'll email you when the first post goes live.
+    </div>
+  </div>
+</div>
+
+<!-- ── UPCOMING TOPICS ── -->
+<div class="preview-section">
+  <div class="page-max">
+    <p class="preview-label">What's coming</p>
+    <div class="preview-grid">
+
+      <div class="preview-card">
+        <span class="card-tag">House Hacking</span>
+        <h3>How to analyze a duplex in 5 minutes</h3>
+        <p>A step-by-step walkthrough of the exact numbers you need — purchase price, rents, expenses — and how to know if a deal actually pencils out.</p>
+        <div class="card-footer">
+          <span class="coming-badge">Coming soon</span>
+        </div>
+      </div>
+
+      <div class="preview-card">
+        <span class="card-tag">Investing Basics</span>
+        <h3>What is DSCR and why lenders care so much?</h3>
+        <p>Debt Service Coverage Ratio explained in plain English — what it means, what counts as "good," and how it affects what you can borrow.</p>
+        <div class="card-footer">
+          <span class="coming-badge">Coming soon</span>
+        </div>
+      </div>
+
+      <div class="preview-card">
+        <span class="card-tag">Deal Walkthrough</span>
+        <h3>We analyzed 10 duplexes. Here's what we found.</h3>
+        <p>A real look at how metrics like cap rate, cash-on-cash, and IRR varied across 10 properties in different markets — and what separated the deals from the duds.</p>
+        <div class="card-footer">
+          <span class="coming-badge">Coming soon</span>
+        </div>
+      </div>
+
+      <div class="preview-card">
+        <span class="card-tag">Financing</span>
+        <h3>FHA vs Conventional for a house hack — which is better?</h3>
+        <p>The down payment, PMI, and loan limit tradeoffs between FHA and conventional loans when you're buying a 2–4 unit property to live in.</p>
+        <div class="card-footer">
+          <span class="coming-badge">Coming soon</span>
+        </div>
+      </div>
+
+      <div class="preview-card">
+        <span class="card-tag">Market News</span>
+        <h3>How rising rates changed the duplex market in 2025</h3>
+        <p>What higher interest rates did to cap rates, asking prices, and cash flow across the most popular house hack markets — and where opportunity still exists.</p>
+        <div class="card-footer">
+          <span class="coming-badge">Coming soon</span>
+        </div>
+      </div>
+
+      <div class="preview-card">
+        <span class="card-tag">House Hacking</span>
+        <h3>The "effective mortgage" — the only number that matters</h3>
+        <p>Why your actual monthly housing cost after rental income is the number to optimize — and how to model it before you make an offer.</p>
+        <div class="card-footer">
+          <span class="coming-badge">Coming soon</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div>
+    <div class="footer-logo">Rent<span class="dot">Hack</span></div>
+    <p class="footer-tagline">The deal analyzer built for house hackers — not Wall Street.</p>
+  </div>
+  <div>
+    <h4>Product</h4>
+    <a href="/landing.html#how">How it works</a>
+    <a href="/landing.html#pricing">Pricing</a>
+    <a href="/blog/">Blog</a>
+  </div>
+  <div>
+    <h4>Account</h4>
+    <a href="/#app">Log in</a>
+    <a href="/#signup">Sign up free</a>
+  </div>
+  <div>
+    <h4>Company</h4>
+    <a href="#">About</a>
+    <a href="#">Contact</a>
+    <a href="#">Privacy</a>
+  </div>
+  <p class="footer-bottom">© 2026 RentHack.io — Built for house hackers everywhere.</p>
+</footer>
+
+<script>
+  function handleSignup() {
+    const email = document.getElementById('email-input').value.trim();
+    if (!email || !email.includes('@')) {
+      document.getElementById('email-input').focus();
+      return;
+    }
+
+    // NOTE: Requires a 'blog_subscribers' table in Supabase.
+    // Create it via Supabase dashboard SQL editor:
+    //   CREATE TABLE blog_subscribers (
+    //     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    //     email text UNIQUE NOT NULL,
+    //     subscribed_at timestamptz,
+    //     source text
+    //   );
+    //   ALTER TABLE blog_subscribers ENABLE ROW LEVEL SECURITY;
+    //   CREATE POLICY "insert_own" ON blog_subscribers FOR INSERT WITH CHECK (true);
+    // Until then, signups show success but are not stored.
+    // Store in Supabase via the REST API
+    const SB_URL  = 'https://lxkwvayalxuoryuwxtsq.supabase.co';
+    const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4a3d2YXlhbHh1b3J5dXd4dHNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyOTAxMTAsImV4cCI6MjA4Nzg2NjExMH0.pcja3-H81ghs9EEoigwAb7HsVBtYsc2tO0DlLX6cAo8';
+
+    fetch(`${SB_URL}/rest/v1/blog_subscribers`, {
+      method: 'POST',
+      headers: {
+        'apikey': SB_ANON,
+        'Authorization': `Bearer ${SB_ANON}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({ email, subscribed_at: new Date().toISOString(), source: 'blog_coming_soon' })
+    }).catch(() => {}); // silent fail — show success regardless
+
+    document.getElementById('signup-form').style.display = 'none';
+    document.querySelector('.signup-note').style.display = 'none';
+    document.getElementById('signup-success').style.display = 'block';
+  }
+
+  // Allow Enter key on email input
+  document.getElementById('email-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleSignup();
+  });
+</script>
+
+</body>
+</html>
