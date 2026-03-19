@@ -345,22 +345,39 @@ function App() {
   return(
     <div data-theme={theme} style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
       <div style={{borderBottom:"1px solid var(--border)",padding:"0 20px",height:60,display:"flex",alignItems:"center",justifyContent:"space-between",background:dark?"var(--card)":"rgba(253,250,246,0.95)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",position:"sticky",top:0,zIndex:100}}>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <a href="index.html" style={{display:"flex",alignItems:"center",gap:8,textDecoration:"none"}}>
+        {/* Left: logo + breadcrumb */}
+        <div style={{display:"flex",alignItems:"center",gap:10,flex:"0 0 auto"}}>
+          <a href="/landing.html" style={{display:"flex",alignItems:"center",gap:8,textDecoration:"none"}}>
             <div style={{width:28,height:28,background:"var(--accent)",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>🏠</div>
             <span style={{fontFamily:"'Fraunces',serif",fontWeight:900,fontSize:18,color:"var(--text)",letterSpacing:"-0.5px"}}><span>Rent</span><span style={{color:"var(--accent)"}}>Hack</span></span>
           </a>
           {activeDeal&&<span style={{color:"var(--muted)",fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:140}}>/ {activeDeal.address||"New Deal"}</span>}
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:6}}>
-            <a href="/blog" target="_blank" rel="noopener noreferrer"
-              style={{fontSize:12,fontWeight:600,color:"var(--muted)",textDecoration:"none",
-                padding:"3px 9px",border:"1px solid var(--border)",borderRadius:4,
-                lineHeight:1.4,flexShrink:0,transition:"color 0.15s,border-color 0.15s"}}
-              onMouseEnter={e=>{e.currentTarget.style.color="var(--accent)";e.currentTarget.style.borderColor="var(--accent)";}}
-              onMouseLeave={e=>{e.currentTarget.style.color="var(--muted)";e.currentTarget.style.borderColor="var(--border)";}}>
-              Blog
+
+        {/* Centre: primary nav links — hidden on mobile or when a deal is open */}
+        {!activeDeal&&<nav style={{display:"flex",alignItems:"center",gap:28,position:"absolute",left:"50%",transform:"translateX(-50%)"}}>
+          {[
+            {label:"How it Works", href:"/landing.html#how",   external:true},
+            {label:"Pricing",      href:"/landing.html#pricing",external:true},
+            {label:"Blog",         href:"/blog/",              external:true},
+          ].map(({label,href,external})=>(
+            <a key={label} href={href} {...(external?{target:"_blank",rel:"noopener noreferrer"}:{})}
+              style={{fontSize:14,fontWeight:500,color:"var(--muted)",textDecoration:"none",transition:"color 0.15s",whiteSpace:"nowrap"}}
+              onMouseEnter={e=>e.currentTarget.style.color="var(--text)"}
+              onMouseLeave={e=>e.currentTarget.style.color="var(--muted)"}>
+              {label}
             </a>
+          ))}
+          <button onClick={()=>setActiveDealId(null)}
+            style={{fontSize:14,fontWeight:600,color:"var(--accent)",background:"none",border:"none",cursor:"pointer",padding:0,transition:"opacity 0.15s",whiteSpace:"nowrap"}}
+            onMouseEnter={e=>e.currentTarget.style.opacity="0.75"}
+            onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+            My Deals
+          </button>
+        </nav>}
+
+        {/* Right: sync status + utility buttons + avatar */}
+        <div style={{display:"flex",alignItems:"center",gap:6,flex:"0 0 auto"}}>
             {syncBadge && (
               <div title={syncBadge.detail||""} onClick={()=>syncBadge.detail&&alert("Sync error:\n\n"+syncBadge.detail)}
                 style={{fontSize:11,fontWeight:700,color:syncBadge.color,cursor:syncBadge.detail?"pointer":"default",whiteSpace:"nowrap"}}>
