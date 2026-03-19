@@ -718,7 +718,7 @@
     <li><a href="#pricing">Pricing</a></li>
     <li><a href="/blog">Blog</a></li>
   </ul>
-  <div class="nav-right">
+  <div class="nav-right" id="nav-right">
     <a href="/#app" class="nav-login">Log in</a>
     <a href="/#signup" class="nav-cta">Try it free</a>
   </div>
@@ -1098,5 +1098,34 @@
   });
 </script>
 
+<script>
+  // ── Auth state detection ──────────────────────────────────────────────────
+  // Read Supabase session from localStorage. If a valid, non-expired session
+  // exists, swap the nav CTAs for a single "My Deals →" link so logged-in
+  // users don't see "Try it free" on the landing page.
+  (function() {
+    try {
+      const raw = localStorage.getItem('sb-lxkwvayalxuoryuwxtsq-auth-token');
+      if (!raw) return;
+      const session = JSON.parse(raw);
+      const expiresAt = session?.expires_at || session?.access_token && JSON.parse(atob(session.access_token.split('.')[1]))?.exp;
+      const isValid = expiresAt && (expiresAt > Math.floor(Date.now() / 1000));
+      if (!isValid) return;
+
+      // Swap nav-right CTAs
+      const navRight = document.getElementById('nav-right');
+      if (navRight) {
+        navRight.innerHTML = '<a href="/#app" class="nav-cta" style="text-decoration:none;">My Deals →</a>';
+      }
+
+      // Also swap the hero CTA button
+      const heroCta = document.querySelector('.btn-teal');
+      if (heroCta && heroCta.textContent.includes('free')) {
+        heroCta.textContent = 'Go to My Deals →';
+        heroCta.href = '/#app';
+      }
+    } catch(e) { /* silent — show default logged-out state */ }
+  })();
+</script>
 </body>
 </html>

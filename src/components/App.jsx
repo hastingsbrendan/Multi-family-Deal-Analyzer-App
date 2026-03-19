@@ -357,11 +357,11 @@ function App() {
         {/* Centre: primary nav links — hidden on mobile or when a deal is open */}
         {!activeDeal&&<nav style={{display:"flex",alignItems:"center",gap:28,position:"absolute",left:"50%",transform:"translateX(-50%)"}}>
           {[
-            {label:"How it Works", href:"/landing.html#how",   external:true},
-            {label:"Pricing",      href:"/landing.html#pricing",external:true},
-            {label:"Blog",         href:"/blog/",              external:true},
-          ].map(({label,href,external})=>(
-            <a key={label} href={href} {...(external?{target:"_blank",rel:"noopener noreferrer"}:{})}
+            {label:"How it Works", href:"/landing.html#how"},
+            {label:"Pricing",      href:"/landing.html#pricing"},
+            {label:"Blog",         href:"/blog/"},
+          ].map(({label,href})=>(
+            <a key={label} href={href}
               style={{fontSize:14,fontWeight:500,color:"var(--muted)",textDecoration:"none",transition:"color 0.15s",whiteSpace:"nowrap"}}
               onMouseEnter={e=>e.currentTarget.style.color="var(--text)"}
               onMouseLeave={e=>e.currentTarget.style.color="var(--muted)"}>

@@ -348,7 +348,7 @@
     <li><a href="/landing.html#pricing">Pricing</a></li>
     <li><a href="/blog/" class="active">Blog</a></li>
   </ul>
-  <a href="/#signup" class="nav-cta">Try it free</a>
+  <a href="/#signup" class="nav-cta" id="nav-cta">Try it free</a>
 </nav>
 
 <!-- ── HERO ── -->
@@ -523,5 +523,18 @@
   });
 </script>
 
+<script>
+  (function() {
+    try {
+      const raw = localStorage.getItem('sb-lxkwvayalxuoryuwxtsq-auth-token');
+      if (!raw) return;
+      const session = JSON.parse(raw);
+      const exp = session?.expires_at || (session?.access_token && JSON.parse(atob(session.access_token.split('.')[1]))?.exp);
+      if (!exp || exp <= Math.floor(Date.now() / 1000)) return;
+      const btn = document.getElementById('nav-cta');
+      if (btn) { btn.textContent = 'My Deals →'; btn.href = '/#app'; }
+    } catch(e) {}
+  })();
+</script>
 </body>
 </html>
