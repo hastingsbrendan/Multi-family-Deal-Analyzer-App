@@ -56,33 +56,11 @@ export function useCloudSync(user, isOnline) {
     }, 800);
   }, [deals, isOnline]);
 
-  // Re-pull from cloud when tab regains visibility or window is focused.
-  // Guard: skip if there are unsaved local changes queued to be written — pulling
-  // would overwrite them before the debounced save fires.
-  useEffect(() => {
-    const pull = () => {
-      if (!user || !isOnline || syncStatus === "saving") return;
-      if (pendingDealIds.current.size > 0) return; // local changes not yet flushed
-      sbRead()
-        .then(({ data: cloudDeals, updated_at }) => {
-          if (updated_at && updated_at === lastCloudUpdate.current) return;
-          lastCloudUpdate.current = updated_at;
-          setDeals(cloudDeals);
-          saveLocal(cloudDeals, user?.id);
-          setSyncStatus("saved");
-          setLastSyncedAt(new Date());
-          setTimeout(() => setSyncStatus("idle"), 2000);
-        })
-        .catch(() => {});
-    };
-    const onVisible = () => { if (document.visibilityState === "visible") pull(); };
-    document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", pull);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", pull);
-    };
-  }, [user, isOnline, syncStatus]);
+  // Focus/visibility pull intentionally removed — it raced with the 800ms debounced
+  // write and caused edits to be overwritten. Sequence: edit → setDeals → saveLocal
+  // → 800ms → sbWrite → pendingDealIds.clear(). If user switched windows during
+  // that window, focus-return saw pendingDealIds.size===0 and overwrote with stale
+  // cloud data. Bootstrap on login + debounced write is sufficient for sync.
 
   // Re-attempt sync when coming back online
   useEffect(() => {

@@ -1,24 +1,32 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import * as Sentry from '@sentry/react';
 import { initAnalytics, identifyUser, resetAnalyticsUser, trackSignIn, trackSignOut, trackDealCreated, trackDealDeleted, trackDealOpened, trackPDFExported, trackCSVExported } from '../lib/analytics';
 import { iSty } from './ui/InputRow';
 import { sbClient, STORAGE_KEY, STATUS_OPTIONS, FMT_USD, loadLocal, saveLocal, sbRead, sbWrite, sbWriteDeal, sbDeleteDeal, sbWritePrefs, authGetSession, authSignOut } from '../lib/constants';
-import { calcDeal, DEFAULT_PREFS, newDeal, sbGetGroupDeals, sbShareDealToGroup, sbRemoveDealFromGroup, sbReorderGroupDeals } from '../lib/calc';
-import { dlFile, exportDealCSV, exportDealPDF, exportPortfolioCSV } from '../lib/export';
+import { calcDeal, DEFAULT_PREFS, newDeal } from '../lib/calc';
+import { sbGetGroupDeals, sbShareDealToGroup, sbRemoveDealFromGroup, sbReorderGroupDeals } from '../lib/groups';
 import { useIsMobile, useOnlineStatus } from '../lib/hooks';
 import { useCloudSync } from '../lib/useCloudSync';
-import AuthScreen from './AuthScreen';
-import PortfolioPage from './PortfolioPage';
-import DealPage from './DealPage';
-import ProfilePage from './ProfilePage';
-import SettingsPage from './SettingsPage';
-import AppSettingsPage from './AppSettingsPage';
-import GroupsPage from './GroupsPage';
-import ShareDealModal from './ShareDealModal';
-import GuidedTour, { TOUR_STEPS } from './GuidedTour';
 import { TrialBanner } from './UpgradeModal';
 import { FeedbackModal } from './FeedbackModal';
 import UndoToast from './ui/UndoToast';
+
+// Core views — always needed on first load
+import AuthScreen from './AuthScreen';
+import PortfolioPage from './PortfolioPage';
+import DealPage from './DealPage';
+
+// Secondary pages — lazy loaded, only downloaded when user navigates there
+const ProfilePage     = React.lazy(() => import('./ProfilePage'));
+const SettingsPage    = React.lazy(() => import('./SettingsPage'));
+const AppSettingsPage = React.lazy(() => import('./AppSettingsPage'));
+const GroupsPage      = React.lazy(() => import('./GroupsPage'));
+const ShareDealModal  = React.lazy(() => import('./ShareDealModal'));
+const GuidedTour      = React.lazy(() => import('./GuidedTour'));
+
+// TOUR_STEPS is a tiny data array in its own file — imported synchronously so step-count
+// logic works immediately, without blocking the lazy load of GuidedTour itself.
+import { TOUR_STEPS } from './tourSteps';
 
 initAnalytics();
 
@@ -40,6 +48,7 @@ function App() {
   const [showAppSettings, setShowAppSettings] = useState(false);
   const [tourStep, setTourStep] = useState(null); // null = inactive, number = active step
   const tourDealRef = useRef(null); // track sample deal created for tour
+  const hasBootstrappedRef = useRef(false); // guard against TOKEN_REFRESHED re-bootstrapping
   const [showGroups, setShowGroups] = useState(false);
   const [activeGroup, setActiveGroup] = useState(null); // {id, name, role} or null = personal
   const [groupDeals, setGroupDeals] = useState([]);
@@ -57,6 +66,7 @@ function App() {
   // Bootstrap: restore session from localStorage, then pull cloud state.
   // Extracted to `bootstrapUser` to avoid duplicating this pattern in onAuthStateChange.
   const bootstrapUser = useCallback((u, { loadPrefs = false, showTourIfEmpty = false } = {}) => {
+    hasBootstrappedRef.current = true;
     Sentry.setUser({ id: u.id, email: u.email });
     identifyUser(u);
     const local = loadLocal(u.id);
@@ -97,6 +107,10 @@ function App() {
         if (window.location.hash.includes("access_token")) {
           window.history.replaceState(null, "", window.location.pathname);
         }
+        // Supabase fires SIGNED_IN on every token refresh (~hourly) and on
+        // tab-visibility restore. Skip re-bootstrapping if we've already loaded
+        // deals — otherwise it clobbers any unsaved edits the user is making.
+        if (evt === "SIGNED_IN" && hasBootstrappedRef.current) return;
         bootstrapUser(u);
       }
       if (!u) { setDeals([]); setActiveDealId(null); setShowProfile(false); }
@@ -252,38 +266,45 @@ function App() {
   if (showProfile) return (
     <div data-theme={theme} style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
       <div style={{padding:"0 16px"}}>
-        <ProfilePage user={user} onBack={()=>setShowProfile(false)} onSignOut={handleSignOut} dark={dark} setDark={setDark}/>
+        <Suspense fallback={null}>
+          <ProfilePage user={user} onBack={()=>setShowProfile(false)} onSignOut={handleSignOut} dark={dark} setDark={setDark}/>
+        </Suspense>
       </div>
     </div>
   );
   if (showGroups) return (
     <div data-theme={theme} style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
-      <GroupsPage
-        user={user}
-        dark={dark}
-        onBack={()=>setShowGroups(false)}
-        onSelectGroup={(group)=>{ setActiveGroup(group); setShowGroups(false); }}
-      />
+      <Suspense fallback={null}>
+        <GroupsPage
+          user={user}
+          dark={dark}
+          onBack={()=>setShowGroups(false)}
+          onSelectGroup={(group)=>{ setActiveGroup(group); setShowGroups(false); }}
+        />
+      </Suspense>
     </div>
   );
   if (showAppSettings) return (
     <div data-theme={theme} style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
       <div style={{padding:"0 16px"}}>
-        <AppSettingsPage
-          user={user}
-          dark={dark}
-          setDark={setDark}
-          onBack={()=>setShowAppSettings(false)}
-          onEditProfile={()=>{setShowAppSettings(false); setShowProfile(true);}}
-          onSignOut={handleSignOut}
-        />
+        <Suspense fallback={null}>
+          <AppSettingsPage
+            user={user}
+            dark={dark}
+            setDark={setDark}
+            onBack={()=>setShowAppSettings(false)}
+            onEditProfile={()=>{setShowAppSettings(false); setShowProfile(true);}}
+            onSignOut={handleSignOut}
+          />
+        </Suspense>
       </div>
     </div>
   );
   if (showSettings) return (
     <div data-theme={theme} style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
       <div style={{padding:"0 16px"}}>
-        <SettingsPage prefs={prefs} onSave={(newPrefs, pushFields)=>{
+        <Suspense fallback={null}>
+      <SettingsPage prefs={prefs} onSave={(newPrefs, pushFields)=>{
           setPrefs(newPrefs);
           sbWritePrefs(newPrefs).catch(()=>{});
           if (pushFields && pushFields.size > 0 && deals?.length > 0) {
@@ -316,6 +337,7 @@ function App() {
           }
           setShowSettings(false);
         }} onBack={()=>setShowSettings(false)} deals={deals} dark={dark} setDark={setDark}/>
+      </Suspense>
       </div>
     </div>
   );
@@ -444,7 +466,7 @@ function App() {
               onSelect={id=>setActiveDealId(id)}
               onAdd={activeGroup ? addGroupDeal : addDeal}
               onDelete={activeGroup ? deleteGroupDeal : deleteDeal}
-              onExport={()=>exportPortfolioCSV(activeGroup ? groupDeals : deals)}
+              onExport={()=>import('../lib/export').then(m=>m.exportPortfolioCSV(activeGroup ? groupDeals : deals))}
               onReorder={activeGroup ? reorderGroupDeals : reorderDeals}
               dark={dark} setDark={setDark}
               filterState={[portfolioFilter,setPortfolioFilter]}
@@ -458,8 +480,8 @@ function App() {
               deal={activeDeal}
               onUpdate={activeGroup ? updateGroupDeal : updateDeal}
               onBack={()=>setActiveDealId(null)}
-              onExport={()=>{ trackCSVExported(activeDeal.id); exportDealCSV(activeDeal); }}
-              onExportPDF={()=>{ trackPDFExported(activeDeal.id); exportDealPDF(activeDeal, user); }}
+              onExport={()=>import('../lib/export').then(m=>{ trackCSVExported(activeDeal.id); m.exportDealCSV(activeDeal); })}
+              onExportPDF={()=>import('../lib/export').then(m=>{ trackPDFExported(activeDeal.id); m.exportDealPDF(activeDeal, user); })}
               onShare={()=>setShowShareModal(activeDeal)}
               groupRole={activeGroup?.role}
               activeGroup={activeGroup}
@@ -468,18 +490,20 @@ function App() {
               forceTab={tourForceTab}
             />
         }
-        {tourActive && <GuidedTour step={tourStep} onNext={tourNext} onBack={tourBack} onClose={closeTour}/>}
+        {tourActive && <Suspense fallback={null}><GuidedTour step={tourStep} onNext={tourNext} onBack={tourBack} onClose={closeTour}/></Suspense>}
         {showFeedback && <FeedbackModal user={user} onClose={()=>setShowFeedback(false)}/>}
         {showShareModal && (
-          <ShareDealModal
-            deal={showShareModal}
-            user={user}
-            onClose={()=>setShowShareModal(null)}
-            onShared={(groupName)=>{
-              setShowShareModal(null);
-              alert(`Deal shared to "${groupName}" successfully.`);
-            }}
-          />
+          <Suspense fallback={null}>
+            <ShareDealModal
+              deal={showShareModal}
+              user={user}
+              onClose={()=>setShowShareModal(null)}
+              onShared={(groupName)=>{
+                setShowShareModal(null);
+                alert(`Deal shared to "${groupName}" successfully.`);
+              }}
+            />
+          </Suspense>
         )}
       </div>
     </div>

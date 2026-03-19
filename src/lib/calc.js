@@ -36,6 +36,7 @@
 //   .capex              Capital expenditure reserve
 //   .propertyMgmt       Property management fee (0 if selfManage=true)
 //   .utilities          Landlord-paid utilities (water, trash, etc.)
+//   .hoa                HOA / condo association fee (USD/yr); always a fixed value, no pct mode
 // selfManage            True = skip property management expense
 // annualPropertyTax     Raw value from Rentcast/Zillow API; written to expenses.propertyTax
 // refi                  Refinance scenario object:
@@ -58,6 +59,7 @@
 //                              Keep in newDeal() for future "sources" feature.
 //
 import * as Sentry from '@sentry/react';
+import { calcStateTax } from './taxEngine.js';
 const DEFAULT_PREFS = {
   // Default assumptions applied to every new deal
   downPaymentPct:   25,
@@ -68,6 +70,9 @@ const DEFAULT_PREFS = {
   expenseGrowth:    3,
   appreciationRate: 3,
   taxBracket:       22,
+  state:            '',    // 2-letter state code; empty = no state tax modeled
+  filingStatus:     'single', // 'single' | 'married'
+  localTaxRate:     0,     // additive local income tax rate (decimal, e.g. 0.03 = 3%)
   closingCosts: { title:1500, transferTax:2000, inspection:500, attorney:1000, lenderFees:2000, discountPoints:0, appraisal:600, creditReport:50 },
   // Expense defaults
   propertyTaxPct:   1.5,
@@ -101,7 +106,7 @@ const newDeal = (prefs) => {
     numUnits: 2,
     beds: "", baths: "", yearBuilt: "", sqftTotal: "", lotSize: "", annualPropertyTax: "", expectedCloseDate: "",
     vacancyRate: p.vacancyRate, vacancySource: "",
-    expenseModes: { propertyTax:"pct", insurance:"pct", maintenance:"pct", capex:"pct", propertyMgmt:"pct", utilities:"value", costSegFee:"value" },
+    expenseModes: { propertyTax:"pct", insurance:"pct", maintenance:"pct", capex:"pct", propertyMgmt:"pct", utilities:"value", hoa:"value", costSegFee:"value" },
     expenses: {
       propertyTax:6000, propertyTaxSource:"", propertyTaxPct: p.propertyTaxPct,
       insurance:1800, insuranceSource:"", insurancePct: p.insurancePct,
@@ -109,8 +114,10 @@ const newDeal = (prefs) => {
       capex:2400, capexSource:"", capexPct: p.capexPct,
       propertyMgmt:2160, propertyMgmtSource:"", propertyMgmtPct: p.propertyMgmtPct,
       utilities:0, utilitiesSource:"", utilitiesPct:0,
+      hoa:0, hoaSource:"",
       costSegFee:0 },
     selfManage:false, rentGrowth: p.rentGrowth, expenseGrowth: p.expenseGrowth, appreciationRate: p.appreciationRate, taxBracket: p.taxBracket,
+    state: p.state||'', filingStatus: p.filingStatus||'single', localTaxRate: p.localTaxRate||0,
     ownerOccupied:true, ownerUnit:0, ownerOccupancyYears:2, alternativeRent:0, ownerUseUtilities:0,
     refi: { enabled:false, year:5, newRate:6.5, newLTV:75 },
     valueAdd: { enabled:false, reModelCost:40000, rentBumpPerUnit:200, unitsRenovated:2, completionYear:3 },
@@ -140,13 +147,9 @@ const newDeal = (prefs) => {
       ] } },
   redFlags: { manual: [] } }); };
 
-// ─── Groups API — now lives in groups.js (BACK-003) ──────────────────────────
-// Re-exported here so existing imports from calc.js continue to work.
-export { sbGetMyGroups, sbGetPendingInvites, sbCreateGroup, sbInviteMember,
-  sbRespondToInvite, sbLeaveGroup, sbGetGroupMembers, sbUpdateMemberRole,
-  sbRemoveMember, sbGetGroupDeals, sbShareDealToGroup, sbRemoveDealFromGroup,
-  sbReorderGroupDeals, sbGetComments, sbPostComment, sbDeleteComment,
-  sbEditComment } from './groups';
+// ─── Groups API ───────────────────────────────────────────────────────────────
+// Import directly from groups.js — removed re-export to prevent groups.js from
+// being pulled into the main bundle via calc.js.
 
 // ─── FINANCIAL ENGINE ─────────────────────────────────────────────────────────
 function resolveExpenses(a, grossRentYear0) {
@@ -155,7 +158,8 @@ function resolveExpenses(a, grossRentYear0) {
   const mgmt = a.selfManage ? 0 : val("propertyMgmt","propertyMgmtPct");
   const pt=val("propertyTax","propertyTaxPct"), ins=val("insurance","insurancePct");
   const maint=val("maintenance","maintenancePct"), capex=val("capex","capexPct"), util=val("utilities","utilitiesPct");
-  return { propertyTax:pt, insurance:ins, maintenance:maint, capex, propertyMgmt:mgmt, utilities:util, costSegFee:0, total:pt+ins+maint+capex+mgmt+util };
+  const hoa=(+a.expenses?.hoa||0);
+  return { propertyTax:pt, insurance:ins, maintenance:maint, capex, propertyMgmt:mgmt, utilities:util, hoa, costSegFee:0, total:pt+ins+maint+capex+mgmt+util+hoa };
 }
 
 function calcDeal(deal, { _isRecursive = false } = {}) {
@@ -268,7 +272,7 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     const mult=Math.pow(1+expGrowth,yr-1);
     // costSegFee is one-time Year 1 only — stored under a.tax (alongside cost seg settings), not grown by expenseGrowth
     const costSegFeeThisYr=(yr===1)?(+taxCfg.costSegFee||0):0;
-    const expBreakdown={propertyTax:baseExp.propertyTax*mult,insurance:baseExp.insurance*mult,maintenance:baseExp.maintenance*mult,capex:baseExp.capex*mult,propertyMgmt:baseExp.propertyMgmt*mult,utilities:baseExp.utilities*mult,costSegFee:costSegFeeThisYr};
+    const expBreakdown={propertyTax:baseExp.propertyTax*mult,insurance:baseExp.insurance*mult,maintenance:baseExp.maintenance*mult,capex:baseExp.capex*mult,propertyMgmt:baseExp.propertyMgmt*mult,utilities:baseExp.utilities*mult,hoa:baseExp.hoa*mult,costSegFee:costSegFeeThisYr};
     const expenses=baseExpenses*mult+costSegFeeThisYr, noi=egi-expenses;
     // Amortization: monthly principal/interest split using outstanding balance
     let principal=0,interest=0,newBalance=balance;
@@ -279,6 +283,11 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     // Owner utilities: below-the-line outflow (not an operating expense, doesn't affect NOI)
     const cashFlow=noi-currentAnnualDebtService-ooUtilitiesThisYr+(refiEvent?refiEvent.cashOut:0)-vaRemodelOutflow;
     const monthlyCashFlow=cashFlow/12;
+    // Incremental CF = Cash Flow + Alt Rent (OO years only).
+    // Alt rent is what you'd spend renting elsewhere — it's a savings that offsets
+    // negative cash flow. E.g. CF=-$2000/mo + altRent=$2000/mo → incremental≈$0.
+    const ooAltRentAnnual=ooEnabled&&yr<=ooYears?(ooAltRentMonthly*12):0;
+    const incrementalCashFlow=ooEnabled?cashFlow+ooAltRentAnnual:cashFlow;
     // CoC = (NOI - debt service) / total cash invested; does NOT include refi cash-out
     const cocReturn=totalCashWithVA>0?(noi-currentAnnualDebtService)/totalCashWithVA:0;
     const capRate=pp>0?noi/pp:0, dscr=currentAnnualDebtService>0?noi/currentAnnualDebtService:0;
@@ -300,6 +309,21 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     // QBI deduction: 20% of qualified business income (IRC §199A) if positive
     const qbi=taxableIncome>0?taxableIncome*0.2:0, federalTaxable=taxableIncome-qbi;
     const bracketRate=(+a.taxBracket||22)/100, taxEffect=federalTaxable*bracketRate;
+    // State income tax — stacking method: tax(MAGI + rentalIncome) − tax(MAGI)
+    // federalTaxable is the net rental income after deductions/QBI — correct input for state tax too.
+    // MAGI comes from a.tax.agi (same field used by advanced tax module).
+    const _stateTaxResult = calcStateTax({
+      state:         a.state || '',
+      magi:          +(a.tax?.agi || 0),
+      netRentalIncome: federalTaxable,
+      filingStatus:  a.filingStatus || 'single',
+      localTaxRate:  +(a.localTaxRate || 0),
+    });
+    const stateTax         = _stateTaxResult.stateTax;
+    const localTax         = _stateTaxResult.localTax;
+    const totalStateTax    = _stateTaxResult.totalTax;
+    const stateEffectiveRate = _stateTaxResult.effectiveRate;
+    const noTaxState       = _stateTaxResult.noTaxState;
     const afterTaxCashFlow=(noi-currentAnnualDebtService)-taxEffect+(refiEvent?refiEvent.cashOut:0)-vaRemodelOutflow-ooUtilitiesThisYr;
     // ── Advanced Tax: cost seg depreciation + PAL (BACK-013) ─────────────────────
     // 5-yr property: Sec 179 applied first, bonus dep on remaining basis in Yr1, then SL on non-bonus remainder Yr1–5
@@ -372,7 +396,7 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     const propertyValue=pp*Math.pow(1+appRate,yr)+vaImpliedValueLift;
     // Accumulate depreciation taken this year for §1250 recapture at exit (BACK-021)
     cumulativeDepreciationTaken+=taxAdvEnabled?totalDepreciation:annualDepreciation;
-    years.push({yr,grossRent,ooRentDeduction:ooRentDeductionThisYr,rentAfterOO,vacancyLoss,egi,expenses,expBreakdown,noi,ooExpAddBack,debtService:currentAnnualDebtService,cashFlow,monthlyCashFlow,cocReturn,capRate,dscr,dscrLenderView,principal,interest,balance:newBalance,depreciation:annualDepreciation,taxableIncome,qbi,taxEffect,afterTaxCashFlow,propertyValue,equity:propertyValue-newBalance,appreciationGain:propertyValue-pp,principalPaydown:loanAmt-newBalance,refiEvent,vaRemodelOutflow,vaRentLift:vaRentLiftThisYr,ooUtilities:ooUtilitiesThisYr,ooTaxProrateRatio,slDepreciation,cs5Depreciation:cs5DepProrated,cs15Depreciation:cs15DepProrated,totalDepreciation,taxableIncomeAdv,palAllowedLoss,suspendedLossThisYr,carryforwardUsedThisYr,cumulativeCarryforward,effectiveTaxIncAdv,qbiAdv,taxEffectAdv,taxBenefitFromCF,afterTaxCFAdv});
+    years.push({yr,grossRent,ooRentDeduction:ooRentDeductionThisYr,rentAfterOO,vacancyLoss,egi,expenses,expBreakdown,noi,ooExpAddBack,debtService:currentAnnualDebtService,cashFlow,monthlyCashFlow,incrementalCashFlow,cocReturn,capRate,dscr,dscrLenderView,principal,interest,balance:newBalance,depreciation:annualDepreciation,taxableIncome,qbi,taxEffect,afterTaxCashFlow,stateTax,localTax,totalStateTax,stateEffectiveRate,noTaxState,propertyValue,equity:propertyValue-newBalance,appreciationGain:propertyValue-pp,principalPaydown:loanAmt-newBalance,refiEvent,vaRemodelOutflow,vaRentLift:vaRentLiftThisYr,ooUtilities:ooUtilitiesThisYr,ooTaxProrateRatio,slDepreciation,cs5Depreciation:cs5DepProrated,cs15Depreciation:cs15DepProrated,totalDepreciation,taxableIncomeAdv,palAllowedLoss,suspendedLossThisYr,carryforwardUsedThisYr,cumulativeCarryforward,effectiveTaxIncAdv,qbiAdv,taxEffectAdv,taxBenefitFromCF,afterTaxCFAdv});
   }
   // BACK-020: palCarryforward now holds the remaining accumulated suspended loss balance at end of hold.
   const finalPalCarryforward=palCarryforward;
