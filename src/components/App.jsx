@@ -353,6 +353,14 @@ function App() {
           {activeDeal&&<span style={{color:"var(--muted)",fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:140}}>/ {activeDeal.address||"New Deal"}</span>}
         </div>
         <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <a href="/blog" target="_blank" rel="noopener noreferrer"
+              style={{fontSize:12,fontWeight:600,color:"var(--muted)",textDecoration:"none",
+                padding:"3px 9px",border:"1px solid var(--border)",borderRadius:4,
+                lineHeight:1.4,flexShrink:0,transition:"color 0.15s,border-color 0.15s"}}
+              onMouseEnter={e=>{e.currentTarget.style.color="var(--accent)";e.currentTarget.style.borderColor="var(--accent)";}}
+              onMouseLeave={e=>{e.currentTarget.style.color="var(--muted)";e.currentTarget.style.borderColor="var(--border)";}}>
+              Blog
+            </a>
             {syncBadge && (
               <div title={syncBadge.detail||""} onClick={()=>syncBadge.detail&&alert("Sync error:\n\n"+syncBadge.detail)}
                 style={{fontSize:11,fontWeight:700,color:syncBadge.color,cursor:syncBadge.detail?"pointer":"default",whiteSpace:"nowrap"}}>
