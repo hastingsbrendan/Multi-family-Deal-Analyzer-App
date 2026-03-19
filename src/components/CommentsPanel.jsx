@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { sbGetComments, sbPostComment, sbDeleteComment, sbEditComment } from '../lib/calc';
+import { sbGetComments, sbPostComment, sbDeleteComment, sbEditComment } from '../lib/groups';
 
 function CommentsPanel({ groupId, dealId, currentUser }) {
   const [comments, setComments]   = useState([]);

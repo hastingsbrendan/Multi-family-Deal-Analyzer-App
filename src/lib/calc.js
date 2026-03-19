@@ -145,13 +145,9 @@ const newDeal = (prefs) => {
       ] } },
   redFlags: { manual: [] } }); };
 
-// ─── Groups API — now lives in groups.js (BACK-003) ──────────────────────────
-// Re-exported here so existing imports from calc.js continue to work.
-export { sbGetMyGroups, sbGetPendingInvites, sbCreateGroup, sbInviteMember,
-  sbRespondToInvite, sbLeaveGroup, sbGetGroupMembers, sbUpdateMemberRole,
-  sbRemoveMember, sbGetGroupDeals, sbShareDealToGroup, sbRemoveDealFromGroup,
-  sbReorderGroupDeals, sbGetComments, sbPostComment, sbDeleteComment,
-  sbEditComment } from './groups';
+// ─── Groups API ───────────────────────────────────────────────────────────────
+// Import directly from groups.js — removed re-export to prevent groups.js from
+// being pulled into the main bundle via calc.js.
 
 // ─── FINANCIAL ENGINE ─────────────────────────────────────────────────────────
 function resolveExpenses(a, grossRentYear0) {
