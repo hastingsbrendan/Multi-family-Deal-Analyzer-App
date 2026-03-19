@@ -58,6 +58,7 @@
 //                              Keep in newDeal() for future "sources" feature.
 //
 import * as Sentry from '@sentry/react';
+import { calcStateTax } from './taxEngine.js';
 const DEFAULT_PREFS = {
   // Default assumptions applied to every new deal
   downPaymentPct:   25,
@@ -68,6 +69,9 @@ const DEFAULT_PREFS = {
   expenseGrowth:    3,
   appreciationRate: 3,
   taxBracket:       22,
+  state:            '',    // 2-letter state code; empty = no state tax modeled
+  filingStatus:     'single', // 'single' | 'married'
+  localTaxRate:     0,     // additive local income tax rate (decimal, e.g. 0.03 = 3%)
   closingCosts: { title:1500, transferTax:2000, inspection:500, attorney:1000, lenderFees:2000, discountPoints:0, appraisal:600, creditReport:50 },
   // Expense defaults
   propertyTaxPct:   1.5,
@@ -111,6 +115,7 @@ const newDeal = (prefs) => {
       utilities:0, utilitiesSource:"", utilitiesPct:0,
       costSegFee:0 },
     selfManage:false, rentGrowth: p.rentGrowth, expenseGrowth: p.expenseGrowth, appreciationRate: p.appreciationRate, taxBracket: p.taxBracket,
+    state: p.state||'', filingStatus: p.filingStatus||'single', localTaxRate: p.localTaxRate||0,
     ownerOccupied:true, ownerUnit:0, ownerOccupancyYears:2, alternativeRent:0, ownerUseUtilities:0,
     refi: { enabled:false, year:5, newRate:6.5, newLTV:75 },
     valueAdd: { enabled:false, reModelCost:40000, rentBumpPerUnit:200, unitsRenovated:2, completionYear:3 },
@@ -305,6 +310,21 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     // QBI deduction: 20% of qualified business income (IRC §199A) if positive
     const qbi=taxableIncome>0?taxableIncome*0.2:0, federalTaxable=taxableIncome-qbi;
     const bracketRate=(+a.taxBracket||22)/100, taxEffect=federalTaxable*bracketRate;
+    // State income tax — stacking method: tax(MAGI + rentalIncome) − tax(MAGI)
+    // federalTaxable is the net rental income after deductions/QBI — correct input for state tax too.
+    // MAGI comes from a.tax.agi (same field used by advanced tax module).
+    const _stateTaxResult = calcStateTax({
+      state:         a.state || '',
+      magi:          +(a.tax?.agi || 0),
+      netRentalIncome: federalTaxable,
+      filingStatus:  a.filingStatus || 'single',
+      localTaxRate:  +(a.localTaxRate || 0),
+    });
+    const stateTax         = _stateTaxResult.stateTax;
+    const localTax         = _stateTaxResult.localTax;
+    const totalStateTax    = _stateTaxResult.totalTax;
+    const stateEffectiveRate = _stateTaxResult.effectiveRate;
+    const noTaxState       = _stateTaxResult.noTaxState;
     const afterTaxCashFlow=(noi-currentAnnualDebtService)-taxEffect+(refiEvent?refiEvent.cashOut:0)-vaRemodelOutflow-ooUtilitiesThisYr;
     // ── Advanced Tax: cost seg depreciation + PAL (BACK-013) ─────────────────────
     // 5-yr property: Sec 179 applied first, bonus dep on remaining basis in Yr1, then SL on non-bonus remainder Yr1–5
@@ -377,7 +397,7 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     const propertyValue=pp*Math.pow(1+appRate,yr)+vaImpliedValueLift;
     // Accumulate depreciation taken this year for §1250 recapture at exit (BACK-021)
     cumulativeDepreciationTaken+=taxAdvEnabled?totalDepreciation:annualDepreciation;
-    years.push({yr,grossRent,ooRentDeduction:ooRentDeductionThisYr,rentAfterOO,vacancyLoss,egi,expenses,expBreakdown,noi,ooExpAddBack,debtService:currentAnnualDebtService,cashFlow,monthlyCashFlow,incrementalCashFlow,cocReturn,capRate,dscr,dscrLenderView,principal,interest,balance:newBalance,depreciation:annualDepreciation,taxableIncome,qbi,taxEffect,afterTaxCashFlow,propertyValue,equity:propertyValue-newBalance,appreciationGain:propertyValue-pp,principalPaydown:loanAmt-newBalance,refiEvent,vaRemodelOutflow,vaRentLift:vaRentLiftThisYr,ooUtilities:ooUtilitiesThisYr,ooTaxProrateRatio,slDepreciation,cs5Depreciation:cs5DepProrated,cs15Depreciation:cs15DepProrated,totalDepreciation,taxableIncomeAdv,palAllowedLoss,suspendedLossThisYr,carryforwardUsedThisYr,cumulativeCarryforward,effectiveTaxIncAdv,qbiAdv,taxEffectAdv,taxBenefitFromCF,afterTaxCFAdv});
+    years.push({yr,grossRent,ooRentDeduction:ooRentDeductionThisYr,rentAfterOO,vacancyLoss,egi,expenses,expBreakdown,noi,ooExpAddBack,debtService:currentAnnualDebtService,cashFlow,monthlyCashFlow,incrementalCashFlow,cocReturn,capRate,dscr,dscrLenderView,principal,interest,balance:newBalance,depreciation:annualDepreciation,taxableIncome,qbi,taxEffect,afterTaxCashFlow,stateTax,localTax,totalStateTax,stateEffectiveRate,noTaxState,propertyValue,equity:propertyValue-newBalance,appreciationGain:propertyValue-pp,principalPaydown:loanAmt-newBalance,refiEvent,vaRemodelOutflow,vaRentLift:vaRentLiftThisYr,ooUtilities:ooUtilitiesThisYr,ooTaxProrateRatio,slDepreciation,cs5Depreciation:cs5DepProrated,cs15Depreciation:cs15DepProrated,totalDepreciation,taxableIncomeAdv,palAllowedLoss,suspendedLossThisYr,carryforwardUsedThisYr,cumulativeCarryforward,effectiveTaxIncAdv,qbiAdv,taxEffectAdv,taxBenefitFromCF,afterTaxCFAdv});
   }
   // BACK-020: palCarryforward now holds the remaining accumulated suspended loss balance at end of hold.
   const finalPalCarryforward=palCarryforward;

@@ -5,6 +5,7 @@ import { useIsMobile } from '../lib/hooks';
 import InputRow, { iSty, btnSm, srcSty, fmtInputDisplay, parseInputValue } from './ui/InputRow';
 import { getFloodZoneForAddress, floodZoneInfo } from '../lib/floodZone';
 import Section from './ui/Section';
+import { getStateOptions } from '../lib/taxEngine';
 
 // Hoisted to module scope — must NOT be defined inside render or IIFE
 // (React would create a new component identity on every render, causing inputs to lose focus)
@@ -143,6 +144,12 @@ function PropertyLookupPanel({deal, onChange}) {
 
     // Address
     if (prop.formattedAddress) d.address = prop.formattedAddress;
+
+    // Auto-detect state from formatted address (e.g. "123 Main St, Chicago, IL 60601")
+    if (prop.formattedAddress && !a.state) {
+      const stateMatch = prop.formattedAddress.match(/,\s*([A-Z]{2})(?:\s+\d{5}|,\s*\d{5}|$)/);
+      if (stateMatch) a.state = stateMatch[1];
+    }
 
     // Units — infer from bedrooms if propertyType is multi-family
     const propType = (prop.propertyType || '').toLowerCase();
@@ -934,8 +941,103 @@ function AssumptionsTab({deal,onChange}){
             <Col label="Expense Growth" value={a.expenseGrowth} path="expenseGrowth" suffix="%/yr"/>
             <Col label="Appreciation" value={a.appreciationRate} path="appreciationRate" suffix="%/yr"/>
           </div>
-          <InputRow label="Tax Bracket (MFJ)" value={a.taxBracket} onChange={v=>upd("taxBracket",v)} suffix="%"/>
+          <InputRow label="Federal Tax Bracket" value={a.taxBracket} onChange={v=>upd("taxBracket",v)} suffix="%"/>
         </>);
+      })()}
+    </Section>
+    <Section title="Tax Profile">
+      {(()=>{
+        const fldSt={width:"100%",padding:"8px 10px",borderRadius:10,fontSize:14,border:"1.5px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit",WebkitAppearance:"none",appearance:"none"};
+        const lblSt={fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4,display:"block"};
+        const stateOptions = getStateOptions();
+        const localTaxStates = {
+          MD: { label:'MD county tax', hint:'Maryland requires a county income tax (typically 2.25%–3.2%). Default 3.0% is common.' },
+          NY: { label:'NYC/Yonkers local', hint:'NYC residents owe an additional ~3.88% local income tax on top of NY state.' },
+          OH: { label:'OH municipal tax', hint:'Most Ohio cities levy a municipal income tax (0.5%–3%). Columbus & Cleveland are ~2.5%.' },
+          PA: { label:'PA local EIT', hint:'Philadelphia and many PA municipalities levy an Earned Income Tax (Philly: 3.75%).' },
+          IN: { label:'IN county tax', hint:'Indiana counties levy a local income tax (0.5%–3.38% depending on county).' },
+        };
+        const showLocalField = !!(a.state && localTaxStates[a.state]);
+        const localHint = localTaxStates[a.state];
+        return(
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {/* State + Filing Status row */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div>
+                <label style={lblSt}>State</label>
+                <select
+                  value={a.state||''}
+                  onChange={e=>upd('state', e.target.value)}
+                  style={fldSt}
+                >
+                  <option value="">— No state tax —</option>
+                  {stateOptions.map(s=>(
+                    <option key={s.code} value={s.code}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={lblSt}>Filing Status</label>
+                <div style={{display:"flex",gap:0,height:38}}>
+                  {[['single','Single'],['married','Married']].map(([val,lbl])=>(
+                    <button
+                      key={val}
+                      onClick={()=>upd('filingStatus', val)}
+                      style={{
+                        flex:1,fontSize:13,fontWeight:600,cursor:"pointer",
+                        background: (a.filingStatus||'single')===val ? "var(--accent)" : "var(--input-bg)",
+                        color:      (a.filingStatus||'single')===val ? "#fff"         : "var(--muted)",
+                        border:"1.5px solid var(--border)",
+                        borderRadius: val==='single' ? "10px 0 0 10px" : "0 10px 10px 0",
+                        borderRight:  val==='single' ? "none" : "1.5px solid var(--border)",
+                        transition:"background 0.15s,color 0.15s",
+                      }}
+                    >{lbl}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Local tax rate — only shown for states with meaningful local taxes */}
+            {showLocalField && (
+              <div>
+                <label style={lblSt}>{localHint.label} <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(%)</span></label>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={a.localTaxRate > 0 ? (a.localTaxRate * 100).toFixed(2).replace(/\.?0+$/,'') : ''}
+                    placeholder={a.state==='MD' ? '3.0' : '0'}
+                    onBlur={e => {
+                      const v = parseFloat(e.target.value);
+                      upd('localTaxRate', isNaN(v) ? 0 : v / 100);
+                    }}
+                    onChange={e => {
+                      // Live update on change for responsiveness
+                      const v = parseFloat(e.target.value);
+                      if (!isNaN(v)) upd('localTaxRate', v / 100);
+                    }}
+                    style={{...fldSt, flex:1}}
+                  />
+                  <span style={{fontSize:12,color:"var(--muted)",whiteSpace:"nowrap"}}>% / yr</span>
+                </div>
+                <div style={{fontSize:11,color:"var(--muted)",marginTop:4,lineHeight:1.4}}>{localHint.hint}</div>
+              </div>
+            )}
+
+            {/* State selected — show summary line */}
+            {a.state ? (
+              <div style={{fontSize:12,color:"var(--muted)",padding:"5px 0",borderTop:"1px solid var(--border-faint)"}}>
+                State tax will be calculated using the stacking method on top of your MAGI.
+                {!a.tax?.agi && <span style={{color:"var(--accent2)",fontWeight:600}}> Set your MAGI in the Advanced Tax section for accurate results.</span>}
+              </div>
+            ) : (
+              <div style={{fontSize:12,color:"var(--muted)",padding:"5px 0"}}>
+                Select your state to include state income tax in the after-tax cash flow analysis.
+              </div>
+            )}
+          </div>
+        );
       })()}
     </Section>
     <Section title="Refinance Scenario" action={<label style={{fontSize:12,color:"var(--muted)",display:"flex",gap:8,alignItems:"center",cursor:"pointer"}}><input type="checkbox" checked={a.refi.enabled} onChange={e=>upd("refi.enabled",e.target.checked)}/> Enable</label>}>

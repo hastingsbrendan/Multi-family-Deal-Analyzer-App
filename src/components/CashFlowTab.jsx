@@ -193,6 +193,24 @@ function CashFlowTab({result,deal}){
           <tr><td style={tdL(true,false)}>Federal Tax / (Benefit)</td>
             {result.years.map(y=>{const te=result.taxAdvEnabled?y.taxEffectAdv:y.taxEffect;return(<td key={y.yr} style={{...tdR(true,null),color:te<0?"#10b981":"#ef4444"}}>{FMT_USD(te)}</td>);})}
           </tr>
+          {/* State Income Tax row — only rendered when a state is configured */}
+          {result.years[0]?.totalStateTax !== undefined && result.years.some(y => y.totalStateTax > 0) && (
+            <tr>
+              <td style={{...tdL(false,false),color:"#ef4444"}}>
+                State &amp; Local Tax
+                {result.years[0]?.stateEffectiveRate > 0 && (
+                  <span style={{fontSize:10,color:"var(--muted)",fontWeight:400,marginLeft:6}}>
+                    ({(result.years[0].stateEffectiveRate * 100).toFixed(1)}% eff. Yr 1)
+                  </span>
+                )}
+              </td>
+              {result.years.map(y => (
+                <td key={y.yr} style={{...tdR(false,null), color: y.totalStateTax > 0 ? "#ef4444" : "var(--muted)"}}>
+                  {y.totalStateTax > 0 ? FMT_USD(y.totalStateTax) : "—"}
+                </td>
+              ))}
+            </tr>
+          )}
           {/* Carryforward tax benefit sub-row — shows the tax saved by CF absorption this year */}
           {result.taxAdvEnabled&&result.years.some(y=>y.taxBenefitFromCF>0)&&(
             <tr>
