@@ -36,6 +36,7 @@
 //   .capex              Capital expenditure reserve
 //   .propertyMgmt       Property management fee (0 if selfManage=true)
 //   .utilities          Landlord-paid utilities (water, trash, etc.)
+//   .hoa                HOA / condo association fee (USD/yr); always a fixed value, no pct mode
 // selfManage            True = skip property management expense
 // annualPropertyTax     Raw value from Rentcast/Zillow API; written to expenses.propertyTax
 // refi                  Refinance scenario object:
@@ -105,7 +106,7 @@ const newDeal = (prefs) => {
     numUnits: 2,
     beds: "", baths: "", yearBuilt: "", sqftTotal: "", lotSize: "", annualPropertyTax: "", expectedCloseDate: "",
     vacancyRate: p.vacancyRate, vacancySource: "",
-    expenseModes: { propertyTax:"pct", insurance:"pct", maintenance:"pct", capex:"pct", propertyMgmt:"pct", utilities:"value", costSegFee:"value" },
+    expenseModes: { propertyTax:"pct", insurance:"pct", maintenance:"pct", capex:"pct", propertyMgmt:"pct", utilities:"value", hoa:"value", costSegFee:"value" },
     expenses: {
       propertyTax:6000, propertyTaxSource:"", propertyTaxPct: p.propertyTaxPct,
       insurance:1800, insuranceSource:"", insurancePct: p.insurancePct,
@@ -113,6 +114,7 @@ const newDeal = (prefs) => {
       capex:2400, capexSource:"", capexPct: p.capexPct,
       propertyMgmt:2160, propertyMgmtSource:"", propertyMgmtPct: p.propertyMgmtPct,
       utilities:0, utilitiesSource:"", utilitiesPct:0,
+      hoa:0, hoaSource:"",
       costSegFee:0 },
     selfManage:false, rentGrowth: p.rentGrowth, expenseGrowth: p.expenseGrowth, appreciationRate: p.appreciationRate, taxBracket: p.taxBracket,
     state: p.state||'', filingStatus: p.filingStatus||'single', localTaxRate: p.localTaxRate||0,
@@ -156,7 +158,8 @@ function resolveExpenses(a, grossRentYear0) {
   const mgmt = a.selfManage ? 0 : val("propertyMgmt","propertyMgmtPct");
   const pt=val("propertyTax","propertyTaxPct"), ins=val("insurance","insurancePct");
   const maint=val("maintenance","maintenancePct"), capex=val("capex","capexPct"), util=val("utilities","utilitiesPct");
-  return { propertyTax:pt, insurance:ins, maintenance:maint, capex, propertyMgmt:mgmt, utilities:util, costSegFee:0, total:pt+ins+maint+capex+mgmt+util };
+  const hoa=(+a.expenses?.hoa||0);
+  return { propertyTax:pt, insurance:ins, maintenance:maint, capex, propertyMgmt:mgmt, utilities:util, hoa, costSegFee:0, total:pt+ins+maint+capex+mgmt+util+hoa };
 }
 
 function calcDeal(deal, { _isRecursive = false } = {}) {
@@ -269,7 +272,7 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     const mult=Math.pow(1+expGrowth,yr-1);
     // costSegFee is one-time Year 1 only — stored under a.tax (alongside cost seg settings), not grown by expenseGrowth
     const costSegFeeThisYr=(yr===1)?(+taxCfg.costSegFee||0):0;
-    const expBreakdown={propertyTax:baseExp.propertyTax*mult,insurance:baseExp.insurance*mult,maintenance:baseExp.maintenance*mult,capex:baseExp.capex*mult,propertyMgmt:baseExp.propertyMgmt*mult,utilities:baseExp.utilities*mult,costSegFee:costSegFeeThisYr};
+    const expBreakdown={propertyTax:baseExp.propertyTax*mult,insurance:baseExp.insurance*mult,maintenance:baseExp.maintenance*mult,capex:baseExp.capex*mult,propertyMgmt:baseExp.propertyMgmt*mult,utilities:baseExp.utilities*mult,hoa:baseExp.hoa*mult,costSegFee:costSegFeeThisYr};
     const expenses=baseExpenses*mult+costSegFeeThisYr, noi=egi-expenses;
     // Amortization: monthly principal/interest split using outstanding balance
     let principal=0,interest=0,newBalance=balance;

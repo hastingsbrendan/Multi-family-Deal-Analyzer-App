@@ -9,7 +9,7 @@ function CashFlowTab({result,deal}){
   const [showTaxDetail,setShowTaxDetail]=useState(false);
   const [showCFDetail,setShowCFDetail]=useState(false);
   const [showIncrementalTip,setShowIncrementalTip]=useState(false);
-  const EXP_KEYS=[["propertyTax","Property Tax"],["insurance","Property Insurance"],["maintenance","Maintenance"],["capex","CapEx Reserve"],["propertyMgmt","Prop. Mgmt"],["utilities","Utilities"],["costSegFee","Cost Seg. Study Fee"]];
+  const EXP_KEYS=[["propertyTax","Property Tax"],["insurance","Property Insurance"],["maintenance","Maintenance"],["capex","CapEx Reserve"],["propertyMgmt","Prop. Mgmt"],["utilities","Utilities"],["hoa","HOA / Condo Fee"],["costSegFee","Cost Seg. Study Fee"]];
   const tdR=(bold,color)=>({padding:"6px 8px",textAlign:"right",fontSize:11,fontWeight:bold?700:400,whiteSpace:"nowrap",color:color==="accent"?"var(--accent)":color==="red"?"#ef4444":"var(--text)"});
   const tdL=(bold,indent,col)=>({padding:`6px 8px 6px ${indent?20:8}px`,color:col||(bold?"var(--text)":"var(--muted)"),fontWeight:bold?700:400,fontSize:indent?10:11,whiteSpace:"nowrap",position:"sticky",left:0,background:"var(--bg)",zIndex:1});
   const Yr=({children,bold,color})=>result.years.map(y=>(<td key={y.yr} style={tdR(bold,color)}>{children(y)}</td>));

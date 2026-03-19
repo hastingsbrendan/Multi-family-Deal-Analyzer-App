@@ -209,6 +209,8 @@ function PropertyLookupPanel({deal, onChange}) {
     if (prop.squareFootage != null) a.sqftTotal     = prop.squareFootage;
     if (prop.lotSize != null)     a.lotSize         = prop.lotSize;
     if (annualTax != null) { a.annualPropertyTax = Math.round(annualTax); a.expenses = a.expenses||{}; a.expenses.propertyTax = Math.round(annualTax); if(!a.expenseModes) a.expenseModes={}; a.expenseModes.propertyTax = "value"; }
+    // HOA fee — Rentcast returns monthly; convert to annual and write to expenses
+    if (prop.hoa?.fee) { a.expenses = a.expenses||{}; a.expenses.hoa = Math.round(prop.hoa.fee * 12); }
     a.rentcastData = {
       fetchedAt: new Date().toLocaleDateString(),
       bedsPerUnit: preview.bedsPerUnit || null,
@@ -782,6 +784,15 @@ function AssumptionsTab({deal,onChange}){
         }
         return(<ExpenseInputRow key={vk} lbl={lbl} modeToggle={modeToggle} isItemPct={isItemPct} rawVal={expRawVal} onChange={v=>upd(`expenses.${expKey}`,v)}/>);
       })}
+      {/* HOA — always a fixed annual dollar amount; auto-populated from Rentcast when available */}
+      <InputRow
+        label="HOA / Condo Fee"
+        value={a.expenses?.hoa||0}
+        onChange={v=>upd("expenses.hoa",v)}
+        prefix="$"
+        suffix="/yr"
+        tooltip="Annual HOA or condo association fee. Auto-populated from Rentcast when available. Enter 0 if none."
+      />
       <div style={{fontSize:12,color:"var(--muted)",padding:"6px 0"}}>Year 1 computed total: <strong style={{color:"var(--text)"}}>{FMT_USD(resolveExpenses(a,grossRentYear0).total)}</strong></div>
     </Section>
     {(()=>{
