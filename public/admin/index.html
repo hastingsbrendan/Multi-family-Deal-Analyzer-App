@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RentHack — Landing Page Editor</title>
+  <meta name="robots" content="noindex,nofollow"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,700;0,9..144,900;1,9..144,400&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --teal: #0D9488; --teal-dk: #0F766E; --teal-lt: #F0FDFA;
+      --navy: #1E293B; --gray1: #F8FAFC; --gray2: #E2E8F0;
+      --gray3: #94A3B8; --gray4: #64748B; --amber: #D97706;
+      --green: #10B981; --red: #EF4444; --white: #fff;
+      --cream: #FDFAF6;
+    }
+    body { font-family: 'DM Sans', sans-serif; background: var(--gray1); color: var(--navy); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+    /* ─── LOGIN ─────────────────────────────────────────────────────────────── */
+    #login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--cream); }
+    .login-card { background: #fff; border: 1px solid var(--gray2); border-radius: 20px; padding: 52px 44px; width: 380px; text-align: center; box-shadow: 0 4px 40px rgba(0,0,0,0.06); }
+    .login-logo { font-family: 'Fraunces', serif; font-size: 30px; font-weight: 900; color: var(--navy); margin-bottom: 6px; }
+    .login-logo .dot { color: var(--teal); }
+    .login-sub { font-size: 14px; color: var(--gray4); margin-bottom: 36px; }
+    .login-card input { width: 100%; padding: 13px 16px; border: 1.5px solid var(--gray2); border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 15px; outline: none; transition: border-color 0.15s; margin-bottom: 12px; }
+    .login-card input:focus { border-color: var(--teal); }
+    .btn-primary { width: 100%; padding: 13px; background: var(--teal); color: #fff; border: none; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; transition: background 0.15s; }
+    .btn-primary:hover { background: var(--teal-dk); }
+    .login-err { font-size: 13px; color: var(--red); margin-top: 10px; min-height: 18px; }
+
+    /* ─── SHELL ──────────────────────────────────────────────────────────────── */
+    #editor-screen { display: none; }
+
+    .topbar {
+      position: sticky; top: 0; z-index: 200;
+      background: rgba(255,255,255,0.95); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--gray2);
+      height: 58px; padding: 0 28px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 14px; }
+    .tb-logo { font-family: 'Fraunces', serif; font-size: 20px; font-weight: 900; color: var(--navy); }
+    .tb-logo .dot { color: var(--teal); }
+    .tb-badge { font-size: 11px; font-weight: 700; background: var(--teal-lt); color: var(--teal-dk); padding: 3px 10px; border-radius: 100px; border: 1px solid #99F6E4; }
+    .tb-branch { font-size: 12px; font-weight: 600; color: var(--gray4); display: flex; align-items: center; gap: 6px; }
+    .branch-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); flex-shrink: 0; transition: background 0.3s; }
+    .branch-dot.prod { background: var(--green); }
+
+    .topbar-right { display: flex; align-items: center; gap: 10px; }
+    .tb-status { font-size: 12px; font-weight: 600; min-width: 140px; text-align: right; }
+    .st-idle    { color: var(--gray3); }
+    .st-saving  { color: var(--amber); }
+    .st-saved   { color: var(--green); }
+    .st-error   { color: var(--red); }
+    select.branch-sel { font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600; padding: 6px 10px; border: 1.5px solid var(--gray2); border-radius: 8px; outline: none; cursor: pointer; color: var(--navy); background: #fff; }
+    .btn-ghost { padding: 7px 16px; border: 1.5px solid var(--gray2); border-radius: 8px; background: #fff; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600; color: var(--gray4); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; transition: all 0.15s; }
+    .btn-ghost:hover { border-color: var(--navy); color: var(--navy); }
+    .btn-save { padding: 8px 20px; background: var(--teal); color: #fff; border: none; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background 0.15s; white-space: nowrap; }
+    .btn-save:hover:not(:disabled) { background: var(--teal-dk); }
+    .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ─── MAIN LAYOUT ────────────────────────────────────────────────────────── */
+    .editor-wrap { max-width: 780px; margin: 0 auto; padding: 36px 24px 100px; }
+
+    /* ─── SECTION PANELS ─────────────────────────────────────────────────────── */
+    .panel { background: #fff; border: 1px solid var(--gray2); border-radius: 16px; margin-bottom: 16px; overflow: hidden; transition: box-shadow 0.2s; }
+    .panel:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+    .panel-head { padding: 15px 22px; display: flex; align-items: center; gap: 12px; cursor: pointer; user-select: none; border-bottom: 1px solid transparent; transition: background 0.1s; }
+    .panel-head:hover { background: var(--gray1); }
+    .panel.open .panel-head { border-bottom-color: var(--gray2); }
+    .panel-icon { font-size: 16px; }
+    .panel-title { font-size: 13px; font-weight: 700; color: var(--navy); flex: 1; }
+    .panel-caret { font-size: 10px; color: var(--gray3); transition: transform 0.2s; }
+    .panel.open .panel-caret { transform: rotate(180deg); }
+    .panel-body { display: none; padding: 24px 26px; }
+    .panel.open .panel-body { display: block; }
+
+    /* ─── FIELD TYPES ────────────────────────────────────────────────────────── */
+    .field { margin-bottom: 22px; }
+    .field:last-child { margin-bottom: 0; }
+    .field-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--gray3); margin-bottom: 7px; display: block; }
+
+    /* Each field looks like the actual landing page element */
+    .f-headline {
+      font-family: 'Fraunces', serif; font-size: 32px; font-weight: 900; line-height: 1.15;
+      letter-spacing: -1px; color: var(--navy); width: 100%;
+      background: transparent; border: 2px dashed transparent; border-radius: 8px;
+      padding: 6px 10px; outline: none; transition: all 0.15s;
+    }
+    .f-headline:hover { border-color: var(--gray2); }
+    .f-headline:focus { border-color: var(--teal); background: var(--teal-lt); }
+
+    .f-subhead {
+      font-family: 'Fraunces', serif; font-size: 22px; font-weight: 700; line-height: 1.25;
+      letter-spacing: -0.5px; color: var(--navy); width: 100%;
+      background: transparent; border: 2px dashed transparent; border-radius: 8px;
+      padding: 5px 10px; outline: none; transition: all 0.15s;
+    }
+    .f-subhead:hover { border-color: var(--gray2); }
+    .f-subhead:focus { border-color: var(--teal); background: var(--teal-lt); }
+
+    .f-tag {
+      font-size: 13px; font-weight: 700; color: var(--teal); letter-spacing: 0.5px;
+      width: 100%; background: transparent; border: 2px dashed transparent; border-radius: 8px;
+      padding: 4px 10px; outline: none; transition: all 0.15s; font-family: 'DM Sans', sans-serif;
+    }
+    .f-tag:hover { border-color: var(--gray2); }
+    .f-tag:focus { border-color: var(--teal); background: var(--teal-lt); }
+
+    .f-body {
+      font-size: 16px; color: var(--gray4); line-height: 1.65; width: 100%; resize: vertical;
+      background: transparent; border: 2px dashed transparent; border-radius: 8px;
+      padding: 6px 10px; outline: none; transition: all 0.15s; font-family: 'DM Sans', sans-serif;
+      min-height: 52px;
+    }
+    .f-body:hover { border-color: var(--gray2); }
+    .f-body:focus { border-color: var(--teal); background: var(--teal-lt); }
+
+    .f-label {
+      font-size: 13px; font-weight: 600; color: var(--navy); width: 100%;
+      background: transparent; border: 2px dashed transparent; border-radius: 8px;
+      padding: 4px 10px; outline: none; transition: all 0.15s; font-family: 'DM Sans', sans-serif;
+    }
+    .f-label:hover { border-color: var(--gray2); }
+    .f-label:focus { border-color: var(--teal); background: var(--teal-lt); }
+
+    .f-small {
+      font-size: 14px; color: var(--gray4); width: 100%; resize: vertical;
+      background: transparent; border: 2px dashed transparent; border-radius: 8px;
+      padding: 5px 10px; outline: none; transition: all 0.15s; font-family: 'DM Sans', sans-serif;
+      min-height: 44px;
+    }
+    .f-small:hover { border-color: var(--gray2); }
+    .f-small:focus { border-color: var(--teal); background: var(--teal-lt); }
+
+    /* ─── REPEATING ITEMS (features, steps, faqs, testimonials) ─────────────── */
+    .item-card { background: var(--gray1); border: 1px solid var(--gray2); border-radius: 12px; padding: 18px 20px; margin-bottom: 12px; }
+    .item-card:last-child { margin-bottom: 0; }
+    .item-row { display: flex; gap: 14px; align-items: flex-start; }
+    .item-num { width: 32px; height: 32px; background: var(--teal); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 6px; }
+    .item-icon { font-size: 22px; width: 36px; text-align: center; padding-top: 4px; flex-shrink: 0; }
+    .item-fields { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+
+    /* FAQ question styling */
+    .faq-q-field {
+      font-size: 15px; font-weight: 600; color: var(--navy); width: 100%;
+      background: transparent; border: 2px dashed transparent; border-radius: 8px;
+      padding: 5px 10px; outline: none; transition: all 0.15s; font-family: 'DM Sans', sans-serif;
+    }
+    .faq-q-field:hover { border-color: var(--gray2); }
+    .faq-q-field:focus { border-color: var(--teal); background: var(--teal-lt); }
+
+    /* Testimonial quote styling */
+    .f-quote {
+      font-size: 15px; font-style: italic; color: var(--navy); line-height: 1.6;
+      width: 100%; resize: vertical; background: transparent;
+      border: 2px dashed transparent; border-radius: 8px;
+      padding: 6px 10px; outline: none; transition: all 0.15s; font-family: 'DM Sans', sans-serif;
+      min-height: 72px;
+    }
+    .f-quote:hover { border-color: var(--gray2); }
+    .f-quote:focus { border-color: var(--teal); background: var(--teal-lt); }
+
+    .stars { color: #F59E0B; font-size: 14px; margin-bottom: 6px; }
+    .test-meta { display: flex; gap: 10px; margin-top: 8px; }
+
+    .divider { border: none; border-top: 1px solid var(--gray2); margin: 18px 0; }
+
+    /* ─── HINT ───────────────────────────────────────────────────────────────── */
+    .hint { font-size: 12px; color: var(--gray3); background: var(--gray1); border-left: 3px solid var(--gray2); padding: 8px 12px; border-radius: 0 6px 6px 0; margin-bottom: 20px; line-height: 1.5; }
+    .hint strong { color: var(--gray4); }
+  </style>
+</head>
+<body>
+
+<!-- ── LOGIN ─────────────────────────────────────────────────────────────────── -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">Rent<span class="dot">Hack</span></div>
+    <p class="login-sub">Landing Page Editor</p>
+    <input type="password" id="pwd" placeholder="Admin password" autocomplete="current-password" style="margin-bottom:8px;"/>
+    <input type="password" id="pat" placeholder="GitHub PAT (ghp_...)" autocomplete="off" style="margin-bottom:12px;font-size:13px;"/>
+    <button class="btn-primary" onclick="doLogin()">Sign in</button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- ── EDITOR ─────────────────────────────────────────────────────────────────── -->
+<div id="editor-screen">
+
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="tb-logo">Rent<span class="dot">Hack</span></div>
+      <span class="tb-badge">Landing Page Editor</span>
+      <span class="tb-branch">
+        <span class="branch-dot" id="bdot"></span>
+        <span id="blabel">develop</span>
+      </span>
+    </div>
+    <div class="topbar-right">
+      <span class="tb-status st-idle" id="status">Loading…</span>
+      <select class="branch-sel" id="branch-sel" onchange="onBranchChange()">
+        <option value="develop">develop (preview)</option>
+        <option value="main">main — PROD ⚠️</option>
+      </select>
+      <a class="btn-ghost" href="/landing.html" target="_blank">👁 Preview</a>
+      <button class="btn-save" id="save-btn" onclick="doSave()" disabled>💾 Save</button>
+    </div>
+  </div>
+
+  <div class="editor-wrap">
+
+    <div class="hint">
+      <strong>Click any field to edit it.</strong> Fields look like the real landing page element — headlines are big, body copy is grey, FAQ questions are bold. When you're done, choose a branch and hit Save. Cloudflare deploys automatically in ~2 minutes.
+    </div>
+
+    <!-- HERO -->
+    <div class="panel open" id="p-hero">
+      <div class="panel-head" onclick="toggle('p-hero')">
+        <span class="panel-icon">🏠</span>
+        <span class="panel-title">Hero</span>
+        <span class="panel-caret">▼</span>
+      </div>
+      <div class="panel-body">
+        <div class="field">
+          <label class="field-lbl">Tag line (small text above headline)</label>
+          <input class="f-tag" id="hero-tag" type="text"/>
+        </div>
+        <div class="field">
+          <label class="field-lbl">Main headline</label>
+          <input class="f-headline" id="hero-h1" type="text"/>
+        </div>
+        <div class="field">
+          <label class="field-lbl">Subheading paragraph</label>
+          <textarea class="f-body" id="hero-sub" rows="2"></textarea>
+        </div>
+        <div class="field">
+          <label class="field-lbl">Primary button text</label>
+          <input class="f-label" id="hero-btn" type="text"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- FEATURES -->
+    <div class="panel" id="p-feat">
+      <div class="panel-head" onclick="toggle('p-feat')">
+        <span class="panel-icon">✨</span>
+        <span class="panel-title">Features</span>
+        <span class="panel-caret">▼</span>
+      </div>
+      <div class="panel-body">
+        <div class="field">
+          <label class="field-lbl">Section heading</label>
+          <input class="f-subhead" id="feat-h2" type="text"/>
+        </div>
+        <div class="field">
+          <label class="field-lbl">Section subtext</label>
+          <textarea class="f-body" id="feat-sub" rows="2"></textarea>
+        </div>
+        <div class="field">
+          <label class="field-lbl">Feature items</label>
+          <div id="feat-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TESTIMONIALS -->
+    <div class="panel" id="p-test">
+      <div class="panel-head" onclick="toggle('p-test')">
+        <span class="panel-icon">⭐</span>
+        <span class="panel-title">Testimonials</span>
+        <span class="panel-caret">▼</span>
+      </div>
+      <div class="panel-body">
+        <div id="test-list"></div>
+      </div>
+    </div>
+
+    <!-- HOW IT WORKS -->
+    <div class="panel" id="p-how">
+      <div class="panel-head" onclick="toggle('p-how')">
+        <span class="panel-icon">📋</span>
+        <span class="panel-title">How it Works</span>
+        <span class="panel-caret">▼</span>
+      </div>
+      <div class="panel-body">
+        <div id="how-list"></div>
+      </div>
+    </div>
+
+    <!-- PRICING -->
+    <div class="panel" id="p-price">
+      <div class="panel-head" onclick="toggle('p-price')">
+        <span class="panel-icon">💳</span>
+        <span class="panel-title">Pricing</span>
+        <span class="panel-caret">▼</span>
+      </div>
+      <div class="panel-body">
+        <div class="field">
+          <label class="field-lbl">Section heading</label>
+          <input class="f-subhead" id="price-h2" type="text"/>
+        </div>
+        <div id="plan-list"></div>
+      </div>
+    </div>
+
+    <!-- FAQ -->
+    <div class="panel" id="p-faq">
+      <div class="panel-head" onclick="toggle('p-faq')">
+        <span class="panel-icon">❓</span>
+        <span class="panel-title">FAQ</span>
+        <span class="panel-caret">▼</span>
+      </div>
+      <div class="panel-body">
+        <div id="faq-list"></div>
+      </div>
+    </div>
+
+    <!-- FINAL CTA -->
+    <div class="panel" id="p-cta">
+      <div class="panel-head" onclick="toggle('p-cta')">
+        <span class="panel-icon">🚀</span>
+        <span class="panel-title">Final Call to Action</span>
+        <span class="panel-caret">▼</span>
+      </div>
+      <div class="panel-body">
+        <div class="field">
+          <label class="field-lbl">Headline</label>
+          <input class="f-subhead" id="cta-h2" type="text"/>
+        </div>
+        <div class="field">
+          <label class="field-lbl">Subtext</label>
+          <input class="f-body" style="min-height:auto;" id="cta-sub" type="text"/>
+        </div>
+        <div class="field">
+          <label class="field-lbl">Button text</label>
+          <input class="f-label" id="cta-btn" type="text"/>
+        </div>
+        <div class="field">
+          <label class="field-lbl">Fine print below button</label>
+          <input class="f-small" style="min-height:auto;" id="cta-note" type="text"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="panel" id="p-footer">
+      <div class="panel-head" onclick="toggle('p-footer')">
+        <span class="panel-icon">🔗</span>
+        <span class="panel-title">Footer</span>
+        <span class="panel-caret">▼</span>
+      </div>
+      <div class="panel-body">
+        <div class="field">
+          <label class="field-lbl">Tagline</label>
+          <input class="f-body" style="min-height:auto;" id="footer-tag" type="text"/>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /editor-wrap -->
+</div><!-- /editor-screen -->
+
+<script>
+// ─── Config ──────────────────────────────────────────────────────────────────
+const PW        = 'renthack2026';
+const GH_OWNER  = 'hastingsbrendan';
+const GH_REPO   = 'Multi-family-Deal-Analyzer-App';
+const FILE_PATH = 'public/landing.html';
+let GH_PAT = ''; // set at login
+
+let rawHtml = '';
+let fileSha = '';
+
+// ─── Login ────────────────────────────────────────────────────────────────────
+['pwd','pat'].forEach(id => document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); }));
+function doLogin() {
+  const pwd = document.getElementById('pwd').value;
+  const pat = document.getElementById('pat').value.trim();
+  if (pwd !== PW) { document.getElementById('login-err').textContent = 'Incorrect password.'; return; }
+  if (!pat.startsWith('ghp_')) { document.getElementById('login-err').textContent = 'Enter a valid GitHub PAT (starts with ghp_).'; return; }
+  GH_PAT = pat;
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('editor-screen').style.display = 'block';
+  fetchContent();
+}
+
+// ─── Branch ───────────────────────────────────────────────────────────────────
+function branch() { return document.getElementById('branch-sel').value; }
+function onBranchChange() {
+  const isProd = branch() === 'main';
+  document.getElementById('bdot').className = 'branch-dot' + (isProd ? ' prod' : '');
+  document.getElementById('blabel').textContent = branch();
+  fetchContent();
+}
+
+// ─── Section toggle ───────────────────────────────────────────────────────────
+function toggle(id) { document.getElementById(id).classList.toggle('open'); }
+
+// ─── Status ───────────────────────────────────────────────────────────────────
+function setStatus(msg, cls) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = 'tb-status ' + (cls || 'st-idle');
+}
+
+// ─── Fetch from GitHub ────────────────────────────────────────────────────────
+async function fetchContent() {
+  setStatus('Loading…', 'st-saving');
+  document.getElementById('save-btn').disabled = true;
+  try {
+    const res  = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${FILE_PATH}?ref=${branch()}`,
+      { headers: { Authorization: `token ${GH_PAT}`, Accept: 'application/vnd.github.v3+json' } });
+    const data = await res.json();
+    fileSha  = data.sha;
+    rawHtml  = decodeURIComponent(escape(atob(data.content.replace(/\n/g,''))));
+    populateAll(rawHtml);
+    setStatus('Ready', 'st-idle');
+    document.getElementById('save-btn').disabled = false;
+  } catch(e) {
+    setStatus('Load failed', 'st-error');
+    console.error(e);
+  }
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function strip(html) { return html.replace(/<[^>]+>/g,'').trim(); }
+function esc(s)  { return (s||'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'); }
+function unesc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ─── Populate all fields ──────────────────────────────────────────────────────
+function populateAll(html) {
+
+  // ── HERO ──
+  const heroTagM = html.match(/class="hero-tag[^"]*">(.*?)<\/div>/);
+  if (heroTagM) v('hero-tag', esc(heroTagM[1]));
+
+  const h1M = html.match(/class="fade-up fade-up-2">(.*?)<\/h1>/s);
+  if (h1M) v('hero-h1', strip(h1M[1]));
+
+  const subM = html.match(/class="fade-up fade-up-3">(.*?)<\/p>/s);
+  if (subM) v('hero-sub', esc(strip(subM[1])));
+
+  const btnM = html.match(/class="btn-teal">(.*?)<span/);
+  if (btnM) v('hero-btn', strip(btnM[1]).trim());
+
+  // ── FEATURES ──
+  const featSlice = slice(html, '<!-- ── FEATURES', '<!-- ── TESTIMONIALS');
+  const fH2 = featSlice.match(/<h2>(.*?)<\/h2>/s);
+  if (fH2) v('feat-h2', strip(fH2[1]));
+  const fSub = featSlice.match(/<h2>.*?<\/h2>\s*<p>(.*?)<\/p>/s);
+  if (fSub) v('feat-sub', esc(fSub[1].trim()));
+
+  const featItems = [...featSlice.matchAll(/<div class="feat-icon([^"]*)">(.*?)<\/div>\s*<div class="feat-item-text">\s*<h4>(.*?)<\/h4>\s*<p>(.*?)<\/p>/gs)];
+  const featList = document.getElementById('feat-list');
+  featList.innerHTML = '';
+  featItems.forEach((m, i) => {
+    const icon = m[2].trim();
+    const h4   = esc(m[3].trim());
+    const p    = esc(m[4].trim());
+    featList.insertAdjacentHTML('beforeend', `
+      <div class="item-card">
+        <div class="item-row">
+          <div class="item-icon">${icon}</div>
+          <div class="item-fields">
+            <input class="f-label" data-fh4="${i}" type="text" value="${h4.replace(/"/g,'&quot;')}"/>
+            <textarea class="f-small" data-fp="${i}" rows="2">${p}</textarea>
+          </div>
+        </div>
+      </div>`);
+  });
+
+  // ── TESTIMONIALS ──
+  const testSlice = slice(html, '<!-- ── TESTIMONIALS', '<!-- ── HOW IT WORKS');
+  const tests = [...testSlice.matchAll(/<p class="test-quote">"?(.*?)"?<\/p>[\s\S]*?<div class="test-name">(.*?)<\/div><div class="test-role">(.*?)<\/div>/g)];
+  const testList = document.getElementById('test-list');
+  testList.innerHTML = '';
+  tests.forEach((m, i) => {
+    const q    = esc(m[1].trim());
+    const name = esc(m[2].trim());
+    const role = esc(m[3].trim());
+    testList.insertAdjacentHTML('beforeend', `
+      <div class="item-card">
+        <div class="stars">★★★★★</div>
+        <div class="field" style="margin-bottom:10px;">
+          <label class="field-lbl">Quote</label>
+          <textarea class="f-quote" data-tq="${i}" rows="3">${q}</textarea>
+        </div>
+        <div class="test-meta">
+          <div style="flex:1">
+            <label class="field-lbl">Name</label>
+            <input class="f-label" data-tn="${i}" type="text" value="${name.replace(/"/g,'&quot;')}"/>
+          </div>
+          <div style="flex:2">
+            <label class="field-lbl">Role / Location</label>
+            <input class="f-label" data-tr="${i}" type="text" value="${role.replace(/"/g,'&quot;')}"/>
+          </div>
+        </div>
+      </div>`);
+  });
+
+  // ── HOW IT WORKS ──
+  const howSlice = slice(html, '<!-- ── HOW IT WORKS', '<!-- ── PRICING');
+  const steps = [...howSlice.matchAll(/<div class="how-content">\s*<h3>(.*?)<\/h3>\s*<p>(.*?)<\/p>/gs)];
+  const howList = document.getElementById('how-list');
+  howList.innerHTML = '';
+  steps.forEach((m, i) => {
+    const h3 = esc(m[1].trim());
+    const p  = esc(m[2].trim());
+    howList.insertAdjacentHTML('beforeend', `
+      <div class="item-card">
+        <div class="item-row">
+          <div class="item-num">${i+1}</div>
+          <div class="item-fields">
+            <input class="f-label" data-sh3="${i}" type="text" value="${h3.replace(/"/g,'&quot;')}"/>
+            <textarea class="f-small" data-sp="${i}" rows="2">${p}</textarea>
+          </div>
+        </div>
+      </div>`);
+  });
+
+  // ── PRICING ──
+  const priceSlice = slice(html, '<!-- ── PRICING', '<!-- ── FAQ');
+  const pH2 = priceSlice.match(/<h2>(.*?)<\/h2>/s);
+  if (pH2) v('price-h2', strip(pH2[1]));
+
+  const plans = [...priceSlice.matchAll(/<p class="plan-name">(.*?)<\/p>[\s\S]*?<div class="price-num">(.*?)<\/div>\s*<p class="price-period">(.*?)<\/p>\s*<ul[^>]*>([\s\S]*?)<\/ul>/g)];
+  const planList = document.getElementById('plan-list');
+  planList.innerHTML = '';
+  plans.forEach((m, i) => {
+    const name  = esc(m[1].trim());
+    const price = strip(m[2]);
+    const period= esc(m[3].trim());
+    const items = [...m[4].matchAll(/<li>[^✓]*✓[^<]*(.*?)<\/li>/g)].map(x=>esc(x[1].trim())).join('\n');
+    planList.insertAdjacentHTML('beforeend', `
+      <div class="item-card" style="margin-top:14px;">
+        <div class="field" style="margin-bottom:10px;">
+          <label class="field-lbl">Plan name</label>
+          <input class="f-label" data-pname="${i}" type="text" value="${name.replace(/"/g,'&quot;')}"/>
+        </div>
+        <div style="display:flex;gap:12px;">
+          <div class="field" style="flex:1;margin-bottom:10px;">
+            <label class="field-lbl">Price (display)</label>
+            <input class="f-label" data-pprice="${i}" type="text" value="${price.replace(/"/g,'&quot;')}"/>
+          </div>
+          <div class="field" style="flex:2;margin-bottom:10px;">
+            <label class="field-lbl">Period / description</label>
+            <input class="f-label" data-pperiod="${i}" type="text" value="${period.replace(/"/g,'&quot;')}"/>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label class="field-lbl">Feature bullets (one per line)</label>
+          <textarea class="f-small" data-pbullets="${i}" rows="4">${items}</textarea>
+        </div>
+      </div>`);
+  });
+
+  // ── FAQ ──
+  const faqSlice = slice(html, '<!-- ── FAQ', '<!-- ── FINAL CTA');
+  const faqs = [...faqSlice.matchAll(/toggleFaq\(this\)\)>(.*?)<span class="faq-icon">/g)];
+  const faqAs = [...faqSlice.matchAll(/<p class="faq-a">(.*?)<\/p>/g)];
+  const faqList = document.getElementById('faq-list');
+  faqList.innerHTML = '';
+  faqs.forEach((m, i) => {
+    const q = esc(m[1].trim());
+    const a = faqAs[i] ? esc(faqAs[i][1].trim()) : '';
+    faqList.insertAdjacentHTML('beforeend', `
+      <div class="item-card">
+        <div class="field" style="margin-bottom:8px;">
+          <label class="field-lbl">Question</label>
+          <input class="faq-q-field" data-fqq="${i}" type="text" value="${q.replace(/"/g,'&quot;')}"/>
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label class="field-lbl">Answer</label>
+          <textarea class="f-small" data-fqa="${i}" rows="3">${a}</textarea>
+        </div>
+      </div>`);
+  });
+
+  // ── FINAL CTA ──
+  const ctaSlice = slice(html, '<!-- ── FINAL CTA', '<!-- ── FOOTER');
+  const ctaH2 = ctaSlice.match(/<h2>(.*?)<\/h2>/s);
+  if (ctaH2) v('cta-h2', strip(ctaH2[1]));
+  const ctaPs = [...ctaSlice.matchAll(/<p[^>]*>(.*?)<\/p>/g)];
+  if (ctaPs[0]) v('cta-sub', esc(ctaPs[0][1].trim()));
+  const ctaBtn = ctaSlice.match(/class="btn-teal final-cta-btn">(.*?)<\/a>/);
+  if (ctaBtn) v('cta-btn', esc(ctaBtn[1].trim()));
+  const ctaNote = ctaSlice.match(/class="final-cta-note">(.*?)<\/p>/);
+  if (ctaNote) v('cta-note', esc(ctaNote[1].trim()));
+
+  // ── FOOTER ──
+  const ftM = html.match(/<p class="footer-tagline">(.*?)<\/p>/);
+  if (ftM) v('footer-tag', esc(ftM[1].trim()));
+}
+
+function slice(html, start, end) {
+  const si = html.indexOf(start);
+  const ei = html.indexOf(end, si);
+  return si === -1 ? '' : (ei === -1 ? html.substring(si) : html.substring(si, ei));
+}
+function v(id, val) { const el = document.getElementById(id); if(el) { 'value' in el ? el.value = val : el.textContent = val; } }
+
+// ─── Build updated HTML ───────────────────────────────────────────────────────
+function buildHtml() {
+  let html = rawHtml;
+
+  // Helper: replace nth occurrence of pattern
+  function replaceNth(str, pattern, n, replacement) {
+    let count = 0;
+    return str.replace(pattern, (m, ...args) => {
+      if (count++ === n) return replacement(...args, m);
+      return m;
+    });
+  }
+
+  // ── HERO ──
+  html = html.replace(/(class="hero-tag[^"]*">)[^<]*/,        `$1${val('hero-tag')}`);
+  html = html.replace(/(class="fade-up fade-up-2">)[\s\S]*?(<\/h1>)/, `$1${val('hero-h1')}$2`);
+  html = html.replace(/(class="fade-up fade-up-3">)[^<]*/,    `$1${val('hero-sub')}`);
+  html = html.replace(/(class="btn-teal">)[^<]*/,             `$1${val('hero-btn')} <span`);
+
+  // ── FEATURES h2 + sub ──
+  const featStart = html.indexOf('<!-- ── FEATURES');
+  const featEnd   = html.indexOf('<!-- ── TESTIMONIALS');
+  let featChunk   = html.substring(featStart, featEnd);
+  featChunk = featChunk.replace(/(<h2>)[\s\S]*?(<\/h2>)/,  `$1${val('feat-h2')}$2`);
+  featChunk = featChunk.replace(/(<\/h2>\s*<p>)[\s\S]*?(<\/p>)/, `$1${val('feat-sub')}$2`);
+  // Feature item h4s and ps
+  document.querySelectorAll('[data-fh4]').forEach(el => {
+    const i = parseInt(el.dataset.fh4);
+    const newH4 = val2(el);
+    const newP  = val2(document.querySelector(`[data-fp="${i}"]`));
+    let ci = 0;
+    featChunk = featChunk.replace(/<h4>(.*?)<\/h4>/g, (m,c) => ci++ === i ? `<h4>${newH4}</h4>` : m);
+    ci = 0;
+    featChunk = featChunk.replace(/(<div class="feat-item-text">[\s\S]*?<h4>[^<]*<\/h4>\s*<p>)([\s\S]*?)(<\/p>)/g,
+      (m,pre,c,post) => ci++ === i ? `${pre}${newP}${post}` : m);
+  });
+  html = html.substring(0, featStart) + featChunk + html.substring(featEnd);
+
+  // ── TESTIMONIALS ──
+  const tStart = html.indexOf('<!-- ── TESTIMONIALS');
+  const tEnd   = html.indexOf('<!-- ── HOW IT WORKS');
+  let tChunk   = html.substring(tStart, tEnd);
+  document.querySelectorAll('[data-tq]').forEach(el => {
+    const i = parseInt(el.dataset.tq);
+    const q = val2(el);
+    const n = val2(document.querySelector(`[data-tn="${i}"]`));
+    const r = val2(document.querySelector(`[data-tr="${i}"]`));
+    let ci=0; tChunk = tChunk.replace(/<p class="test-quote">"?([\s\S]*?)"?<\/p>/g, (m,c) => ci++ === i ? `<p class="test-quote">"${q}"</p>` : m);
+    ci=0; tChunk = tChunk.replace(/<div class="test-name">(.*?)<\/div>/g, (m,c) => ci++ === i ? `<div class="test-name">${n}</div>` : m);
+    ci=0; tChunk = tChunk.replace(/<div class="test-role">(.*?)<\/div>/g, (m,c) => ci++ === i ? `<div class="test-role">${r}</div>` : m);
+  });
+  html = html.substring(0, tStart) + tChunk + html.substring(tEnd);
+
+  // ── HOW IT WORKS ──
+  const hStart = html.indexOf('<!-- ── HOW IT WORKS');
+  const hEnd   = html.indexOf('<!-- ── PRICING');
+  let hChunk   = html.substring(hStart, hEnd);
+  document.querySelectorAll('[data-sh3]').forEach(el => {
+    const i = parseInt(el.dataset.sh3);
+    const h = val2(el);
+    const p = val2(document.querySelector(`[data-sp="${i}"]`));
+    let ci=0; hChunk = hChunk.replace(/(<div class="how-content">\s*<h3>)(.*?)(<\/h3>)/g, (m,a,c,b) => ci++ === i ? `${a}${h}${b}` : m);
+    ci=0; hChunk = hChunk.replace(/(<div class="how-content">[\s\S]*?<h3>[^<]*<\/h3>\s*<p>)([\s\S]*?)(<\/p>)/g, (m,a,c,b) => ci++ === i ? `${a}${p}${b}` : m);
+  });
+  html = html.substring(0, hStart) + hChunk + html.substring(hEnd);
+
+  // ── PRICING h2 ──
+  const pStart = html.indexOf('<!-- ── PRICING');
+  const pEnd   = html.indexOf('<!-- ── FAQ');
+  let pChunk   = html.substring(pStart, pEnd);
+  pChunk = pChunk.replace(/(<h2>)[\s\S]*?(<\/h2>)/, `$1${val('price-h2')}$2`);
+  document.querySelectorAll('[data-pname]').forEach(el => {
+    const i    = parseInt(el.dataset.pname);
+    const name = val2(el);
+    const period = val2(document.querySelector(`[data-pperiod="${i}"]`));
+    const bullets = (document.querySelector(`[data-pbullets="${i}"]`).value || '').split('\n')
+      .filter(l=>l.trim()).map(l=>`          <li><span class="chk">✓</span> ${l.trim()}</li>`).join('\n');
+    let ci=0; pChunk = pChunk.replace(/<p class="plan-name">(.*?)<\/p>/g, (m,c) => ci++ === i ? `<p class="plan-name">${name}</p>` : m);
+    ci=0; pChunk = pChunk.replace(/<p class="price-period">(.*?)<\/p>/g, (m,c) => ci++ === i ? `<p class="price-period">${period}</p>` : m);
+    ci=0; pChunk = pChunk.replace(/(<ul class="feat-check-list">)([\s\S]*?)(<\/ul>)/g, (m,a,c,b) => ci++ === i ? `${a}\n${bullets}\n        ${b}` : m);
+  });
+  html = html.substring(0, pStart) + pChunk + html.substring(pEnd);
+
+  // ── FAQ ──
+  const fStart = html.indexOf('<!-- ── FAQ');
+  const fEnd   = html.indexOf('<!-- ── FINAL CTA');
+  let fChunk   = html.substring(fStart, fEnd);
+  document.querySelectorAll('[data-fqq]').forEach(el => {
+    const i = parseInt(el.dataset.fqq);
+    const q = val2(el);
+    const a = val2(document.querySelector(`[data-fqa="${i}"]`));
+    let ci=0; fChunk = fChunk.replace(/(toggleFaq\(this\)\))([\s\S]*?)(<span class="faq-icon">)/g,
+      (m,pre,c,post) => ci++ === i ? `${pre}${q}${post}` : m);
+    ci=0; fChunk = fChunk.replace(/<p class="faq-a">([\s\S]*?)<\/p>/g, (m,c) => ci++ === i ? `<p class="faq-a">${a}</p>` : m);
+  });
+  html = html.substring(0, fStart) + fChunk + html.substring(fEnd);
+
+  // ── FINAL CTA ──
+  const cStart = html.indexOf('<!-- ── FINAL CTA');
+  const cEnd   = html.indexOf('<!-- ── FOOTER');
+  let cChunk   = html.substring(cStart, cEnd);
+  cChunk = cChunk.replace(/(<h2>)[\s\S]*?(<\/h2>)/, `$1${val('cta-h2')}$2`);
+  cChunk = cChunk.replace(/(<p[^>]*>)([\s\S]*?)(<\/p>)/, `$1${val('cta-sub')}$3`);
+  cChunk = cChunk.replace(/(class="btn-teal final-cta-btn">)(.*?)(<\/a>)/, `$1${val('cta-btn')}$3`);
+  cChunk = cChunk.replace(/(class="final-cta-note">)(.*?)(<\/p>)/, `$1${val('cta-note')}$3`);
+  html = html.substring(0, cStart) + cChunk + html.substring(cEnd);
+
+  // ── FOOTER ──
+  html = html.replace(/<p class="footer-tagline">(.*?)<\/p>/, `<p class="footer-tagline">${val('footer-tag')}</p>`);
+
+  return html;
+}
+
+function val(id) {
+  const el = document.getElementById(id);
+  return (el ? el.value : '').replace(/&/g,'&amp;');
+}
+function val2(el) {
+  return (el ? el.value : '').replace(/&/g,'&amp;');
+}
+
+// ─── Save to GitHub ───────────────────────────────────────────────────────────
+async function doSave() {
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  setStatus('Saving…', 'st-saving');
+
+  try {
+    const updated = buildHtml();
+    const encoded = btoa(unescape(encodeURIComponent(updated)));
+
+    const res = await fetch(
+      `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${FILE_PATH}`,
+      {
+        method: 'PUT',
+        headers: { Authorization: `token ${GH_PAT}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: `content(admin): landing page edit via visual editor [${branch()}]`,
+          content: encoded,
+          sha:     fileSha,
+          branch:  branch(),
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || 'GitHub API error');
+    }
+
+    const data = await res.json();
+    fileSha = data.content.sha;
+    rawHtml = updated;
+    setStatus('✓ Saved — deploying in ~2 min', 'st-saved');
+    setTimeout(() => setStatus('Ready', 'st-idle'), 6000);
+  } catch(e) {
+    setStatus('✗ ' + e.message, 'st-error');
+    console.error(e);
+  }
+
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>
