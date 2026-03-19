@@ -359,6 +359,16 @@ function AssumptionsTab({deal,onChange}){
   const a=deal.assumptions;
   const isMobile=useIsMobile();
   const upd=(path,val)=>{const d=JSON.parse(JSON.stringify(deal));const parts=path.split(".");let obj=d.assumptions;for(let i=0;i<parts.length-1;i++){if(obj[parts[i]]==null||typeof obj[parts[i]]!=="object")obj[parts[i]]={};obj=obj[parts[i]];}obj[parts[parts.length-1]]=val;onChange(d);};
+  // Auto-populate state from deal.address whenever address changes and state is not yet set.
+  // Matches the 2-letter state code from formatted addresses like "123 Main St, Chicago, IL 60601".
+  useEffect(() => {
+    if (!a.state && deal.address) {
+      const m = deal.address.match(/,\s*([A-Z]{2})(?:\s+\d{5}|,\s*\d{5}|$)/);
+      if (m) upd('state', m[1]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deal.address]);
+
   const grossRentYear0=a.units.slice(0,a.numUnits).reduce((s,u)=>s+(+u.rent||0)*12,0);
   const expFields=[["propertyTax","propertyTaxPct","Property Tax"],["maintenance","maintenancePct","Maintenance"],["capex","capexPct","CapEx Reserve"],["propertyMgmt","propertyMgmtPct","Property Management"],["utilities","utilitiesPct","Utilities"]];
   return(<div style={{padding:"16px 0"}}>
