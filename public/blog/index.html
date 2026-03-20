@@ -149,6 +149,79 @@
       font-weight: 600;
     }
 
+    /* ── LIVE POST CARDS ── */
+    .posts-section {
+      padding: 56px 0 0;
+    }
+    .posts-label {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--gray3);
+      margin-bottom: 24px;
+    }
+    .post-card {
+      background: var(--white);
+      border: 1px solid var(--gray2);
+      border-radius: 16px;
+      padding: 32px;
+      margin-bottom: 20px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 24px;
+      align-items: start;
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .post-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 32px rgba(0,0,0,0.07);
+    }
+    .post-card-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--teal);
+      margin-bottom: 10px;
+    }
+    .post-card h2 {
+      font-family: 'Fraunces', serif;
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1.25;
+      letter-spacing: -0.3px;
+      color: var(--navy);
+      margin-bottom: 10px;
+    }
+    .post-card p {
+      font-size: 15px;
+      color: var(--gray4);
+      line-height: 1.65;
+      margin-bottom: 16px;
+    }
+    .post-card-meta {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 13px;
+      color: var(--gray3);
+    }
+    .post-card-meta .author { color: var(--gray4); font-weight: 500; }
+    .post-card-arrow {
+      font-size: 20px;
+      color: var(--teal);
+      line-height: 1;
+      padding-top: 4px;
+    }
+    @media (max-width: 520px) {
+      .post-card { grid-template-columns: 1fr; }
+      .post-card-arrow { display: none; }
+    }
+
     /* ── COMING SOON SECTION ── */
     .coming-soon {
       padding: 80px 0 100px;
@@ -370,12 +443,36 @@
   </div>
 </div>
 
+<!-- ── LIVE POSTS ── -->
+<div class="posts-section">
+  <div class="page-max">
+    <p class="posts-label">Latest posts</p>
+
+    <a href="/blog/what-is-house-hacking" class="post-card">
+      <div>
+        <span class="post-card-tag">House Hacking</span>
+        <h2>What is House Hacking?</h2>
+        <p>Your tenants pay your mortgage. Your equity builds. You live in your investment. Here's the full picture — how it works financially, what loan types make it possible, and what to watch out for as a new landlord.</p>
+        <div class="post-card-meta">
+          <span class="author">Brendan Hastings</span>
+          <span>·</span>
+          <span>March 20, 2026</span>
+          <span>·</span>
+          <span>8 min read</span>
+        </div>
+      </div>
+      <div class="post-card-arrow">→</div>
+    </a>
+
+  </div>
+</div>
+
 <!-- ── COMING SOON ── -->
 <div class="coming-soon">
   <div class="page-max">
     <div class="cs-icon">✍️</div>
-    <h2>First posts coming soon</h2>
-    <p>We're writing guides that cut through the noise — real numbers, real deals, no fluff. Drop your email and we'll let you know when they're live.</p>
+    <h2>More posts coming soon</h2>
+    <p>More guides are on the way — real numbers, real deals, no fluff. Drop your email and we'll let you know when the next post goes live.</p>
 
     <div class="signup-form" id="signup-form">
       <input type="email" id="email-input" placeholder="you@email.com" autocomplete="email"/>

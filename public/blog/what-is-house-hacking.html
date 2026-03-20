@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>What is House Hacking? — RentHack Blog</title>
+  <meta name="description" content="House hacking means buying a duplex, triplex, or fourplex, living in one unit, and letting tenants cover your mortgage. Here's how it works, why it works financially, and what to watch out for."/>
+  <link rel="canonical" href="https://renthack.io/blog/what-is-house-hacking"/>
+
+  <!-- Open Graph -->
+  <meta property="og:type"        content="article"/>
+  <meta property="og:url"         content="https://renthack.io/blog/what-is-house-hacking"/>
+  <meta property="og:title"       content="What is House Hacking?"/>
+  <meta property="og:description" content="Your tenants pay your mortgage. Your equity builds. You live in your investment. Here's the full picture on house hacking."/>
+  <meta property="og:image"       content="https://renthack.io/og-image.png"/>
+  <meta property="og:site_name"   content="RentHack"/>
+  <meta property="article:author" content="Brendan Hastings"/>
+  <meta property="article:published_time" content="2026-03-20"/>
+
+  <!-- Twitter -->
+  <meta name="twitter:card"        content="summary_large_image"/>
+  <meta name="twitter:title"       content="What is House Hacking?"/>
+  <meta name="twitter:description" content="Your tenants pay your mortgage. Your equity builds. You live in your investment."/>
+  <meta name="twitter:image"       content="https://renthack.io/og-image.png"/>
+
+  <!-- Structured data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "What is House Hacking?",
+    "description": "House hacking means buying a duplex, triplex, or fourplex, living in one unit, and letting tenants cover your mortgage.",
+    "author": { "@type": "Person", "name": "Brendan Hastings" },
+    "publisher": { "@type": "Organization", "name": "RentHack", "url": "https://renthack.io" },
+    "datePublished": "2026-03-20",
+    "url": "https://renthack.io/blog/what-is-house-hacking"
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;0,9..144,900;1,9..144,400&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream:   #FDFAF6;
+      --sand:    #F5EFE6;
+      --teal:    #0D9488;
+      --teal-lt: #CCFBF1;
+      --teal-dk: #0F766E;
+      --navy:    #1E293B;
+      --gray1:   #F8FAFC;
+      --gray2:   #E2E8F0;
+      --gray3:   #94A3B8;
+      --gray4:   #64748B;
+      --white:   #FFFFFF;
+      --ink:     #0F172A;
+    }
+
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      color: var(--navy);
+      background: var(--cream);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── NAV ── */
+    nav {
+      background: rgba(253,250,246,0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--gray2);
+      padding: 0 48px;
+      height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo {
+      font-family: 'Fraunces', serif;
+      font-size: 24px;
+      font-weight: 900;
+      color: var(--navy);
+      text-decoration: none;
+      letter-spacing: -0.5px;
+    }
+    .logo .dot { color: var(--teal); }
+    .nav-links { display: flex; gap: 32px; list-style: none; }
+    .nav-links a {
+      color: var(--gray4);
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--navy); }
+    .nav-links a.active { color: var(--teal); font-weight: 600; }
+    .nav-cta {
+      background: var(--teal);
+      color: #fff;
+      text-decoration: none;
+      padding: 10px 22px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+    .nav-cta:hover { background: var(--teal-dk); }
+
+    /* ── ARTICLE LAYOUT ── */
+    .article-wrap {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 64px 32px 96px;
+    }
+
+    /* ── BREADCRUMB ── */
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--gray3);
+      margin-bottom: 40px;
+    }
+    .breadcrumb a {
+      color: var(--gray4);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .breadcrumb a:hover { color: var(--teal); }
+    .breadcrumb .sep { color: var(--gray3); }
+
+    /* ── ARTICLE HEADER ── */
+    .article-tag {
+      display: inline-block;
+      color: var(--teal);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 18px;
+    }
+    .article-title {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(34px, 5vw, 52px);
+      font-weight: 900;
+      line-height: 1.08;
+      letter-spacing: -1.5px;
+      color: var(--ink);
+      margin-bottom: 22px;
+    }
+    .article-title em {
+      font-style: italic;
+      color: var(--teal);
+    }
+    .article-meta {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 18px 0;
+      border-top: 1px solid var(--gray2);
+      border-bottom: 1px solid var(--gray2);
+      margin-bottom: 48px;
+      flex-wrap: wrap;
+    }
+    .meta-author {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .author-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--teal-lt);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Fraunces', serif;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--teal-dk);
+      flex-shrink: 0;
+    }
+    .author-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--navy);
+    }
+    .author-title {
+      font-size: 12px;
+      color: var(--gray4);
+    }
+    .meta-divider { width: 1px; height: 32px; background: var(--gray2); }
+    .meta-detail {
+      font-size: 13px;
+      color: var(--gray4);
+    }
+
+    /* ── ARTICLE BODY ── */
+    .article-body {
+      font-size: 17.5px;
+      line-height: 1.75;
+      color: var(--ink);
+    }
+
+    .article-body p { margin-bottom: 1.5em; }
+
+    .article-body h2 {
+      font-family: 'Fraunces', serif;
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: var(--ink);
+      margin: 2.2em 0 0.7em;
+      line-height: 1.2;
+    }
+
+    .article-body h3 {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--navy);
+      margin: 1.6em 0 0.5em;
+    }
+
+    /* Pull quote */
+    .article-body blockquote {
+      border-left: 4px solid var(--teal);
+      padding: 18px 24px;
+      margin: 2em 0;
+      background: var(--teal-lt);
+      border-radius: 0 10px 10px 0;
+    }
+    .article-body blockquote p {
+      font-family: 'Fraunces', serif;
+      font-size: 20px;
+      font-style: italic;
+      font-weight: 700;
+      line-height: 1.4;
+      color: var(--teal-dk);
+      margin: 0;
+    }
+
+    /* Callout box */
+    .callout {
+      background: var(--white);
+      border: 1.5px solid var(--gray2);
+      border-radius: 12px;
+      padding: 22px 26px;
+      margin: 2em 0;
+    }
+    .callout-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--teal);
+      margin-bottom: 10px;
+    }
+    .callout p {
+      font-size: 15.5px;
+      color: var(--navy);
+      margin: 0;
+      line-height: 1.65;
+    }
+
+    /* Unordered list */
+    .article-body ul {
+      margin: 0 0 1.5em 0;
+      padding: 0;
+      list-style: none;
+    }
+    .article-body ul li {
+      position: relative;
+      padding-left: 22px;
+      margin-bottom: 0.85em;
+      font-size: 17.5px;
+      line-height: 1.65;
+    }
+    .article-body ul li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 11px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--teal);
+    }
+    .article-body ul li strong { color: var(--ink); }
+
+    /* Inline emphasis */
+    .article-body strong { font-weight: 700; color: var(--ink); }
+    .article-body em { font-style: italic; }
+
+    /* ── CTA BANNER ── */
+    .cta-banner {
+      background: var(--ink);
+      border-radius: 16px;
+      padding: 36px 40px;
+      margin: 3em 0 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .cta-banner-text h3 {
+      font-family: 'Fraunces', serif;
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 6px;
+      letter-spacing: -0.3px;
+    }
+    .cta-banner-text p {
+      font-size: 14px;
+      color: rgba(255,255,255,0.6);
+      line-height: 1.5;
+      margin: 0;
+    }
+    .cta-banner a {
+      display: inline-block;
+      background: var(--teal);
+      color: #fff;
+      text-decoration: none;
+      padding: 13px 26px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      white-space: nowrap;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .cta-banner a:hover { background: var(--teal-dk); }
+
+    /* ── NEXT POSTS ── */
+    .related-section {
+      margin-top: 72px;
+      padding-top: 48px;
+      border-top: 1px solid var(--gray2);
+    }
+    .related-label {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--gray3);
+      margin-bottom: 24px;
+    }
+    .related-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+    }
+    .related-card {
+      background: var(--white);
+      border: 1px solid var(--gray2);
+      border-radius: 12px;
+      padding: 22px;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .related-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
+    .card-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--teal);
+      margin-bottom: 8px;
+    }
+    .related-card h3 {
+      font-family: 'Fraunces', serif;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.3;
+      color: var(--navy);
+      margin-bottom: 8px;
+    }
+    .related-card p {
+      font-size: 13.5px;
+      color: var(--gray4);
+      line-height: 1.55;
+      margin-bottom: 12px;
+    }
+    .coming-badge {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--gray3);
+      background: var(--gray1);
+      padding: 3px 10px;
+      border-radius: 100px;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--navy);
+      color: rgba(255,255,255,0.6);
+      padding: 48px;
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 32px;
+      font-size: 14px;
+    }
+    .footer-logo {
+      font-family: 'Fraunces', serif;
+      font-size: 22px;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: -0.5px;
+      margin-bottom: 10px;
+    }
+    .footer-logo .dot { color: var(--teal); }
+    .footer-tagline { font-size: 14px; line-height: 1.6; }
+    footer h4 { color: #fff; font-size: 13px; font-weight: 700; margin-bottom: 14px; letter-spacing: 0.5px; }
+    footer a { display: block; color: rgba(255,255,255,0.55); text-decoration: none; margin-bottom: 10px; transition: color 0.2s; }
+    footer a:hover { color: #fff; }
+    .footer-bottom {
+      grid-column: 1 / -1;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      padding-top: 24px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.35);
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 640px) {
+      nav { padding: 0 20px; }
+      .nav-links { display: none; }
+      .article-wrap { padding: 40px 20px 72px; }
+      .cta-banner { padding: 28px 24px; flex-direction: column; }
+      footer { grid-template-columns: 1fr 1fr; padding: 32px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav>
+  <a href="/landing.html" class="logo">Rent<span class="dot">Hack</span></a>
+  <ul class="nav-links">
+    <li><a href="/landing.html#how">How it works</a></li>
+    <li><a href="/landing.html#pricing">Pricing</a></li>
+    <li><a href="/blog/" class="active">Blog</a></li>
+  </ul>
+  <a href="/#signup" class="nav-cta" id="nav-cta">Try it free</a>
+</nav>
+
+<!-- ── ARTICLE ── -->
+<div class="article-wrap">
+
+  <!-- Breadcrumb -->
+  <nav class="breadcrumb" aria-label="breadcrumb">
+    <a href="/blog/">Blog</a>
+    <span class="sep">›</span>
+    <span>House Hacking</span>
+  </nav>
+
+  <!-- Header -->
+  <span class="article-tag">House Hacking</span>
+  <h1 class="article-title">What is <em>House Hacking</em>?</h1>
+
+  <div class="article-meta">
+    <div class="meta-author">
+      <div class="author-avatar">B</div>
+      <div>
+        <div class="author-name">Brendan Hastings</div>
+        <div class="author-title">Founder, RentHack.io</div>
+      </div>
+    </div>
+    <div class="meta-divider"></div>
+    <span class="meta-detail">March 20, 2026</span>
+    <div class="meta-divider"></div>
+    <span class="meta-detail">8 min read</span>
+  </div>
+
+  <!-- Body -->
+  <div class="article-body">
+
+    <p>When I was in high school, my dad said he was thinking about buying a multi-family property in a neighboring town. My first reaction was disbelief. These weren't houses — they were buildings. Big, expensive buildings that felt completely out of reach for a regular family. I remember thinking: <em>Is that even possible?</em></p>
+
+    <p>As any millennial would do, I scoured the internet to explore this. After some research, I was shocked at how <em>possible</em> it was to own a rental property. 3.5% down FHA loans and other loan programs made it very reasonable to own a home if you were willing to work at it and take on a calculated risk.</p>
+
+    <p>Years later, I bought a 3-unit property in Chicago. My tenants' rent covered my mortgage. My housing cost dropped dramatically, and most importantly, I started building real wealth — not by being rich, but by being strategic.</p>
+
+    <p>That's house hacking. And it might be the single most powerful wealth-building move available to ordinary folks.</p>
+
+    <h2>The core idea</h2>
+
+    <p>House hacking means buying a multi-unit property — a duplex, triplex, or fourplex — living in one unit, and renting out the others. The rental income from your tenants offsets your mortgage, reducing your actual monthly housing cost to be lower than it would be renting or buying a single-family home.</p>
+
+    <p>In the best-case scenario, your tenants cover your entire mortgage. You live for free. Your equity builds every month. And you do it with a small down payment using owner-occupied financing — the same type of loan anyone uses to buy a home to live in.</p>
+
+    <blockquote>
+      <p>Your tenants pay your mortgage. Your equity builds. You live in your investment.</p>
+    </blockquote>
+
+    <h2>Why it works financially</h2>
+
+    <p>The math is straightforward. Say you buy a duplex. Your mortgage payment is $2,400/month. The tenant in the other unit pays $1,400/month in rent. Your effective housing cost: $1,000/month.</p>
+
+    <p>Compare that to renting a comparable apartment for $1,800/month. You're not just saving $800 a month — you're also building equity in an asset that appreciates over time, getting a tax deduction on mortgage interest, and accumulating rental income history that makes your next purchase easier.</p>
+
+    <p>Now to be fair, when you own the home there will be costs outside of just the mortgage and it's important to accurately factor those into your analysis. At the same time, you're also building equity in the home, whereas renting doesn't do this.</p>
+
+    <div class="callout">
+      <div class="callout-label">The leverage effect</div>
+      <p>At 80% LTV, every dollar you invest is multiplied 5×. If the home appreciates 5%, that's a 25% gain to you. Unless you're a stock trader, you can't get that in stocks or a savings account. And unlike other leveraged investments, real estate is tangible, insurable, and — if you buy right — cash-flowing.</p>
+    </div>
+
+    <h2>What counts as house hacking?</h2>
+
+    <p>The classic version is a 2–4 unit property where you live in one unit. But the principle applies more broadly:</p>
+
+    <ul>
+      <li><strong>A duplex</strong> is the most common entry point. You live on one side, rent the other. Simple, manageable, and widely available in most markets.</li>
+      <li><strong>A triplex or fourplex</strong> means more rental income and more tenants to manage. The cash flow is typically better, but so is the complexity.</li>
+      <li><strong>A single-family home with an ADU</strong> (accessory dwelling unit) — a basement apartment, garage conversion, or carriage house — can also work as a house hack, though the rental income is usually lower.</li>
+    </ul>
+
+    <h2>Owner-occupied financing changes everything</h2>
+
+    <p>Here's what makes house hacking so accessible: because you're living in the property, you qualify for owner-occupied loans, backed by the government — not investment property loans.</p>
+
+    <p>The difference is significant. Investment property loans typically require 20–25% down and carry higher interest rates. Owner-occupied loans — conventional, FHA, VA — can require as little as 3–10% down with better rates.</p>
+
+    <p>For my first property, I did a lot of financial modeling to find a deal that worked within FHA's debt-to-income and self-sufficiency requirements. It wasn't easy — the loan limits, the income ratios, the property criteria all had to line up at once. But that process is why I built RentHack. I wanted a tool that could do that math quickly, so house hackers could spend less time in spreadsheets and more time finding deals.</p>
+
+    <h2>What are the downsides?</h2>
+
+    <p>I want to be honest about this, because house hacking isn't frictionless.</p>
+
+    <ul>
+      <li><strong>You're a landlord.</strong> Within a month of closing on my first property, the boiler broke. Within a year, the electrical in one unit failed. Years later, that same unit flooded. Being a landlord means you're the one who gets the call at 11pm when something goes wrong. If you're not prepared for that and haven't built systems to handle that, it's a real source of stress.</li>
+      <li><strong>You share your building with tenants.</strong> Depending on the property, you might share walls, a yard, or a driveway with people who are paying you rent. That relationship is usually fine — but it requires clear expectations and good communication.</li>
+      <li><strong>Finding the right deal takes work.</strong> I analyzed many properties before I found one that met my criteria. The numbers have to work — not just the purchase price, but the rents, expenses, loan terms, and cash flow all have to align.</li>
+    </ul>
+
+    <h2>Is house hacking right for you?</h2>
+
+    <p>It's not for everyone. But if you're a first-time buyer who wants to reduce your housing cost, start building a real estate portfolio, and do it without a huge pile of cash, it's worth taking seriously.</p>
+
+    <p>The people who do well with house hacking tend to share a few traits: they're patient enough to find the right deal, pragmatic enough to handle the landlord side of things, and analytical enough to understand their numbers before they sign anything.</p>
+
+    <p>That last part is where most people get stuck. Financial modeling can be intimidating if you've never done it. That's exactly what RentHack is built to solve.</p>
+
+    <!-- CTA Banner -->
+    <div class="cta-banner">
+      <div class="cta-banner-text">
+        <h3>Ready to run the numbers?</h3>
+        <p>Analyze any duplex, triplex, or fourplex in under 5 minutes. Free to start.</p>
+      </div>
+      <a href="https://renthack.io/#signup">Try RentHack free →</a>
+    </div>
+
+  </div><!-- /article-body -->
+
+  <!-- Related posts -->
+  <div class="related-section">
+    <p class="related-label">More from the blog</p>
+    <div class="related-grid">
+
+      <div class="related-card">
+        <span class="card-tag">Investing Basics</span>
+        <h3>What is DSCR and why lenders care so much?</h3>
+        <p>Debt Service Coverage Ratio explained in plain English — what it means, what counts as "good," and how it affects what you can borrow.</p>
+        <span class="coming-badge">Coming soon</span>
+      </div>
+
+      <div class="related-card">
+        <span class="card-tag">Financing</span>
+        <h3>FHA vs Conventional for a house hack</h3>
+        <p>The down payment, PMI, and loan limit tradeoffs between FHA and conventional loans when you're buying a 2–4 unit property to live in.</p>
+        <span class="coming-badge">Coming soon</span>
+      </div>
+
+      <div class="related-card">
+        <span class="card-tag">Deal Walkthrough</span>
+        <h3>How to analyze a duplex in 5 minutes</h3>
+        <p>A step-by-step walkthrough of the exact numbers you need — and how to know if a deal actually pencils out.</p>
+        <span class="coming-badge">Coming soon</span>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /article-wrap -->
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div>
+    <div class="footer-logo">Rent<span class="dot">Hack</span></div>
+    <p class="footer-tagline">The deal analyzer built for house hackers — not Wall Street.</p>
+  </div>
+  <div>
+    <h4>Product</h4>
+    <a href="/landing.html#how">How it works</a>
+    <a href="/landing.html#pricing">Pricing</a>
+    <a href="/blog/">Blog</a>
+  </div>
+  <div>
+    <h4>Account</h4>
+    <a href="/#app">Log in</a>
+    <a href="/#signup">Sign up free</a>
+  </div>
+  <div>
+    <h4>Company</h4>
+    <a href="#">About</a>
+    <a href="#">Contact</a>
+    <a href="/legal/tos.html">Terms</a> · <a href="/legal/privacy.html">Privacy</a>
+  </div>
+  <p class="footer-bottom">© 2026 RentHack.io — Built for house hackers everywhere.</p>
+</footer>
+
+<script>
+  (function() {
+    try {
+      const raw = localStorage.getItem('sb-lxkwvayalxuoryuwxtsq-auth-token');
+      if (!raw) return;
+      const session = JSON.parse(raw);
+      const exp = session?.expires_at || (session?.access_token && JSON.parse(atob(session.access_token.split('.')[1]))?.exp);
+      if (!exp || exp <= Math.floor(Date.now() / 1000)) return;
+      const btn = document.getElementById('nav-cta');
+      if (btn) { btn.textContent = 'My Deals →'; btn.href = '/#app'; }
+    } catch(e) {}
+  })();
+</script>
+
+</body>
+</html>
