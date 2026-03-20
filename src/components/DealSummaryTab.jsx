@@ -457,6 +457,49 @@ function DealSummaryTab({deal, result, onUpdate}) {
         </div>
       );
     })()}
+    {/* ══ FHA Self-Sufficiency Test (BACK-062) — 3–4 unit only ══ */}
+    {result.fhaSelfSufficiency?.applies && (() => {
+      const fha = result.fhaSelfSufficiency;
+      const pass = fha.passes;
+      const passColor = pass ? "var(--green)" : "var(--red)";
+      const passText  = pass ? "PASS" : "FAIL";
+      const passBg    = pass ? "rgba(16,185,129,0.08)" : "rgba(239,68,68,0.08)";
+      const passBorder= pass ? "rgba(16,185,129,0.3)"  : "rgba(239,68,68,0.3)";
+      return (
+        <div style={{background:passBg,border:`1px solid ${passBorder}`,borderRadius:12,padding:14,marginBottom:10}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10,flexWrap:"wrap",gap:8}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--muted)",fontFamily:"system-ui"}}>
+                FHA Self-Sufficiency Test
+              </div>
+              <div style={{fontSize:10,color:"var(--muted)",fontFamily:"system-ui"}}>· 3–4 unit properties only</div>
+            </div>
+            <div style={{fontSize:13,fontWeight:900,color:passColor,letterSpacing:"0.05em",background:pass?"rgba(16,185,129,0.15)":"rgba(239,68,68,0.15)",padding:"3px 12px",borderRadius:100,fontFamily:"system-ui"}}>
+              {passText}
+            </div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
+            {[
+              ["Gross Rent (all units)",  FMT_USD(fha.grossRentAllUnits/12)+"/mo",   "var(--text)"],
+              ["75% Threshold (FHA rule)",FMT_USD(fha.threshold75Pct/12)+"/mo",      passColor],
+              ["Your PITI",               FMT_USD(fha.pitiAnnual/12)+"/mo",          "var(--text)"],
+            ].map(([label, val, col]) => (
+              <div key={label} style={{background:"var(--card)",borderRadius:8,padding:"10px 12px",border:"1px solid var(--border)"}}>
+                <div style={{fontSize:10,color:"var(--muted)",fontFamily:"system-ui",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:4}}>{label}</div>
+                <div style={{fontSize:16,fontWeight:800,color:col,fontFamily:"system-ui"}}>{val}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{fontSize:11,color:"var(--muted)",fontFamily:"system-ui",lineHeight:1.5}}>
+            {pass
+              ? `FHA requires 75% of gross rents ≥ PITI. This property passes with a ${FMT_USD(Math.abs(fha.delta)/12)}/mo surplus — it qualifies for FHA financing on this test.`
+              : `FHA requires 75% of gross rents ≥ PITI. This property falls ${FMT_USD(Math.abs(fha.delta)/12)}/mo short. To pass: increase rents by ${FMT_USD(Math.abs(fha.delta)/(0.75*12))}/mo per unit, or reduce the purchase price.`
+            }
+          </div>
+        </div>
+      );
+    })()}
+
     {/* ══ SUBHEADER 3 ══ */}
     <SubHdr>Property Details</SubHdr>
 

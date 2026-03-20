@@ -439,7 +439,20 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
   const breakEvenOccupancy=grossRentYear0>0?(annualDebtService+baseExpenses)/grossRentYear0:0;
   let irrWithoutVA=irr,irrWithVA=irr;
   if(vaEnabled){const d2=JSON.parse(JSON.stringify(deal));d2.assumptions.valueAdd={...va,enabled:false};irrWithoutVA=calcDeal(d2,{_isRecursive:true}).irr;irrWithVA=irr;}
-  return {totalCash:totalCashWithVA,totalCashBase:totalCash,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExpenses,baseExpBreakdown:baseExp,noi:years[0]?.noi||0,cocReturn:years[0]?.cocReturn||0,capRate:years[0]?.capRate||0,dscr:years[0]?.dscr||0,dscrLenderView:years[0]?.dscrLenderView||0,irr,equityMultiple,breakEvenOccupancy,exitValue,exitLoanBalance,totalGainOnSale,sec1250RecapturePortion,trueLTCGPortion,recaptureTax,ltcgTax,palTaxBenefit,netTaxOnSale,netProceeds,capitalGainsTax,years,refiCashOut,refiYear:refiEnabled?refiYear:null,vaEnabled,vaReModelCost,vaRentBump,vaCompletionYr,irrWithoutVA,irrWithVA,ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,taxAdvEnabled,finalPalCarryforward,cumulativeDepreciationTaken};
+  // ── FHA Self-Sufficiency Test (BACK-062) ─────────────────────────────────────
+  // Applies to 3–4 unit properties only. HUD rule: 75% of gross rents from ALL
+  // units (including owner unit) must >= PITI. Ref: HUD Handbook 4000.1 §II.A.4.b.iv
+  const fhaSelfSufficiency = (() => {
+    if (a.numUnits < 3) return { applies: false };
+    const grossRentAllUnits = a.units.slice(0, a.numUnits).reduce((s, u) => s + (+(u.rent||u.listedRent)||0) * 12, 0);
+    const pitiAnnual = annualDebtService + (baseExp.propertyTax||0) + (baseExp.insurance||0);
+    const threshold75Pct = grossRentAllUnits * 0.75;
+    const passes = threshold75Pct >= pitiAnnual;
+    const delta = threshold75Pct - pitiAnnual; // positive = surplus, negative = shortfall
+    return { applies: true, grossRentAllUnits, threshold75Pct, pitiAnnual, passes, delta };
+  })();
+
+  return {totalCash:totalCashWithVA,totalCashBase:totalCash,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExpenses,baseExpBreakdown:baseExp,noi:years[0]?.noi||0,cocReturn:years[0]?.cocReturn||0,capRate:years[0]?.capRate||0,dscr:years[0]?.dscr||0,dscrLenderView:years[0]?.dscrLenderView||0,irr,equityMultiple,breakEvenOccupancy,exitValue,exitLoanBalance,totalGainOnSale,sec1250RecapturePortion,trueLTCGPortion,recaptureTax,ltcgTax,palTaxBenefit,netTaxOnSale,netProceeds,capitalGainsTax,years,refiCashOut,refiYear:refiEnabled?refiYear:null,vaEnabled,vaReModelCost,vaRentBump,vaCompletionYr,irrWithoutVA,irrWithVA,ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,taxAdvEnabled,finalPalCarryforward,cumulativeDepreciationTaken,fhaSelfSufficiency};
 }
 
 function calcSensitivity(deal) {
