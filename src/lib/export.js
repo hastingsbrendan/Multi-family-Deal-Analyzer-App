@@ -13,617 +13,607 @@ function exportDealXLSX(deal, user) {
   const a  = deal.assumptions;
   const wb = XLSX.utils.book_new();
 
-  // ── Palette (xlsx-js-style requires patternType:'solid' for fills) ────────
-  const NAVY    = '0F172A';
-  const TEAL    = '0D9488';
-  const TEAL_DK = '0A7A6E';
-  const WHITE   = 'FFFFFF';
-  const CREAM   = 'FAF8F4';
-  const SLATE   = '475569';
-  const SLATE_LT= '94A3B8';
-  const LT_TEAL = 'F0FDFB';
-  const LT_GRAY = 'F8FAFF';
-  const ALT_ROW = 'F1F5F9';
-  const GREEN   = '166534';
-  const LT_GREEN= 'DCFCE7';
-  const RED_C   = 'DC2626';
-  const LT_RED  = 'FEF2F2';
+  // ─── Palette ──────────────────────────────────────────────────────────────
+  const NAVY     = '0F172A';   // deep navy — banner bg
+  const TEAL     = '0D9488';   // brand teal — section headers, accents
+  const TEAL_300 = '2DD4BF';   // teal-300 — HACK wordmark on navy
+  const INK      = '1E293B';   // near-black — primary text
+  const SLATE    = '475569';   // slate — label text
+  const SLATE_LT = '94A3B8';   // light slate — muted / footer
+  const WHITE    = 'FFFFFF';
+  const OFF_WHITE= 'F8FAFC';   // alternating row
+  const TEAL_BG  = 'F0FDFB';   // teal tint — accent row bg
+  const AMBER    = 'D97706';   // amber — warning highlight
+  const AMBER_BG = 'FFFBEB';
+  const GREEN    = '166534';
+  const GREEN_BG = 'DCFCE7';
+  const RED_C    = 'DC2626';
+  const RED_BG   = 'FEF2F2';
 
-  const USD   = '$#,##0;($#,##0);"-"';
-  const PCT1  = '0.0%;(0.0%);"-"';
-  const X2    = '0.00"x"';
-  const NUM2  = '0.00';
+  // ─── Number formats ───────────────────────────────────────────────────────
+  const USD  = '"$"#,##0;("$"#,##0)';
+  const PCT1 = '0.0%;(0.0%)';
+  const X2   = '0.00"x"';
+  const N2   = '0.00';
+  const INT  = '#,##0';
 
-  // ── Cell factory helpers ──────────────────────────────────────────────────
-  const fill = (rgb) => ({ patternType: 'solid', fgColor: { rgb } });
-  const border = (color = 'CBD5E1') => ({
-    top:    { style: 'thin', color: { rgb: color } },
-    bottom: { style: 'thin', color: { rgb: color } },
-    left:   { style: 'thin', color: { rgb: color } },
-    right:  { style: 'thin', color: { rgb: color } },
-  });
-  const borderBottom = (color = TEAL) => ({
-    bottom: { style: 'medium', color: { rgb: color } },
-  });
-
-  // Navy banner header (e.g. sheet title, section bars)
-  const mkNavy = (v, sz = 11, align = 'left') => ({
-    v: v ?? '', t: typeof v === 'number' ? 'n' : 's',
-    s: {
-      font:      { bold: true, color: { rgb: WHITE }, sz, name: 'Arial' },
-      fill:      fill(NAVY),
-      alignment: { horizontal: align, vertical: 'center', wrapText: false },
-      border:    borderBottom(TEAL),
-    },
-  });
-
-  // Teal section sub-header
-  const mkTeal = (v, align = 'left') => ({
-    v: v ?? '', t: 's',
-    s: {
-      font:      { bold: true, color: { rgb: WHITE }, sz: 9, name: 'Arial' },
-      fill:      fill(TEAL),
-      alignment: { horizontal: align, vertical: 'center' },
-    },
-  });
-
-  // Row label (left column, cream bg)
-  const mkLabel = (v, indent = false) => ({
-    v: v ?? '', t: 's',
-    s: {
-      font:      { bold: false, color: { rgb: SLATE }, sz: 10, name: 'Arial' },
-      fill:      fill(CREAM),
-      alignment: { horizontal: 'left', vertical: 'center', indent: indent ? 1 : 0 },
-      border:    { bottom: { style: 'hair', color: { rgb: 'E2E8F0' } } },
-    },
-  });
-
-  // Standard value cell (white bg, navy text)
-  const mkVal = (v, fmt, alt = false) => ({
-    v: v ?? (typeof v === 'number' ? 0 : ''), t: typeof v === 'number' ? 'n' : 's',
-    z: fmt || undefined,
-    s: {
-      font:      { bold: false, color: { rgb: NAVY }, sz: 10, name: 'Arial' },
-      fill:      fill(alt ? ALT_ROW : WHITE),
-      alignment: { horizontal: 'right', vertical: 'center' },
-      border:    { bottom: { style: 'hair', color: { rgb: 'E2E8F0' } } },
-    },
-  });
-
-  // Bold value cell
-  const mkBold = (v, fmt, alt = false) => ({
-    v: v ?? 0, t: typeof v === 'number' ? 'n' : 's',
-    z: fmt || undefined,
-    s: {
-      font:      { bold: true, color: { rgb: NAVY }, sz: 10, name: 'Arial' },
-      fill:      fill(alt ? ALT_ROW : WHITE),
-      alignment: { horizontal: 'right', vertical: 'center' },
-      border:    { bottom: { style: 'hair', color: { rgb: 'E2E8F0' } } },
-    },
-  });
-
-  // Teal accent (highlighted key metric)
-  const mkAccent = (v, fmt) => ({
-    v: v ?? 0, t: typeof v === 'number' ? 'n' : 's',
-    z: fmt || undefined,
-    s: {
-      font:      { bold: true, color: { rgb: TEAL }, sz: 10, name: 'Arial' },
-      fill:      fill(LT_TEAL),
-      alignment: { horizontal: 'right', vertical: 'center' },
-      border:    { bottom: { style: 'thin', color: { rgb: TEAL } } },
-    },
-  });
-
-  // Green pass / red fail
-  const mkPass = (passes, label) => ({
-    v: label, t: 's',
-    s: {
-      font:      { bold: true, color: { rgb: passes ? GREEN : RED_C }, sz: 11, name: 'Arial' },
-      fill:      fill(passes ? LT_GREEN : LT_RED),
-      alignment: { horizontal: 'center', vertical: 'center' },
-    },
-  });
-
-  // Empty filler cell (for merged area padding)
-  const mkBlank = (bg = WHITE) => ({ v: '', t: 's', s: { fill: fill(bg) } });
-
-  // Helper: set a cell in a worksheet object
-  const set = (ws, col, row, cell) => {
-    ws[XLSX.utils.encode_cell({ r: row - 1, c: col })] = cell;
+  // ─── Cell factory ─────────────────────────────────────────────────────────
+  const fl = (rgb) => ({ patternType: 'solid', fgColor: { rgb } });
+  const bdr = (sides, style = 'thin', color = 'CBD5E1') => {
+    const b = {};
+    const s = { style, color: { rgb: color } };
+    if (sides.includes('t')) b.top    = s;
+    if (sides.includes('b')) b.bottom = s;
+    if (sides.includes('l')) b.left   = s;
+    if (sides.includes('r')) b.right  = s;
+    return b;
   };
+
+  // Banner cell — navy bg, white bold text
+  const Banner = (v, sz = 13, align = 'left', italic = false) => ({
+    v: v ?? '', t: 's',
+    s: { font: { bold: !italic, italic, color: { rgb: WHITE }, sz, name: 'Calibri' },
+         fill: fl(NAVY), alignment: { horizontal: align, vertical: 'center' } }
+  });
+
+  // Section header — teal bg, white bold 10pt, upper case
+  const SecHdr = (v) => ({
+    v: v ?? '', t: 's',
+    s: { font: { bold: true, color: { rgb: WHITE }, sz: 10, name: 'Calibri' },
+         fill: fl(TEAL), alignment: { horizontal: 'left', vertical: 'center' },
+         border: { bottom: { style: 'medium', color: { rgb: NAVY } } } }
+  });
+
+  // Column header inside a table
+  const ColHdr = (v, align = 'right') => ({
+    v: v ?? '', t: 's',
+    s: { font: { bold: true, color: { rgb: WHITE }, sz: 9, name: 'Calibri' },
+         fill: fl(INK), alignment: { horizontal: align, vertical: 'center' },
+         border: { bottom: { style: 'thin', color: { rgb: TEAL } } } }
+  });
+
+  // Row label — slate text, off-white bg
+  const Lbl = (v, indent = false) => ({
+    v: v ?? '', t: 's',
+    s: { font: { color: { rgb: SLATE }, sz: 10, name: 'Calibri' },
+         fill: fl(OFF_WHITE),
+         alignment: { horizontal: 'left', vertical: 'center', indent: indent ? 1 : 0 },
+         border: { ...bdr('r', 'thin', 'E2E8F0') } }
+  });
+
+  // Standard value — ink text, white bg
+  const Val = (v, fmt, alt = false) => ({
+    v: v ?? 0, t: typeof v === 'number' ? 'n' : 's',
+    z: fmt || undefined,
+    s: { font: { color: { rgb: INK }, sz: 10, name: 'Calibri' },
+         fill: fl(alt ? 'F1F5F9' : WHITE),
+         alignment: { horizontal: 'right', vertical: 'center' },
+         border: bdr('b', 'thin', 'E2E8F0') }
+  });
+
+  // Bold subtotal row — dark ink, slightly tinted bg
+  const Sub = (v, fmt) => ({
+    v: v ?? 0, t: typeof v === 'number' ? 'n' : 's',
+    z: fmt || undefined,
+    s: { font: { bold: true, color: { rgb: INK }, sz: 10, name: 'Calibri' },
+         fill: fl('EFF6FF'),
+         alignment: { horizontal: 'right', vertical: 'center' },
+         border: { top: { style: 'thin', color: { rgb: 'BFDBFE' } },
+                   bottom: { style: 'thin', color: { rgb: 'BFDBFE' } } } }
+  });
+
+  // Key metric accent — teal text, teal-tinted bg, left teal border stripe
+  const Kpi = (v, fmt) => ({
+    v: v ?? 0, t: typeof v === 'number' ? 'n' : 's',
+    z: fmt || undefined,
+    s: { font: { bold: true, color: { rgb: TEAL }, sz: 11, name: 'Calibri' },
+         fill: fl(TEAL_BG),
+         alignment: { horizontal: 'right', vertical: 'center' },
+         border: { top: { style: 'thin', color: { rgb: TEAL } },
+                   bottom: { style: 'thin', color: { rgb: TEAL } } } }
+  });
+
+  // KPI label — matches Kpi row bg
+  const KpiLbl = (v, indent = false) => ({
+    v: v ?? '', t: 's',
+    s: { font: { bold: true, color: { rgb: TEAL }, sz: 10, name: 'Calibri' },
+         fill: fl(TEAL_BG),
+         alignment: { horizontal: 'left', vertical: 'center', indent: indent ? 1 : 0 },
+         border: { top: { style: 'thin', color: { rgb: TEAL } },
+                   bottom: { style: 'thin', color: { rgb: TEAL } },
+                   left: { style: 'medium', color: { rgb: TEAL } } } }
+  });
+
+  // Pass / Fail
+  const PassFail = (passes) => ({
+    v: passes ? 'PASS  ✓' : 'FAIL  ✗', t: 's',
+    s: { font: { bold: true, color: { rgb: passes ? GREEN : RED_C }, sz: 11, name: 'Calibri' },
+         fill: fl(passes ? GREEN_BG : RED_BG),
+         alignment: { horizontal: 'center', vertical: 'center' } }
+  });
+
+  const Blank = (bg = WHITE) => ({ v: '', t: 's', s: { fill: fl(bg) } });
+
+  // Helper to write to a ws object
+  const W = (ws, c, r, cell) => { ws[XLSX.utils.encode_cell({ r: r - 1, c })] = cell; };
 
   const safeName = (deal.address || deal.id || 'deal').toString()
     .replace(/[^a-z0-9]/gi, '_').toLowerCase();
   const dateStr = new Date().toLocaleDateString('en-US',
     { month: 'short', day: 'numeric', year: 'numeric' });
   const preparer = user?.user_metadata?.display_name || user?.email || '';
-  const org = user?.user_metadata?.organization || '';
+  const orgStr   = user?.user_metadata?.organization
+    ? '  ·  ' + user.user_metadata.organization : '';
 
-  // ──────────────────────────────────────────────────────────────────────────
+  const yr1    = r.years[0] || {};
+  const expBrk = r.baseExpBreakdown || {};
+  const pp     = +a.purchasePrice || 0;
+  const cumCF  = r.years.reduce((s, y) => s + (y.cashFlow || 0), 0);
+
+  // ─── Column layout (used across all sheets) ───────────────────────────────
+  // Col 0: label (col A) — 32ch
+  // Col 1: value (col B) — 18ch  ← main data column
+  // Col 2-4: empty (cols C-E) — spacers for visual width, 6ch each
+  const COLS = 5; // 0-based max col index
+
+  const mkRef = (rows) => XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows - 1, c: COLS } });
+  const colWidths = [{ wch: 34 }, { wch: 18 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }];
+
+  // Fill an entire row with a background color from col 0 to COLS
+  const fillRow = (ws, row, bg, overCol0 = null) => {
+    for (let c = 0; c <= COLS; c++) {
+      if (c === 0 && overCol0) { W(ws, c, row, overCol0); continue; }
+      if (ws[XLSX.utils.encode_cell({ r: row - 1, c })] === undefined) {
+        W(ws, c, row, Blank(bg));
+      }
+    }
+  };
+
+  // Write a full-width section header row
+  const secRow = (ws, row, label, merges) => {
+    W(ws, 0, row, SecHdr(label));
+    for (let c = 1; c <= COLS; c++) W(ws, c, row, { v: '', t: 's', s: { fill: fl(TEAL), border: { bottom: { style: 'medium', color: { rgb: NAVY } } } } });
+    merges.push({ s: { r: row - 1, c: 0 }, e: { r: row - 1, c: COLS } });
+  };
+
+  // Write a data row: label in col 0, value in col 1, fill rest
+  const dataRow = (ws, row, label, value, fmt, isKpi = false, alt = false, indent = false, isSub = false) => {
+    W(ws, 0, row, isKpi ? KpiLbl(label, indent) : Lbl(label, indent));
+    W(ws, 1, row, isKpi ? Kpi(value, fmt) : isSub ? Sub(value, fmt) : Val(value, fmt, alt));
+    const bg = isKpi ? TEAL_BG : isSub ? 'EFF6FF' : alt ? 'F1F5F9' : WHITE;
+    for (let c = 2; c <= COLS; c++) W(ws, c, row, Blank(bg));
+  };
+
+  // ══════════════════════════════════════════════════════════════════════════
   // SHEET 1 — Deal Summary
-  // ──────────────────────────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
   const ws1 = {};
-  ws1['!merges'] = [];
-  const m1 = (rs, re, cs, ce) => ws1['!merges'].push({ s: { r: rs-1, c: cs }, e: { r: re-1, c: ce } });
+  const mg1 = [];
+  let row = 1;
 
-  // ── Logo banner ────────────────────────────────────────────────────────
-  // Row 1: full-width navy banner  "RENT" [white] + "HACK" [teal-ish on navy]
-  set(ws1, 0, 1, {
-    v: 'RENT', t: 's',
-    s: {
-      font:      { bold: true, color: { rgb: WHITE }, sz: 18, name: 'Arial' },
-      fill:      fill(NAVY),
-      alignment: { horizontal: 'right', vertical: 'center' },
-    },
-  });
-  set(ws1, 1, 1, {
-    v: 'HACK', t: 's',
-    s: {
-      font:      { bold: true, color: { rgb: '2DD4BF' }, sz: 18, name: 'Arial' },  // teal-300 on navy
-      fill:      fill(NAVY),
-      alignment: { horizontal: 'left', vertical: 'center' },
-    },
-  });
-  // Fill remaining banner cols
-  for (let c = 2; c <= 5; c++) set(ws1, c, 1, mkBlank(NAVY));
-  // Right-align date and preparer in banner
-  set(ws1, 4, 1, {
-    v: dateStr + (preparer ? `  ·  ${preparer}${org ? ' · ' + org : ''}` : ''),
-    t: 's',
-    s: {
-      font:      { italic: true, color: { rgb: SLATE_LT }, sz: 8, name: 'Arial' },
-      fill:      fill(NAVY),
-      alignment: { horizontal: 'right', vertical: 'center' },
-    },
-  });
-  m1(1,1, 4,5);  // merge the date cell across last two cols
+  // ── Logo banner (rows 1-2) ────────────────────────────────────────────────
+  // Row 1: RENT | HACK | spacers | date+preparer
+  W(ws1, 0, row, { v: 'RENT', t: 's', s: {
+    font: { bold: true, color: { rgb: WHITE }, sz: 20, name: 'Calibri' },
+    fill: fl(NAVY), alignment: { horizontal: 'right', vertical: 'center' }
+  }});
+  W(ws1, 1, row, { v: 'HACK', t: 's', s: {
+    font: { bold: true, color: { rgb: TEAL_300 }, sz: 20, name: 'Calibri' },
+    fill: fl(NAVY), alignment: { horizontal: 'left', vertical: 'center' }
+  }});
+  // Teal accent stripe in col 2
+  W(ws1, 2, row, { v: '', t: 's', s: { fill: fl(TEAL), border: { right: { style: 'medium', color: { rgb: TEAL } } } }});
+  // Date / preparer spans remaining cols
+  W(ws1, 3, row, Banner(
+    dateStr + (preparer ? '   ·   ' + preparer + orgStr : ''),
+    8, 'right', true
+  ));
+  for (let c = 4; c <= COLS; c++) W(ws1, c, row, Blank(NAVY));
+  mg1.push({ s: { r: 0, c: 3 }, e: { r: 0, c: COLS } });
+  row++;
 
   // Row 2: address sub-banner
   const addr = deal.address || 'Untitled Property';
-  set(ws1, 0, 2, {
-    v: addr, t: 's',
-    s: {
-      font:      { bold: true, color: { rgb: WHITE }, sz: 13, name: 'Arial' },
-      fill:      fill(TEAL),
-      alignment: { horizontal: 'left', vertical: 'center' },
-      border:    { bottom: { style: 'medium', color: { rgb: NAVY } } },
-    },
-  });
-  for (let c = 1; c <= 5; c++) set(ws1, c, 2, {
-    v: '', t: 's',
-    s: { fill: fill(TEAL), border: { bottom: { style: 'medium', color: { rgb: NAVY } } } },
-  });
-  m1(2,2, 0,5);
+  W(ws1, 0, row, { v: addr, t: 's', s: {
+    font: { bold: true, color: { rgb: WHITE }, sz: 14, name: 'Calibri' },
+    fill: fl(TEAL), alignment: { horizontal: 'left', vertical: 'center' }
+  }});
+  for (let c = 1; c <= COLS; c++) W(ws1, c, row, { v: '', t: 's', s: { fill: fl(TEAL) }});
+  mg1.push({ s: { r: 1, c: 0 }, e: { r: 1, c: COLS } });
+  row++;
 
-  // Row 3: property detail badges as a text row
-  const yr1 = r.years[0] || {};
-  const expBrk = r.baseExpBreakdown || {};
-  const pp = +a.purchasePrice || 0;
+  // Row 3: property details strip
   const details = [
     a.numUnits ? `${a.numUnits} Units` : null,
-    a.beds  ? `${a.beds} BD` : null,
-    a.baths ? `${a.baths} BA` : null,
+    a.beds     ? `${a.beds} BD / ${a.baths || '—'} BA` : null,
     a.sqftTotal ? `${Number(a.sqftTotal).toLocaleString()} SF` : null,
     a.yearBuilt ? `Built ${a.yearBuilt}` : null,
-    deal.status || null,
+    deal.status  ? `Status: ${deal.status}` : null,
+    a.ownerOccupied ? 'Owner-Occupied' : null,
   ].filter(Boolean).join('   ·   ');
-  set(ws1, 0, 3, {
-    v: details, t: 's',
-    s: {
-      font:      { bold: false, color: { rgb: SLATE }, sz: 9, name: 'Arial' },
-      fill:      fill('EFF6FF'),
-      alignment: { horizontal: 'left', vertical: 'center' },
-    },
-  });
-  for (let c = 1; c <= 5; c++) set(ws1, c, 3, mkBlank('EFF6FF'));
-  m1(3,3, 0,5);
+  W(ws1, 0, row, { v: details || ' ', t: 's', s: {
+    font: { color: { rgb: SLATE }, sz: 9, name: 'Calibri' },
+    fill: fl('EFF6FF'), alignment: { horizontal: 'left', vertical: 'center' }
+  }});
+  for (let c = 1; c <= COLS; c++) W(ws1, c, row, { v: '', t: 's', s: { fill: fl('EFF6FF') }});
+  mg1.push({ s: { r: 2, c: 0 }, e: { r: 2, c: COLS } });
+  row++;
 
   // Row 4: blank spacer
-  set(ws1, 0, 4, mkBlank(WHITE));
-
-  // ── SECTION: Key Returns ────────────────────────────────────────────────
-  let row = 5;
-  // Section header
-  set(ws1, 0, row, mkTeal('KEY RETURNS'));
-  for (let c = 1; c <= 5; c++) set(ws1, c, row, { v: '', t: 's', s: { fill: fill(TEAL) } });
-  m1(row,row, 0,5);
   row++;
 
-  // Column headers for the 3-metric-across layout
-  const kpiHeaders = ['Metric', 'Value', '', 'Metric', 'Value'];
-  kpiHeaders.forEach((h, c) => set(ws1, c, row, {
-    v: h, t: 's',
-    s: {
-      font:      { bold: true, color: { rgb: WHITE }, sz: 9, name: 'Arial' },
-      fill:      fill('1E293B'),
-      alignment: { horizontal: c % 3 === 1 ? 'right' : 'left', vertical: 'center' },
-    },
-  }));
+  // ── SECTION: Key Performance Metrics ─────────────────────────────────────
+  secRow(ws1, row, 'KEY PERFORMANCE METRICS', mg1); row++;
+
+  // Column sub-headers
+  W(ws1, 0, row, ColHdr('Metric', 'left'));
+  W(ws1, 1, row, ColHdr('Value'));
+  for (let c = 2; c <= COLS; c++) W(ws1, c, row, { v: '', t: 's', s: { fill: fl(INK), border: { bottom: { style: 'thin', color: { rgb: TEAL } } } }});
+  mg1.push({ s: { r: row-1, c: 1 }, e: { r: row-1, c: COLS } });
   row++;
 
-  // Two-column KPI grid
-  const leftKpis = [
-    ['IRR (10-Year)',      r.irr,              PCT1,  true],
-    ['Cash-on-Cash Yr 1', r.cocReturn,         PCT1,  true],
-    ['Cap Rate (Yr 1)',   r.capRate,           PCT1,  false],
-    ['DSCR (Yr 1)',       r.dscr,              NUM2,  false],
-    ['Break-Even Occ.',   r.breakEvenOccupancy,PCT1,  false],
+  const kpiRows = [
+    ['IRR (10-Year)',             r.irr,                 PCT1,  true],
+    ['Equity Multiple',           r.equityMultiple,      X2,    true],
+    ['Cash-on-Cash Return (Yr1)', r.cocReturn,           PCT1,  true],
+    ['Monthly Cash Flow (Yr1)',   yr1.monthlyCashFlow,   USD,   true],
+    ['Cap Rate (Yr 1)',           r.capRate,             PCT1,  false],
+    ['DSCR (Yr 1)',               r.dscr,                N2,    false],
+    ['Break-Even Occupancy',      r.breakEvenOccupancy,  PCT1,  false],
+    ['Annual NOI (Yr 1)',         r.noi,                 USD,   false],
+    ['Net Proceeds (Exit Yr 10)', r.netProceeds,         USD,   true],
   ];
-  const rightKpis = [
-    ['Equity Multiple',   r.equityMultiple,    X2,    true],
-    ['Monthly Cash Flow', yr1.monthlyCashFlow, USD,   true],
-    ['Annual NOI',        r.noi,               USD,   false],
-    ['Exit Value (Yr10)', r.exitValue,         USD,   false],
-    ['Net Proceeds',      r.netProceeds,       USD,   true],
-  ];
-  const maxKpi = Math.max(leftKpis.length, rightKpis.length);
-  for (let i = 0; i < maxKpi; i++) {
-    const alt = i % 2 === 1;
-    const [lL, vL, fL, aL] = leftKpis[i]  || ['', null, null, false];
-    const [lR, vR, fR, aR] = rightKpis[i] || ['', null, null, false];
-    set(ws1, 0, row, mkLabel(lL));
-    set(ws1, 1, row, lL ? (aL ? mkAccent(vL, fL) : mkBold(vL, fL, alt)) : mkBlank(alt ? ALT_ROW : WHITE));
-    set(ws1, 2, row, mkBlank(alt ? ALT_ROW : WHITE));  // spacer col
-    set(ws1, 3, row, mkLabel(lR));
-    set(ws1, 4, row, lR ? (aR ? mkAccent(vR, fR) : mkBold(vR, fR, alt)) : mkBlank(alt ? ALT_ROW : WHITE));
-    set(ws1, 5, row, mkBlank(alt ? ALT_ROW : WHITE));
+  kpiRows.forEach(([lbl, val, fmt, isKpi], i) => {
+    dataRow(ws1, row, lbl, val, fmt, isKpi, i % 2 === 1);
+    mg1.push({ s: { r: row-1, c: 1 }, e: { r: row-1, c: COLS } });
     row++;
-  }
-  row++; // spacer
+  });
+  row++; // gap
 
-  // ── SECTION: Financing ──────────────────────────────────────────────────
-  set(ws1, 0, row, mkTeal('FINANCING'));
-  for (let c = 1; c <= 5; c++) set(ws1, c, row, { v: '', t: 's', s: { fill: fill(TEAL) } });
-  m1(row,row, 0,5);
+  // ── SECTION: Financing ────────────────────────────────────────────────────
+  secRow(ws1, row, 'FINANCING', mg1); row++;
+  W(ws1, 0, row, ColHdr('Item', 'left'));
+  W(ws1, 1, row, ColHdr('Amount'));
+  for (let c = 2; c <= COLS; c++) W(ws1, c, row, { v: '', t: 's', s: { fill: fl(INK), border: { bottom: { style: 'thin', color: { rgb: TEAL } } } }});
+  mg1.push({ s: { r: row-1, c: 1 }, e: { r: row-1, c: COLS } });
   row++;
 
   const finRows = [
-    ['Purchase Price',      pp,                                       USD,   false],
-    ['Down Payment ($)',    pp - r.loanAmt,                           USD,   false],
-    ['Down Payment (%)',    pp > 0 ? (pp - r.loanAmt) / pp : 0,      PCT1,  false],
-    ['Loan Amount',         r.loanAmt,                                USD,   false],
-    ['Interest Rate',       (+a.interestRate || 0) / 100,             PCT1,  false],
-    ['Loan Term',           (+a.amortYears || 30),                    null,  false],
-    ['LTV',                 pp > 0 ? r.loanAmt / pp : 0,             PCT1,  false],
-    ['Monthly P&I',         r.monthlyPayment,                        USD,   false],
-    ['Annual Debt Service', r.annualDebtService,                     USD,   false],
-    ['Closing Costs',       r.closingCostsTotal,                     USD,   false],
-    ['Seller Concessions',  +a.sellerConcessions || 0,               USD,   false],
-    ['PMI (Monthly)',       +a.pmi || 0,                              USD,   false],
-    ['Total Cash In',       r.totalCash,                              USD,   true],
+    ['Purchase Price',      pp,                                      USD,  false, false],
+    ['Down Payment',        pp - r.loanAmt,                          USD,  false, false],
+    ['Down Payment %',      pp > 0 ? (pp - r.loanAmt) / pp : 0,     PCT1, false, false],
+    ['Loan Amount',         r.loanAmt,                               USD,  false, false],
+    ['Interest Rate',       (+a.interestRate || 0) / 100,            PCT1, false, false],
+    ['Loan Term',           `${+a.amortYears || 30} years`,          null, false, false],
+    ['LTV',                 pp > 0 ? r.loanAmt / pp : 0,            PCT1, false, false],
+    ['Monthly P&I',         r.monthlyPayment,                       USD,  false, false],
+    ['Annual Debt Service', r.annualDebtService,                    USD,  false, false],
+    ['Closing Costs',       r.closingCostsTotal,                    USD,  false, false],
+    ['Seller Concessions',  +a.sellerConcessions || 0,              USD,  false, false],
+    ['PMI (Monthly)',       +a.pmi || 0,                             USD,  false, false],
+    ['Total Cash In',       r.totalCash,                             USD,  true,  true],
   ];
-  finRows.forEach(([lbl, val, fmt, accent], i) => {
-    const alt = i % 2 === 1;
-    set(ws1, 0, row, mkLabel(lbl));
-    set(ws1, 1, row, accent ? mkAccent(val, fmt) : mkVal(val, fmt, alt));
-    for (let c = 2; c <= 5; c++) set(ws1, c, row, mkBlank(alt ? ALT_ROW : WHITE));
-    m1(row,row, 1,5);
+  finRows.forEach(([lbl, val, fmt, isKpi, isSub], i) => {
+    dataRow(ws1, row, lbl, val, fmt, isKpi, i % 2 === 1, false, isSub);
+    mg1.push({ s: { r: row-1, c: 1 }, e: { r: row-1, c: COLS } });
     row++;
   });
   row++;
 
-  // ── SECTION: Income & Expenses ──────────────────────────────────────────
-  set(ws1, 0, row, mkTeal('INCOME & EXPENSES  (YEAR 1)'));
-  for (let c = 1; c <= 5; c++) set(ws1, c, row, { v: '', t: 's', s: { fill: fill(TEAL) } });
-  m1(row,row, 0,5);
+  // ── SECTION: Income & Expenses Year 1 ────────────────────────────────────
+  secRow(ws1, row, 'INCOME & EXPENSES  (YEAR 1)', mg1); row++;
+  W(ws1, 0, row, ColHdr('Line Item', 'left'));
+  W(ws1, 1, row, ColHdr('Annual Amount'));
+  for (let c = 2; c <= COLS; c++) W(ws1, c, row, { v: '', t: 's', s: { fill: fl(INK), border: { bottom: { style: 'thin', color: { rgb: TEAL } } } }});
+  mg1.push({ s: { r: row-1, c: 1 }, e: { r: row-1, c: COLS } });
   row++;
 
-  const incRows = [
-    ['Gross Rent (Annual)',       r.grossRentYear0,                              USD,  false],
-    ['Vacancy Rate',              (+a.vacancyRate || 5) / 100,                   PCT1, false],
-    ['Vacancy Loss',              yr1.vacancyLoss,                               USD,  false],
-    ['Effective Gross Income',    yr1.egi,                                       USD,  false],
-    ['  Property Tax',            expBrk.propertyTax || 0,                      USD,  false, true],
-    ['  Insurance',               expBrk.insurance   || 0,                      USD,  false, true],
-    ['  Maintenance',             expBrk.maintenance || 0,                      USD,  false, true],
-    ['  CapEx Reserve',           expBrk.capex        || 0,                     USD,  false, true],
-    ['  Property Management',     expBrk.propertyMgmt || 0,                     USD,  false, true],
-    ['  Utilities',               expBrk.utilities    || 0,                     USD,  false, true],
-    ['Total Operating Expenses',  r.baseExpenses,                                USD,  false],
-    ['Expense Ratio',             yr1.egi > 0 ? r.baseExpenses / yr1.egi : 0,  PCT1, false],
-    ['Net Operating Income',      r.noi,                                         USD,  true],
-    ['Annual Debt Service',       r.annualDebtService,                           USD,  false],
-    ['Annual Cash Flow',          yr1.cashFlow,                                  USD,  true],
-    ['Monthly Cash Flow',         yr1.monthlyCashFlow,                           USD,  true],
-    ['After-Tax Cash Flow (Yr1)', yr1.afterTaxCashFlow,                          USD,  false],
+  const incomeRows = [
+    ['Gross Scheduled Rent',    r.grossRentYear0,                          USD,  false, false, false],
+    ['Vacancy Loss',            yr1.vacancyLoss,                           USD,  false, false, false],
+    ['Effective Gross Income',  yr1.egi,                                   USD,  false, false, true],
+    ['  Property Tax',          expBrk.propertyTax || 0,                   USD,  false, false, false, true],
+    ['  Insurance',             expBrk.insurance   || 0,                   USD,  false, false, false, true],
+    ['  Maintenance',           expBrk.maintenance || 0,                   USD,  false, false, false, true],
+    ['  CapEx Reserve',         expBrk.capex        || 0,                  USD,  false, false, false, true],
+    ['  Property Management',   expBrk.propertyMgmt || 0,                  USD,  false, false, false, true],
+    ['  Utilities',             expBrk.utilities    || 0,                  USD,  false, false, false, true],
+    ['Total Operating Expenses',r.baseExpenses,                            USD,  false, false, true],
+    ['Expense Ratio (% of EGI)',yr1.egi > 0 ? r.baseExpenses / yr1.egi : 0, PCT1, false, false, false],
+    ['Net Operating Income',    r.noi,                                     USD,  true,  false, false],
+    ['Annual Debt Service',     r.annualDebtService,                       USD,  false, false, false],
+    ['Annual Cash Flow',        yr1.cashFlow,                              USD,  true,  false, false],
+    ['Monthly Cash Flow',       yr1.monthlyCashFlow,                       USD,  true,  false, false],
+    ['After-Tax Cash Flow',     yr1.afterTaxCashFlow,                      USD,  false, false, false],
   ];
-  incRows.forEach(([lbl, val, fmt, accent, indent], i) => {
-    const alt = i % 2 === 1;
-    const l = lbl.startsWith('  ') ? mkLabel(lbl.trim(), true) : mkLabel(lbl);
-    set(ws1, 0, row, l);
-    set(ws1, 1, row, accent ? mkAccent(val, fmt) : mkVal(val, fmt, alt));
-    for (let c = 2; c <= 5; c++) set(ws1, c, row, mkBlank(alt ? ALT_ROW : WHITE));
-    m1(row,row, 1,5);
+  incomeRows.forEach(([lbl, val, fmt, isKpi, _skip, isSub, indent], i) => {
+    const cleanLbl = lbl.startsWith('  ') ? lbl.trim() : lbl;
+    dataRow(ws1, row, cleanLbl, val, fmt, isKpi, i % 2 === 1, !!indent, isSub);
+    mg1.push({ s: { r: row-1, c: 1 }, e: { r: row-1, c: COLS } });
     row++;
   });
   row++;
 
-  // ── SECTION: Exit Analysis ──────────────────────────────────────────────
-  set(ws1, 0, row, mkTeal('EXIT ANALYSIS  (YEAR 10)'));
-  for (let c = 1; c <= 5; c++) set(ws1, c, row, { v: '', t: 's', s: { fill: fill(TEAL) } });
-  m1(row,row, 0,5);
+  // ── SECTION: Exit Analysis ─────────────────────────────────────────────────
+  secRow(ws1, row, 'EXIT ANALYSIS  (YEAR 10)', mg1); row++;
+  W(ws1, 0, row, ColHdr('Item', 'left'));
+  W(ws1, 1, row, ColHdr('Amount'));
+  for (let c = 2; c <= COLS; c++) W(ws1, c, row, { v: '', t: 's', s: { fill: fl(INK), border: { bottom: { style: 'thin', color: { rgb: TEAL } } } }});
+  mg1.push({ s: { r: row-1, c: 1 }, e: { r: row-1, c: COLS } });
   row++;
 
-  const cumCF = r.years.reduce((s, y) => s + (y.cashFlow || 0), 0);
   const exitRows = [
-    ['Projected Exit Value',     r.exitValue,        USD,  false],
-    ['Remaining Loan Balance',   r.exitLoanBalance,  USD,  false],
-    ['Total Gain on Sale',       r.totalGainOnSale,  USD,  false],
-    ['Capital Gains Tax',        r.capitalGainsTax,  USD,  false],
-    ['Net Sale Proceeds',        r.netProceeds,      USD,  true],
-    ['Cumulative Cash Flows',    cumCF,              USD,  false],
-    ['Total Return',             r.netProceeds + cumCF, USD, true],
+    ['Projected Exit Value',    r.exitValue,            USD,  false, false],
+    ['Remaining Loan Balance',  r.exitLoanBalance,      USD,  false, false],
+    ['Total Gain on Sale',      r.totalGainOnSale,      USD,  false, false],
+    ['Capital Gains Tax',       r.capitalGainsTax,      USD,  false, false],
+    ['Net Sale Proceeds',       r.netProceeds,          USD,  true,  false],
+    ['Cumulative Cash Flows',   cumCF,                  USD,  false, false],
+    ['Total Return',            r.netProceeds + cumCF,  USD,  true,  true],
   ];
-  exitRows.forEach(([lbl, val, fmt, accent], i) => {
-    const alt = i % 2 === 1;
-    set(ws1, 0, row, mkLabel(lbl));
-    set(ws1, 1, row, accent ? mkAccent(val, fmt) : mkVal(val, fmt, alt));
-    for (let c = 2; c <= 5; c++) set(ws1, c, row, mkBlank(alt ? ALT_ROW : WHITE));
-    m1(row,row, 1,5);
+  exitRows.forEach(([lbl, val, fmt, isKpi, isSub], i) => {
+    dataRow(ws1, row, lbl, val, fmt, isKpi, i % 2 === 1, false, isSub);
+    mg1.push({ s: { r: row-1, c: 1 }, e: { r: row-1, c: COLS } });
     row++;
   });
 
-  // ── FHA Self-Sufficiency (conditional) ─────────────────────────────────
+  // ── FHA Self-Sufficiency (conditional) ────────────────────────────────────
   if (r.fhaSelfSufficiency?.applies) {
     row++;
-    set(ws1, 0, row, mkTeal('FHA SELF-SUFFICIENCY TEST'));
-    for (let c = 1; c <= 5; c++) set(ws1, c, row, { v: '', t: 's', s: { fill: fill(TEAL) } });
-    m1(row,row, 0,5);
-    row++;
+    secRow(ws1, row, 'FHA SELF-SUFFICIENCY TEST', mg1); row++;
     const fha = r.fhaSelfSufficiency;
-    const fhaRows = [
+    [
       ['Gross Rents (All Units)', fha.grossRentAllUnits, USD],
       ['75% Threshold',           fha.threshold75Pct,    USD],
       ['PITI (Annual)',            fha.pitiAnnual,        USD],
       ['Surplus / (Shortfall)',    fha.delta,             USD],
-    ];
-    fhaRows.forEach(([lbl, val, fmt], i) => {
-      set(ws1, 0, row, mkLabel(lbl));
-      set(ws1, 1, row, mkVal(val, fmt, i % 2 === 1));
-      for (let c = 2; c <= 5; c++) set(ws1, c, row, mkBlank(i % 2 === 1 ? ALT_ROW : WHITE));
-      m1(row,row, 1,5);
+    ].forEach(([lbl, val, fmt], i) => {
+      dataRow(ws1, row, lbl, val, fmt, false, i % 2 === 1);
+      mg1.push({ s: { r: row-1, c: 1 }, e: { r: row-1, c: COLS } });
       row++;
     });
-    set(ws1, 0, row, mkLabel('Result'));
-    set(ws1, 1, row, mkPass(fha.passes, fha.passes ? 'PASS  ✓' : 'FAIL  ✗'));
-    for (let c = 2; c <= 5; c++) set(ws1, c, row, mkBlank(fha.passes ? LT_GREEN : LT_RED));
-    m1(row,row, 1,5);
+    W(ws1, 0, row, Lbl('Result'));
+    W(ws1, 1, row, PassFail(fha.passes));
+    for (let c = 2; c <= COLS; c++) W(ws1, c, row, Blank(fha.passes ? GREEN_BG : RED_BG));
+    mg1.push({ s: { r: row-1, c: 1 }, e: { r: row-1, c: COLS } });
     row++;
   }
 
-  // Disclaimer footer
+  // ── Disclaimer footer ──────────────────────────────────────────────────────
   row++;
-  set(ws1, 0, row, {
-    v: 'For informational purposes only. Not financial, legal, or tax advice. Consult qualified professionals before making investment decisions.  ·  renthack.io/legal/tos',
-    t: 's',
-    s: {
-      font:      { italic: true, color: { rgb: SLATE_LT }, sz: 8, name: 'Arial' },
-      fill:      fill(CREAM),
-      alignment: { horizontal: 'left', vertical: 'center', wrapText: true },
-    },
-  });
-  for (let c = 1; c <= 5; c++) set(ws1, c, row, mkBlank(CREAM));
-  m1(row,row, 0,5);
+  W(ws1, 0, row, { v: 'For informational purposes only. Not financial, legal, or tax advice. Projections are estimates only. Consult qualified professionals.  ·  renthack.io/legal/tos', t: 's', s: {
+    font: { italic: true, color: { rgb: SLATE_LT }, sz: 8, name: 'Calibri' },
+    fill: fl(OFF_WHITE), alignment: { horizontal: 'left', vertical: 'center', wrapText: true }
+  }});
+  for (let c = 1; c <= COLS; c++) W(ws1, c, row, Blank(OFF_WHITE));
+  mg1.push({ s: { r: row-1, c: 0 }, e: { r: row-1, c: COLS } });
 
-  ws1['!ref']  = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: row, c: 5 } });
-  ws1['!cols'] = [{ wch: 28 }, { wch: 16 }, { wch: 3 }, { wch: 28 }, { wch: 16 }, { wch: 3 }];
-  ws1['!rows'] = [{ hpt: 36 }, { hpt: 22 }, { hpt: 16 }]; // logo, address, badge rows
+  ws1['!ref']   = mkRef(row + 1);
+  ws1['!merges']= mg1;
+  ws1['!cols']  = colWidths;
+  ws1['!rows']  = [{ hpt: 38, customHeight: 1 }, { hpt: 26, customHeight: 1 }, { hpt: 18, customHeight: 1 }, { hpt: 8, customHeight: 1 }]; // logo, address, details, spacer
   XLSX.utils.book_append_sheet(wb, ws1, 'Deal Summary');
 
-  // ──────────────────────────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
   // SHEET 2 — 10-Year Projection
-  // ──────────────────────────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
   const ws2 = {};
-  ws2['!merges'] = [];
-  const m2 = (rs, re, cs, ce) => ws2['!merges'].push({ s: { r: rs-1, c: cs }, e: { r: re-1, c: ce } });
-  const YRS = r.years.length;
+  const mg2 = [];
+  const YRS = r.years.length; // 10
+  const cfCols = YRS + 1; // label col + 10 year cols
 
-  // Logo banner
-  set(ws2, 0, 1, { v: 'RENT', t: 's', s: { font: { bold: true, color: { rgb: WHITE }, sz: 14, name: 'Arial' }, fill: fill(NAVY), alignment: { horizontal: 'right', vertical: 'center' } } });
-  set(ws2, 1, 1, { v: 'HACK', t: 's', s: { font: { bold: true, color: { rgb: '2DD4BF' }, sz: 14, name: 'Arial' }, fill: fill(NAVY), alignment: { horizontal: 'left', vertical: 'center' } } });
-  for (let c = 2; c <= YRS; c++) set(ws2, c, 1, mkBlank(NAVY));
-  set(ws2, YRS, 1, { v: `10-Year Cash Flow Projection  ·  ${deal.address || ''}`, t: 's', s: { font: { italic: true, color: { rgb: SLATE_LT }, sz: 9, name: 'Arial' }, fill: fill(NAVY), alignment: { horizontal: 'right', vertical: 'center' } } });
+  // Logo banner row
+  W(ws2, 0, 1, { v: 'RENT', t: 's', s: { font: { bold: true, color: { rgb: WHITE }, sz: 16, name: 'Calibri' }, fill: fl(NAVY), alignment: { horizontal: 'right', vertical: 'center' } }});
+  W(ws2, 1, 1, { v: 'HACK', t: 's', s: { font: { bold: true, color: { rgb: TEAL_300 }, sz: 16, name: 'Calibri' }, fill: fl(NAVY), alignment: { horizontal: 'left', vertical: 'center' } }});
+  W(ws2, 2, 1, { v: '', t: 's', s: { fill: fl(TEAL) }});  // teal accent
+  W(ws2, 3, 1, { v: `10-Year Cash Flow Projection   ·   ${addr}`, t: 's', s: {
+    font: { italic: true, color: { rgb: SLATE_LT }, sz: 9, name: 'Calibri' },
+    fill: fl(NAVY), alignment: { horizontal: 'left', vertical: 'center' }
+  }});
+  for (let c = 4; c <= YRS; c++) W(ws2, c, 1, Blank(NAVY));
+  mg2.push({ s: { r: 0, c: 3 }, e: { r: 0, c: YRS } });
 
   // Year header row
-  set(ws2, 0, 2, mkNavy('', 10, 'left'));
+  W(ws2, 0, 2, { v: '', t: 's', s: { fill: fl(INK), border: { bottom: { style: 'thin', color: { rgb: TEAL } } } }});
   r.years.forEach((y, i) => {
-    set(ws2, i + 1, 2, {
-      v: `Year ${y.yr}`, t: 's',
-      s: {
-        font:      { bold: true, color: { rgb: WHITE }, sz: 10, name: 'Arial' },
-        fill:      fill(NAVY),
-        alignment: { horizontal: 'right', vertical: 'center' },
-        border:    borderBottom(TEAL),
-      },
-    });
+    W(ws2, i + 1, 2, { v: `Year ${y.yr}`, t: 's', s: {
+      font: { bold: true, color: { rgb: WHITE }, sz: 10, name: 'Calibri' },
+      fill: fl(INK), alignment: { horizontal: 'right', vertical: 'center' },
+      border: { bottom: { style: 'thin', color: { rgb: TEAL } } }
+    }});
   });
 
-  // Row definitions
-  const cfSections = [
-    { section: 'INCOME' },
-    { label: 'Gross Rent',          field: 'grossRent',        fmt: USD,  teal: false, bold: false },
-    { label: 'Vacancy Loss',        field: 'vacancyLoss',      fmt: USD,  teal: false, bold: false },
-    { label: 'Eff. Gross Income',   field: 'egi',              fmt: USD,  teal: false, bold: true  },
-    { section: 'EXPENSES & NOI' },
-    { label: 'Operating Expenses',  field: 'expenses',         fmt: USD,  teal: false, bold: false },
-    { label: 'Net Op. Income',      field: 'noi',              fmt: USD,  teal: true,  bold: true  },
-    { section: 'CASH FLOW' },
-    { label: 'Debt Service',        field: 'debtService',      fmt: USD,  teal: false, bold: false },
-    { label: 'Cash Flow',           field: 'cashFlow',         fmt: USD,  teal: true,  bold: true  },
-    { label: 'After-Tax Cash Flow', field: 'afterTaxCashFlow', fmt: USD,  teal: false, bold: false },
-    { section: 'RETURNS' },
-    { label: 'Cash-on-Cash',        field: 'cocReturn',        fmt: PCT1, teal: false, bold: false },
-    { label: 'Cap Rate',            field: 'capRate',          fmt: PCT1, teal: false, bold: false },
-    { label: 'DSCR',                field: 'dscr',             fmt: NUM2, teal: false, bold: false },
-    { section: 'EQUITY & VALUE' },
-    { label: 'Property Value',      field: 'propertyValue',    fmt: USD,  teal: false, bold: false },
-    { label: 'Loan Balance',        field: 'balance',          fmt: USD,  teal: false, bold: false },
-    { label: 'Equity',              field: 'equity',           fmt: USD,  teal: true,  bold: true  },
-    { section: 'TAX & DEPRECIATION' },
-    { label: 'Depreciation',        field: 'depreciation',     fmt: USD,  teal: false, bold: false },
-    { label: 'Tax Effect',          field: 'taxEffect',        fmt: USD,  teal: false, bold: false },
-    { label: 'Principal Paydown',   field: 'principalPaydown', fmt: USD,  teal: false, bold: false },
+  // Section + row definitions
+  const cfDefs = [
+    { sec: 'INCOME' },
+    { lbl: 'Gross Rent',           fld: 'grossRent',        fmt: USD,  kpi: false, sub: false },
+    { lbl: 'Vacancy Loss',         fld: 'vacancyLoss',      fmt: USD,  kpi: false, sub: false },
+    { lbl: 'Eff. Gross Income',    fld: 'egi',              fmt: USD,  kpi: false, sub: true  },
+    { sec: 'OPERATING EXPENSES' },
+    { lbl: 'Operating Expenses',   fld: 'expenses',         fmt: USD,  kpi: false, sub: false },
+    { lbl: 'Net Op. Income',       fld: 'noi',              fmt: USD,  kpi: true,  sub: false },
+    { sec: 'CASH FLOW' },
+    { lbl: 'Debt Service',         fld: 'debtService',      fmt: USD,  kpi: false, sub: false },
+    { lbl: 'Cash Flow',            fld: 'cashFlow',         fmt: USD,  kpi: true,  sub: false },
+    { lbl: 'After-Tax Cash Flow',  fld: 'afterTaxCashFlow', fmt: USD,  kpi: false, sub: false },
+    { sec: 'RETURNS' },
+    { lbl: 'Cash-on-Cash',         fld: 'cocReturn',        fmt: PCT1, kpi: false, sub: false },
+    { lbl: 'Cap Rate',             fld: 'capRate',          fmt: PCT1, kpi: false, sub: false },
+    { lbl: 'DSCR',                 fld: 'dscr',             fmt: N2,   kpi: false, sub: false },
+    { sec: 'EQUITY & VALUE' },
+    { lbl: 'Property Value',       fld: 'propertyValue',    fmt: USD,  kpi: false, sub: false },
+    { lbl: 'Loan Balance',         fld: 'balance',          fmt: USD,  kpi: false, sub: false },
+    { lbl: 'Equity',               fld: 'equity',           fmt: USD,  kpi: true,  sub: false },
+    { sec: 'TAX & DEPRECIATION' },
+    { lbl: 'Depreciation',         fld: 'depreciation',     fmt: USD,  kpi: false, sub: false },
+    { lbl: 'Tax Effect',           fld: 'taxEffect',        fmt: USD,  kpi: false, sub: false },
+    { lbl: 'Principal Paydown',    fld: 'principalPaydown', fmt: USD,  kpi: false, sub: false },
   ];
 
   let cfRow = 3;
   let cfAlt  = false;
-  cfSections.forEach(def => {
-    if (def.section) {
-      set(ws2, 0, cfRow, mkTeal(def.section));
-      for (let c = 1; c <= YRS; c++) {
-        set(ws2, c, cfRow, { v: '', t: 's', s: { fill: fill(TEAL) } });
-      }
+  cfDefs.forEach(def => {
+    if (def.sec) {
+      // Section header spans all year columns too
+      W(ws2, 0, cfRow, SecHdr(def.sec));
+      for (let c = 1; c <= YRS; c++) W(ws2, c, cfRow, { v: '', t: 's', s: { fill: fl(TEAL), border: { bottom: { style: 'medium', color: { rgb: NAVY } } } }});
       cfRow++;
       cfAlt = false;
       return;
     }
     // Row label
-    set(ws2, 0, cfRow, mkLabel(def.label));
-    // Year values
+    const lStyle = def.kpi
+      ? { font: { bold: true, color: { rgb: TEAL }, sz: 10, name: 'Calibri' },
+          fill: fl(TEAL_BG), alignment: { horizontal: 'left', vertical: 'center' },
+          border: { left: { style: 'medium', color: { rgb: TEAL } }, top: { style: 'thin', color: { rgb: TEAL } }, bottom: { style: 'thin', color: { rgb: TEAL } } } }
+      : def.sub
+      ? { font: { bold: true, color: { rgb: INK }, sz: 10, name: 'Calibri' },
+          fill: fl('EFF6FF'), alignment: { horizontal: 'left', vertical: 'center' },
+          border: { top: { style: 'thin', color: { rgb: 'BFDBFE' } }, bottom: { style: 'thin', color: { rgb: 'BFDBFE' } } } }
+      : { font: { color: { rgb: SLATE }, sz: 10, name: 'Calibri' },
+          fill: fl(cfAlt ? 'F1F5F9' : OFF_WHITE), alignment: { horizontal: 'left', vertical: 'center' } };
+    W(ws2, 0, cfRow, { v: def.lbl, t: 's', s: lStyle });
+
+    // Year value cells
     r.years.forEach((y, i) => {
-      const v = y[def.field] ?? 0;
-      const cell = def.teal ? mkAccent(v, def.fmt) :
-                   def.bold ? mkBold(v, def.fmt, cfAlt) :
-                              mkVal(v, def.fmt, cfAlt);
-      set(ws2, i + 1, cfRow, cell);
+      const v = y[def.fld] ?? 0;
+      const s = def.kpi
+        ? { font: { bold: true, color: { rgb: TEAL }, sz: 10, name: 'Calibri' },
+            fill: fl(TEAL_BG), alignment: { horizontal: 'right', vertical: 'center' },
+            border: { top: { style: 'thin', color: { rgb: TEAL } }, bottom: { style: 'thin', color: { rgb: TEAL } } } }
+        : def.sub
+        ? { font: { bold: true, color: { rgb: INK }, sz: 10, name: 'Calibri' },
+            fill: fl('EFF6FF'), alignment: { horizontal: 'right', vertical: 'center' },
+            border: { top: { style: 'thin', color: { rgb: 'BFDBFE' } }, bottom: { style: 'thin', color: { rgb: 'BFDBFE' } } } }
+        : { font: { color: { rgb: INK }, sz: 10, name: 'Calibri' },
+            fill: fl(cfAlt ? 'F1F5F9' : OFF_WHITE), alignment: { horizontal: 'right', vertical: 'center' } };
+      W(ws2, i + 1, cfRow, { v, t: 'n', z: def.fmt, s });
     });
     cfAlt = !cfAlt;
     cfRow++;
   });
 
-  ws2['!ref']  = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: cfRow, c: YRS } });
-  ws2['!cols'] = [{ wch: 22 }, ...Array(YRS).fill({ wch: 12 })];
-  ws2['!rows'] = [{ hpt: 30 }, { hpt: 20 }];
+  ws2['!ref']    = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: cfRow, c: YRS } });
+  ws2['!merges'] = mg2;
+  ws2['!cols']   = [{ wch: 24 }, ...Array(YRS).fill({ wch: 13 })];
+  ws2['!rows']   = [{ hpt: 32, customHeight: 1 }, { hpt: 22, customHeight: 1 }];
   ws2['!freeze'] = { xSplit: 1, ySplit: 2 };
   XLSX.utils.book_append_sheet(wb, ws2, '10-Year Projection');
 
-  // ──────────────────────────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
   // SHEET 3 — Assumptions
-  // ──────────────────────────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
   const ws3 = {};
-  ws3['!merges'] = [];
-  const m3 = (rs, re, cs, ce) => ws3['!merges'].push({ s: { r: rs-1, c: cs }, e: { r: re-1, c: ce } });
+  const mg3 = [];
   let ar = 1;
 
   // Logo banner
-  set(ws3, 0, 1, { v: 'RENT', t: 's', s: { font: { bold: true, color: { rgb: WHITE }, sz: 14, name: 'Arial' }, fill: fill(NAVY), alignment: { horizontal: 'right', vertical: 'center' } } });
-  set(ws3, 1, 1, { v: 'HACK', t: 's', s: { font: { bold: true, color: { rgb: '2DD4BF' }, sz: 14, name: 'Arial' }, fill: fill(NAVY), alignment: { horizontal: 'left', vertical: 'center' } } });
-  set(ws3, 2, 1, { v: `Assumptions  ·  ${deal.address || ''}`, t: 's', s: { font: { italic: true, color: { rgb: SLATE_LT }, sz: 9, name: 'Arial' }, fill: fill(NAVY), alignment: { horizontal: 'right', vertical: 'center' } } });
+  W(ws3, 0, 1, { v: 'RENT', t: 's', s: { font: { bold: true, color: { rgb: WHITE }, sz: 16, name: 'Calibri' }, fill: fl(NAVY), alignment: { horizontal: 'right', vertical: 'center' } }});
+  W(ws3, 1, 1, { v: 'HACK', t: 's', s: { font: { bold: true, color: { rgb: TEAL_300 }, sz: 16, name: 'Calibri' }, fill: fl(NAVY), alignment: { horizontal: 'left', vertical: 'center' } }});
+  W(ws3, 2, 1, { v: '', t: 's', s: { fill: fl(TEAL) }});
+  W(ws3, 3, 1, { v: `Assumptions   ·   ${addr}`, t: 's', s: { font: { italic: true, color: { rgb: SLATE_LT }, sz: 9 }, fill: fl(NAVY), alignment: { horizontal: 'left', vertical: 'center' } }});
+  for (let c = 4; c <= COLS; c++) W(ws3, c, 1, Blank(NAVY));
+  mg3.push({ s: { r: 0, c: 3 }, e: { r: 0, c: COLS } });
   ar = 2;
 
   const aHdr = (label) => {
-    set(ws3, 0, ar, mkTeal(label));
-    set(ws3, 1, ar, { v: '', t: 's', s: { fill: fill(TEAL) } });
-    set(ws3, 2, ar, { v: '', t: 's', s: { fill: fill(TEAL) } });
-    ar++;
-  };
-  const aRow = (lbl, val, fmt, alt = false) => {
-    set(ws3, 0, ar, mkLabel(lbl));
-    set(ws3, 1, ar, typeof val === 'number' ? mkVal(val, fmt, alt) : { v: val ?? '', t: 's', s: { font: { color: { rgb: NAVY }, sz: 10, name: 'Arial' }, fill: fill(alt ? ALT_ROW : WHITE), alignment: { horizontal: 'right', vertical: 'center' }, border: { bottom: { style: 'hair', color: { rgb: 'E2E8F0' } } } } });
-    set(ws3, 2, ar, mkBlank(alt ? ALT_ROW : WHITE));
+    W(ws3, 0, ar, SecHdr(label));
+    for (let c = 1; c <= COLS; c++) W(ws3, c, ar, { v: '', t: 's', s: { fill: fl(TEAL), border: { bottom: { style: 'medium', color: { rgb: NAVY } } } }});
+    mg3.push({ s: { r: ar-1, c: 0 }, e: { r: ar-1, c: COLS } });
     ar++;
   };
 
-  ar++;
+  let aAlt = false;
+  const aRow = (lbl, val, fmt) => {
+    W(ws3, 0, ar, Lbl(lbl));
+    const cell = typeof val === 'number'
+      ? Val(val, fmt, aAlt)
+      : { v: val ?? '', t: 's', s: { font: { color: { rgb: INK }, sz: 10, name: 'Calibri' }, fill: fl(aAlt ? 'F1F5F9' : WHITE), alignment: { horizontal: 'right', vertical: 'center' }, border: bdr('b', 'thin', 'E2E8F0') }};
+    W(ws3, 1, ar, cell);
+    for (let c = 2; c <= COLS; c++) W(ws3, c, ar, Blank(aAlt ? 'F1F5F9' : WHITE));
+    mg3.push({ s: { r: ar-1, c: 1 }, e: { r: ar-1, c: COLS } });
+    aAlt = !aAlt;
+    ar++;
+  };
+
+  ar++; // spacer after banner
   aHdr('PROPERTY');
-  aRow('Address',          deal.address || '');
-  aRow('Status',           deal.status  || '');
-  aRow('Number of Units',  +a.numUnits || 2);
-  aRow('Beds (total)',     +a.beds  || 0);
-  aRow('Baths (total)',    +a.baths || 0);
-  aRow('Square Footage',   +a.sqftTotal || 0, '#,##0', true);
-  aRow('Year Built',       +a.yearBuilt || 0);
-  aRow('Owner Occupied',   a.ownerOccupied ? 'Yes' : 'No');
+  aRow('Address',          deal.address || '—');
+  aRow('Status',           deal.status  || '—');
+  aRow('Number of Units',  +a.numUnits  || 2);
+  aRow('Beds / Baths',     a.beds ? `${a.beds} / ${a.baths || 0}` : '—');
+  aRow('Square Footage',   +a.sqftTotal || 0, INT);
+  aRow('Year Built',       a.yearBuilt  ? +a.yearBuilt : '—');
+  aRow('Owner-Occupied',   a.ownerOccupied ? 'Yes' : 'No');
   if (a.ownerOccupied) {
-    aRow('Owner Unit',           +a.ownerUnit + 1, null, true);
+    aRow('Owner Unit',           +a.ownerUnit + 1);
     aRow('OO Duration (yrs)',    +a.ownerOccupancyYears || 0);
-    aRow('Alternative Rent/mo', +a.alternativeRent || 0, USD, true);
+    aRow('Alternative Rent/mo', +a.alternativeRent || 0, USD);
   }
 
-  ar++;
   aHdr('FINANCING');
-  let alt3 = false;
-  [
-    ['Purchase Price',     pp,                                       USD],
-    ['Down Payment %',     (+a.downPaymentPct || 25) / 100,          PCT1],
-    ['Down Payment $',     pp - r.loanAmt,                           USD],
-    ['Interest Rate',      (+a.interestRate || 7) / 100,             PCT1],
-    ['Loan Term (years)',  +a.amortYears || 30,                      null],
-    ['Loan Amount',        r.loanAmt,                                USD],
-    ['LTV',                pp > 0 ? r.loanAmt / pp : 0,             PCT1],
-    ['Monthly P&I',        r.monthlyPayment,                        USD],
-    ['Closing Costs',      r.closingCostsTotal,                     USD],
-    ['Seller Concessions', +a.sellerConcessions || 0,               USD],
-    ['PMI (monthly)',      +a.pmi || 0,                              USD],
-    ['Total Cash In',      r.totalCash,                              USD],
-  ].forEach(([l, v, f]) => { aRow(l, v, f, alt3 = !alt3); });
+  aRow('Purchase Price',      pp,                                          USD);
+  aRow('Down Payment %',      (+a.downPaymentPct || 25) / 100,             PCT1);
+  aRow('Down Payment $',      pp - r.loanAmt,                              USD);
+  aRow('Loan Amount',         r.loanAmt,                                   USD);
+  aRow('Interest Rate',       (+a.interestRate || 7) / 100,                PCT1);
+  aRow('Loan Term',           `${+a.amortYears || 30} years`);
+  aRow('LTV',                 pp > 0 ? r.loanAmt / pp : 0,                PCT1);
+  aRow('Monthly P&I',         r.monthlyPayment,                           USD);
+  aRow('Closing Costs',       r.closingCostsTotal,                        USD);
+  aRow('Seller Concessions',  +a.sellerConcessions || 0,                  USD);
+  aRow('PMI (monthly)',       +a.pmi || 0,                                 USD);
+  aRow('Total Cash In',       r.totalCash,                                 USD);
 
-  ar++;
   aHdr('UNIT RENTS');
   const units = (a.units || []).slice(0, +a.numUnits || 2);
-  alt3 = false;
   units.forEach((u, i) => {
     const isOwner = a.ownerOccupied && +a.ownerUnit === i;
-    aRow(`Unit ${i + 1} Rent${isOwner ? ' (Owner-Occupied)' : ''}`, +(u.rent || u.listedRent) || 0, USD, alt3 = !alt3);
+    aRow(`Unit ${i + 1}${isOwner ? ' (Owner-Occupied)' : ''}`, +(u.rent || u.listedRent) || 0, USD);
   });
   aRow('Total Annual Rent', r.grossRentYear0, USD);
 
-  ar++;
-  aHdr('GROWTH & ANALYSIS RATES');
-  alt3 = false;
-  [
-    ['Vacancy Rate',         (+a.vacancyRate    || 5) / 100, PCT1],
-    ['Rent Growth / yr',     (+a.rentGrowth     || 3) / 100, PCT1],
-    ['Expense Growth / yr',  (+a.expenseGrowth  || 3) / 100, PCT1],
-    ['Appreciation / yr',    (+a.appreciationRate || 4) / 100, PCT1],
-    ['Tax Bracket',          (+a.taxBracket     || 24) / 100, PCT1],
-  ].forEach(([l, v, f]) => { aRow(l, v, f, alt3 = !alt3); });
+  aHdr('GROWTH & ANALYSIS');
+  aRow('Vacancy Rate',          (+a.vacancyRate     || 5) / 100,  PCT1);
+  aRow('Rent Growth / yr',      (+a.rentGrowth      || 3) / 100,  PCT1);
+  aRow('Expense Growth / yr',   (+a.expenseGrowth   || 3) / 100,  PCT1);
+  aRow('Appreciation / yr',     (+a.appreciationRate || 4) / 100, PCT1);
+  aRow('Income Tax Bracket',    (+a.taxBracket      || 24) / 100, PCT1);
 
-  ar++;
   aHdr('ANNUAL EXPENSES');
-  alt3 = false;
-  [
-    ['Property Tax',        expBrk.propertyTax || 0, USD],
-    ['Insurance',           expBrk.insurance   || 0, USD],
-    ['Maintenance',         expBrk.maintenance || 0, USD],
-    ['CapEx Reserve',       expBrk.capex        || 0, USD],
-    ['Property Management', expBrk.propertyMgmt || 0, USD],
-    ['Utilities',           expBrk.utilities    || 0, USD],
-    ['Total Expenses',      r.baseExpenses,           USD],
-  ].forEach(([l, v, f]) => { aRow(l, v, f, alt3 = !alt3); });
+  aRow('Property Tax',          expBrk.propertyTax  || 0, USD);
+  aRow('Insurance',             expBrk.insurance    || 0, USD);
+  aRow('Maintenance',           expBrk.maintenance  || 0, USD);
+  aRow('CapEx Reserve',         expBrk.capex         || 0, USD);
+  aRow('Property Management',   expBrk.propertyMgmt  || 0, USD);
+  aRow('Utilities',             expBrk.utilities     || 0, USD);
+  aRow('Total Expenses',        r.baseExpenses,            USD);
 
   if (a.refi?.enabled) {
-    ar++;
     aHdr('REFINANCE SCENARIO');
-    alt3 = false;
-    [
-      ['Refi Year',       +a.refi.year   || 5,           null],
-      ['New Rate',        (+a.refi.newRate || 6) / 100,  PCT1],
-      ['New LTV',         (+a.refi.newLTV || 75) / 100,  PCT1],
-    ].forEach(([l, v, f]) => { aRow(l, v, f, alt3 = !alt3); });
+    aRow('Refi Year',  +a.refi.year   || 5);
+    aRow('New Rate',   (+a.refi.newRate || 6) / 100,  PCT1);
+    aRow('New LTV',    (+a.refi.newLTV  || 75) / 100, PCT1);
   }
 
   if (a.valueAdd?.enabled) {
-    ar++;
     aHdr('VALUE-ADD SCENARIO');
-    alt3 = false;
-    [
-      ['Renovation Cost',    +a.valueAdd.reModelCost    || 0, USD],
-      ['Rent Bump / Unit',   +a.valueAdd.rentBumpPerUnit || 0, USD],
-      ['Units Renovated',    +a.valueAdd.unitsRenovated || 0,  null],
-      ['Completion Year',    +a.valueAdd.completionYear || 1,  null],
-      ['IRR without VA',     r.irrWithoutVA,                  PCT1],
-      ['IRR with VA',        r.irrWithVA,                     PCT1],
-    ].forEach(([l, v, f]) => { aRow(l, v, f, alt3 = !alt3); });
+    aRow('Renovation Cost',       +a.valueAdd.reModelCost     || 0, USD);
+    aRow('Rent Bump / Unit',      +a.valueAdd.rentBumpPerUnit  || 0, USD);
+    aRow('Units Renovated',       +a.valueAdd.unitsRenovated  || 0);
+    aRow('Completion Year',       +a.valueAdd.completionYear  || 1);
+    aRow('IRR without Value-Add', r.irrWithoutVA,                  PCT1);
+    aRow('IRR with Value-Add',    r.irrWithVA,                     PCT1);
   }
 
-  ws3['!ref']  = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: ar + 1, c: 2 } });
-  ws3['!cols'] = [{ wch: 28 }, { wch: 18 }, { wch: 3 }];
-  ws3['!rows'] = [{ hpt: 30 }];
+  ws3['!ref']    = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: ar + 1, c: COLS } });
+  ws3['!merges'] = mg3;
+  ws3['!cols']   = colWidths;
+  ws3['!rows']   = [{ hpt: 32, customHeight: 1 }];
   ws3['!freeze'] = { xSplit: 0, ySplit: 2 };
   XLSX.utils.book_append_sheet(wb, ws3, 'Assumptions');
 
-  // ── Write & download ──────────────────────────────────────────────────────
+  // ─── Write & download ─────────────────────────────────────────────────────
   const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array', cellStyles: true });
   const blob  = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url   = URL.createObjectURL(blob);
