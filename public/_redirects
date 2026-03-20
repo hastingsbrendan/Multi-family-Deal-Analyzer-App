@@ -1,0 +1,5 @@
+# Blog post routes — serve static HTML before SPA fallback
+/blog/what-is-house-hacking  /blog/what-is-house-hacking.html  200
+
+# SPA fallback — all other routes go to the React app
+/*  /index.html  200
