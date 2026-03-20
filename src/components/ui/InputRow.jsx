@@ -19,7 +19,32 @@ function parseInputValue(str) {
   return str.replace(/,/g,"");
 }
 
-function InputRow({label,value,onChange,type="number",prefix,suffix}){
+// Tip — inline tooltip icon with hover/tap popover. Import and use anywhere.
+// Usage: <Tip text="Plain-English explanation of this field." />
+function Tip({text}) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <span style={{position:'relative',display:'inline-flex',alignItems:'center',marginLeft:4,flexShrink:0}}
+      onMouseEnter={()=>setOpen(true)} onMouseLeave={()=>setOpen(false)}
+      onClick={e=>{e.stopPropagation();setOpen(v=>!v);}}>
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style={{color:'var(--muted)',display:'block',cursor:'help'}}>
+        <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5"/>
+        <text x="8" y="12" textAnchor="middle" fontSize="10" fill="currentColor" fontWeight="700">?</text>
+      </svg>
+      {open&&(
+        <span style={{position:'absolute',bottom:'calc(100% + 6px)',left:'50%',transform:'translateX(-50%)',
+          background:'var(--card)',border:'1px solid var(--border)',borderRadius:8,
+          padding:'8px 11px',width:230,zIndex:9999,
+          boxShadow:'0 4px 16px rgba(0,0,0,0.18)',pointerEvents:'none',
+          fontSize:11,color:'var(--text)',lineHeight:1.55,fontWeight:400,whiteSpace:'normal',display:'block'}}>
+          {text}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function InputRow({label,value,onChange,type="number",prefix,suffix,tip}){
   const isMobile=useIsMobile();
   const [focused,setFocused]=useState(false);
   const isNumeric = type==="number";
@@ -39,9 +64,9 @@ function InputRow({label,value,onChange,type="number",prefix,suffix}){
       style={{...iSty,fontSize:14}}
     />
   );
-  if(isMobile){return(<div style={{padding:"10px 0",borderBottom:"1px solid var(--border-faint)"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><label style={{fontSize:13,color:"var(--muted)",fontWeight:600}}>{label}</label></div><div style={{display:"flex",alignItems:"center",gap:4}}>{prefix&&<span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap",flexShrink:0}}>{prefix}</span>}{inputEl(true)}{suffix&&<span style={{fontSize:12,color:"var(--muted)",whiteSpace:"nowrap",flexShrink:0,marginLeft:2}}>{suffix}</span>}</div></div>);}
-  return(<div style={{display:"grid",gridTemplateColumns:"200px 1fr",gap:8,alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--border-faint)"}}><label style={{fontSize:13,color:"var(--muted)",fontWeight:500}}>{label}</label><div style={{display:"flex",alignItems:"center",gap:4}}>{prefix&&<span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap"}}>{prefix}</span>}{inputEl(false)}{suffix&&<span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap"}}>{suffix}</span>}</div></div>);
+  if(isMobile){return(<div style={{padding:"10px 0",borderBottom:"1px solid var(--border-faint)"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><label style={{fontSize:13,color:"var(--muted)",fontWeight:600,display:"flex",alignItems:"center"}}>{label}{tip&&<Tip text={tip}/>}</label></div><div style={{display:"flex",alignItems:"center",gap:4}}>{prefix&&<span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap",flexShrink:0}}>{prefix}</span>}{inputEl(true)}{suffix&&<span style={{fontSize:12,color:"var(--muted)",whiteSpace:"nowrap",flexShrink:0,marginLeft:2}}>{suffix}</span>}</div></div>);}
+  return(<div style={{display:"grid",gridTemplateColumns:"200px 1fr",gap:8,alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--border-faint)"}}><label style={{fontSize:13,color:"var(--muted)",fontWeight:500,display:"flex",alignItems:"center"}}>{label}{tip&&<Tip text={tip}/>}</label><div style={{display:"flex",alignItems:"center",gap:4}}>{prefix&&<span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap"}}>{prefix}</span>}{inputEl(false)}{suffix&&<span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap"}}>{suffix}</span>}</div></div>);
 }
 
-export { fmtInputDisplay, parseInputValue, iSty, srcSty, btnSm };
+export { fmtInputDisplay, parseInputValue, iSty, srcSty, btnSm, Tip };
 export default InputRow;

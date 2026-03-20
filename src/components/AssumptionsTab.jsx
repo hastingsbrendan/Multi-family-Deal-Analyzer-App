@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { FMT_USD, FMT_PCT, mapsUrl, RENTCAST_KEY, sbClient, SB_BUCKET } from '../lib/constants';;
 import { resolveExpenses } from '../lib/calc';
 import { useIsMobile } from '../lib/hooks';
-import InputRow, { iSty, btnSm, srcSty, fmtInputDisplay, parseInputValue } from './ui/InputRow';
+import InputRow, { iSty, btnSm, srcSty, fmtInputDisplay, parseInputValue, Tip } from './ui/InputRow';
 import { getFloodZoneForAddress, floodZoneInfo } from '../lib/floodZone';
 import Section from './ui/Section';
 import { getStateOptions } from '../lib/taxEngine';
@@ -27,7 +27,7 @@ function FmtInt({value, onChange, placeholder, style}) {
   );
 }
 
-function ExpenseInputRow({lbl, modeToggle, isItemPct, rawVal, onChange, mobile}) {
+function ExpenseInputRow({lbl, modeToggle, isItemPct, rawVal, onChange, mobile, tip}) {
   const [focused, setFocused] = useState(false);
   const displayVal = focused
     ? (String(rawVal)==="0"||rawVal===0?"":String(rawVal).replace(/,/g,""))
@@ -36,7 +36,7 @@ function ExpenseInputRow({lbl, modeToggle, isItemPct, rawVal, onChange, mobile})
   if(mobile){return(
     <div style={{padding:"10px 0",borderBottom:"1px solid var(--border-faint)"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-        <label style={{fontSize:13,color:"var(--muted)",fontWeight:600}}>{lbl}</label>{modeToggle}
+        <label style={{fontSize:13,color:"var(--muted)",fontWeight:600,display:"flex",alignItems:"center"}}>{lbl}{tip&&<Tip text={tip}/>}</label>{modeToggle}
       </div>
       <div style={{display:"flex",alignItems:"center",gap:4}}>
         {!isItemPct&&<span style={{fontSize:13,color:"var(--muted)"}}>$</span>}
@@ -47,7 +47,7 @@ function ExpenseInputRow({lbl, modeToggle, isItemPct, rawVal, onChange, mobile})
   );}
   return(
     <div style={{display:"grid",gridTemplateColumns:"200px auto 1fr",gap:8,alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--border-faint)"}}>
-      <label style={{fontSize:13,color:"var(--muted)",fontWeight:500}}>{lbl}</label>
+      <label style={{fontSize:13,color:"var(--muted)",fontWeight:500,display:"flex",alignItems:"center"}}>{lbl}{tip&&<Tip text={tip}/>}</label>
       {modeToggle}
       <div style={{display:"flex",alignItems:"center",gap:4}}>
         {!isItemPct&&<span style={{fontSize:13,color:"var(--muted)"}}>$</span>}
@@ -373,6 +373,13 @@ function AssumptionsTab({deal,onChange}){
 
   const grossRentYear0=a.units.slice(0,a.numUnits).reduce((s,u)=>s+(+u.rent||0)*12,0);
   const expFields=[["propertyTax","propertyTaxPct","Property Tax"],["maintenance","maintenancePct","Maintenance"],["capex","capexPct","CapEx Reserve"],["propertyMgmt","propertyMgmtPct","Property Management"],["utilities","utilitiesPct","Utilities"]];
+  const expTips={
+    propertyTax:"Annual property tax bill. Check your county assessor's website for the actual amount — it's often lower than the listing estimate.",
+    maintenance:"Ongoing repairs like plumbing leaks, appliances, and paint. Rule of thumb: 1% of purchase price per year, split across units.",
+    capex:"Capital expenditure reserve — saving now for big-ticket replacements (roof, HVAC, water heater). Typically 1–1.5% of purchase price/yr.",
+    propertyMgmt:"Fee paid to a property manager, usually 8–10% of collected rent. Set to $0 if you self-manage.",
+    utilities:"Owner-paid utilities like water, trash, or common-area electric. Typically $0 if each unit has separate meters.",
+  };
   return(<div style={{padding:"16px 0"}}>
     <PropertyLookupPanel deal={deal} onChange={onChange}/>
     <Section title="Property Details">
@@ -658,7 +665,7 @@ function AssumptionsTab({deal,onChange}){
               </div>
             );
           })()}
-          <InputRow label="Seller Concessions" value={a.sellerConcessions} onChange={v=>upd("sellerConcessions",v)} prefix="$"/>
+          <InputRow label="Seller Concessions" value={a.sellerConcessions} onChange={v=>upd("sellerConcessions",v)} prefix="$" tip="Credits the seller pays toward your closing costs. Reduces your cash needed at closing but may affect the purchase price in the contract."/>
           {/* Property Insurance + PMI — side by side */}
           {(()=>{
             const fldSt={width:"100%",padding:"8px 10px",borderRadius:10,fontSize:14,border:"1.5px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit",WebkitAppearance:"none",appearance:"none"};
@@ -750,7 +757,7 @@ function AssumptionsTab({deal,onChange}){
         </div>);
       })}
       <div style={{fontSize:13,color:"var(--accent)",fontWeight:700,padding:"6px 0"}}>Blended Monthly Avg: {FMT_USD(a.units.slice(0,a.numUnits).reduce((s,u)=>s+(+(u.rent||u.listedRent)||0),0)/a.numUnits)} / unit</div>
-      <InputRow label="Vacancy Rate" value={a.vacancyRate} onChange={v=>upd("vacancyRate",v)} suffix="%"/>
+      <InputRow label="Vacancy Rate" value={a.vacancyRate} onChange={v=>upd("vacancyRate",v)} suffix="%" tip="The % of the year each unit sits empty between tenants. 5% is roughly 18 days/yr — a common starting point for stable markets."/>
     </Section>
     <Section title="Expenses" action={<label style={{fontSize:12,color:"var(--muted)",display:"flex",gap:6,alignItems:"center",cursor:"pointer"}}><input type="checkbox" checked={a.selfManage} onChange={e=>upd("selfManage",e.target.checked)}/> Self-manage</label>}>
       {expFields.map(([vk,pk,lbl])=>{
@@ -780,9 +787,9 @@ function AssumptionsTab({deal,onChange}){
         const expKey=isItemPct?pk:vk;
         const expRawVal=isItemPct?a.expenses[pk]:a.expenses[vk];
         if(isMobile){
-          return(<ExpenseInputRow key={vk} lbl={lbl} modeToggle={modeToggle} isItemPct={isItemPct} rawVal={expRawVal} onChange={v=>upd(`expenses.${expKey}`,v)} mobile/>);
+          return(<ExpenseInputRow key={vk} lbl={lbl} tip={expTips[vk]} modeToggle={modeToggle} isItemPct={isItemPct} rawVal={expRawVal} onChange={v=>upd(`expenses.${expKey}`,v)} mobile/>);
         }
-        return(<ExpenseInputRow key={vk} lbl={lbl} modeToggle={modeToggle} isItemPct={isItemPct} rawVal={expRawVal} onChange={v=>upd(`expenses.${expKey}`,v)}/>);
+        return(<ExpenseInputRow key={vk} lbl={lbl} tip={expTips[vk]} modeToggle={modeToggle} isItemPct={isItemPct} rawVal={expRawVal} onChange={v=>upd(`expenses.${expKey}`,v)}/>);
       })}
       {/* HOA — always a fixed annual dollar amount; auto-populated from Rentcast when available */}
       <InputRow
@@ -914,7 +921,7 @@ function AssumptionsTab({deal,onChange}){
           return(
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,padding:"6px 0",borderBottom:"1px solid var(--border-faint)"}}>
               <div>
-                <label style={lblSt}>Alternative Rent</label>
+                <label style={{...lblSt,display:"flex",alignItems:"center"}}>Alternative Rent<Tip text="What you'd pay to rent a comparable place if you didn't buy. Used to calculate your true cost of owning vs. renting — the Incremental Cash Flow metric."/></label>
                 <div style={{display:"flex",alignItems:"center",gap:4}}>
                   <span style={{fontSize:13,color:"var(--muted)"}}>$</span>
                   <input type="text" inputMode="decimal" value={a.alternativeRent||""} placeholder="0"
@@ -924,7 +931,7 @@ function AssumptionsTab({deal,onChange}){
                 </div>
               </div>
               <div>
-                <label style={lblSt}>Owner Use Utilities</label>
+                <label style={{...lblSt,display:"flex",alignItems:"center"}}>Owner Use Utilities<Tip text="Utilities you pay for your own unit (e.g. heat, water). Treated as a cost of occupancy rather than an investment expense."/></label>
                 <div style={{display:"flex",alignItems:"center",gap:4}}>
                   <span style={{fontSize:13,color:"var(--muted)"}}>$</span>
                   <input type="text" inputMode="decimal" value={a.ownerUseUtilities||""} placeholder="0"
@@ -945,9 +952,9 @@ function AssumptionsTab({deal,onChange}){
       {(()=>{
         const fldSt={width:"100%",padding:"8px 10px",borderRadius:10,fontSize:14,border:"1.5px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit",WebkitAppearance:"none",appearance:"none"};
         const lblSt={fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4,display:"block"};
-        const Col = ({label,value,path,suffix}) => (
+        const Col = ({label,value,path,suffix,tip}) => (
           <div>
-            <label style={lblSt}>{label}</label>
+            <label style={{...lblSt,display:"flex",alignItems:"center"}}>{label}{tip&&<Tip text={tip}/>}</label>
             <div style={{display:"flex",alignItems:"center",gap:4}}>
               <input type="text" inputMode="decimal" value={value||""} placeholder="0"
                 onChange={e=>upd(path,e.target.value.replace(/,/g,""))}
@@ -958,11 +965,11 @@ function AssumptionsTab({deal,onChange}){
         );
         return(<>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,paddingBottom:8,borderBottom:"1px solid var(--border-faint)",marginBottom:4}}>
-            <Col label="Rent Growth" value={a.rentGrowth} path="rentGrowth" suffix="%/yr"/>
-            <Col label="Expense Growth" value={a.expenseGrowth} path="expenseGrowth" suffix="%/yr"/>
-            <Col label="Appreciation" value={a.appreciationRate} path="appreciationRate" suffix="%/yr"/>
+            <Col label="Rent Growth" value={a.rentGrowth} path="rentGrowth" suffix="%/yr" tip="Annual % increase in rents over the 10-year hold. Historical multifamily rent growth averages ~3–4%/yr in most US markets."/>
+            <Col label="Expense Growth" value={a.expenseGrowth} path="expenseGrowth" suffix="%/yr" tip="Annual % increase in operating expenses (taxes, insurance, maintenance). Typically tracks inflation — 2–3%/yr is realistic."/>
+            <Col label="Appreciation" value={a.appreciationRate} path="appreciationRate" suffix="%/yr" tip="Annual % increase in the property's value. Used to project your equity at sale. Conservative assumption: 3–4%/yr; be careful not to over-assume."/>
           </div>
-          <InputRow label="Federal Tax Bracket" value={a.taxBracket} onChange={v=>upd("taxBracket",v)} suffix="%"/>
+          <InputRow label="Federal Tax Bracket" value={a.taxBracket} onChange={v=>upd("taxBracket",v)} suffix="%" tip="Your marginal federal income tax rate. Used to estimate the tax benefit of mortgage interest and depreciation deductions."/>
         </>);
       })()}
     </Section>

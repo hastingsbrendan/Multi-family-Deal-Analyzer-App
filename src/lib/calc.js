@@ -439,7 +439,20 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
   const breakEvenOccupancy=grossRentYear0>0?(annualDebtService+baseExpenses)/grossRentYear0:0;
   let irrWithoutVA=irr,irrWithVA=irr;
   if(vaEnabled){const d2=JSON.parse(JSON.stringify(deal));d2.assumptions.valueAdd={...va,enabled:false};irrWithoutVA=calcDeal(d2,{_isRecursive:true}).irr;irrWithVA=irr;}
-  return {totalCash:totalCashWithVA,totalCashBase:totalCash,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExpenses,baseExpBreakdown:baseExp,noi:years[0]?.noi||0,cocReturn:years[0]?.cocReturn||0,capRate:years[0]?.capRate||0,dscr:years[0]?.dscr||0,dscrLenderView:years[0]?.dscrLenderView||0,irr,equityMultiple,breakEvenOccupancy,exitValue,exitLoanBalance,totalGainOnSale,sec1250RecapturePortion,trueLTCGPortion,recaptureTax,ltcgTax,palTaxBenefit,netTaxOnSale,netProceeds,capitalGainsTax,years,refiCashOut,refiYear:refiEnabled?refiYear:null,vaEnabled,vaReModelCost,vaRentBump,vaCompletionYr,irrWithoutVA,irrWithVA,ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,taxAdvEnabled,finalPalCarryforward,cumulativeDepreciationTaken};
+  // ── FHA Self-Sufficiency Test (BACK-062) ─────────────────────────────────────
+  // Applies to 3–4 unit properties only. HUD rule: 75% of gross rents from ALL
+  // units (including owner unit) must >= PITI. Ref: HUD Handbook 4000.1 §II.A.4.b.iv
+  const fhaSelfSufficiency = (() => {
+    if (a.numUnits < 3) return { applies: false };
+    const grossRentAllUnits = a.units.slice(0, a.numUnits).reduce((s, u) => s + (+(u.rent||u.listedRent)||0) * 12, 0);
+    const pitiAnnual = annualDebtService + (baseExp.propertyTax||0) + (baseExp.insurance||0);
+    const threshold75Pct = grossRentAllUnits * 0.75;
+    const passes = threshold75Pct >= pitiAnnual;
+    const delta = threshold75Pct - pitiAnnual; // positive = surplus, negative = shortfall
+    return { applies: true, grossRentAllUnits, threshold75Pct, pitiAnnual, passes, delta };
+  })();
+
+  return {totalCash:totalCashWithVA,totalCashBase:totalCash,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExpenses,baseExpBreakdown:baseExp,noi:years[0]?.noi||0,cocReturn:years[0]?.cocReturn||0,capRate:years[0]?.capRate||0,dscr:years[0]?.dscr||0,dscrLenderView:years[0]?.dscrLenderView||0,irr,equityMultiple,breakEvenOccupancy,exitValue,exitLoanBalance,totalGainOnSale,sec1250RecapturePortion,trueLTCGPortion,recaptureTax,ltcgTax,palTaxBenefit,netTaxOnSale,netProceeds,capitalGainsTax,years,refiCashOut,refiYear:refiEnabled?refiYear:null,vaEnabled,vaReModelCost,vaRentBump,vaCompletionYr,irrWithoutVA,irrWithVA,ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,taxAdvEnabled,finalPalCarryforward,cumulativeDepreciationTaken,fhaSelfSufficiency};
 }
 
 function calcSensitivity(deal) {
@@ -459,6 +472,53 @@ function calcSensitivity(deal) {
   });
 }
 
+// ─── SAMPLE DEAL ──────────────────────────────────────────────────────────────
+// Returns a pre-filled duplex used as the first-login welcome deal.
+// Realistic Chicago-area numbers; owner-occupied; positive cash flow after rent.
+const createSampleDeal = (prefs) => {
+  const d = newDeal(prefs);
+  d.address    = '123 Maple St, Chicago, IL 60614';
+  d.status     = 'Analyzing';
+  d._isSample  = true; // flag so we can avoid re-creating on subsequent logins
+
+  const a = d.assumptions;
+  a.purchasePrice  = 340000;
+  a.downPaymentPct = 10;
+  a.interestRate   = 6.8;
+  a.amortYears     = 30;
+  a.numUnits       = 2;
+
+  // Both units have rent set — calc engine deducts owner unit via OO logic
+  a.units[0].rent = 1550;  // owner unit market rate (calc deducts this during OO years)
+  a.units[1].rent = 1550;  // tenant unit
+
+  a.ownerOccupied       = true;
+  a.ownerUnit           = 0;
+  a.ownerOccupancyYears = 2;
+  a.alternativeRent     = 1700; // comparable rental nearby — offsets negative CF
+
+  a.vacancyRate = 5;
+
+  // Expenses — realistic for a Chicago 2-flat
+  a.expenseModes.propertyTax = 'value';
+  a.expenseModes.insurance   = 'value';
+  a.expenses.propertyTax  = 5800;
+  a.expenses.insurance    = 1600;
+  a.expenses.maintenance  = 2200;
+  a.expenses.capex        = 2200;
+  a.expenses.propertyMgmt = 0;   // self-managed
+  a.expenses.utilities    = 0;
+
+  a.rentGrowth       = 3;
+  a.expenseGrowth    = 2;
+  a.appreciationRate = 4;
+  a.taxBracket       = 22;
+
+  a.beds = 4; a.baths = 2; a.yearBuilt = 1965; a.sqftTotal = 2400;
+
+  return d;
+};
+
 // ─── CSV EXPORT ───────────────────────────────────────────────────────────────
 
-export { DEFAULT_PREFS, newDeal, resolveExpenses, calcDeal, calcSensitivity };
+export { DEFAULT_PREFS, newDeal, createSampleDeal, resolveExpenses, calcDeal, calcSensitivity };
