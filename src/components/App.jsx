@@ -10,6 +10,7 @@ import { useCloudSync } from '../lib/useCloudSync';
 import { TrialBanner } from './UpgradeModal';
 import { FeedbackModal } from './FeedbackModal';
 import UndoToast from './ui/UndoToast';
+import DisclaimerModal from './DisclaimerModal';
 
 // Core views — always needed on first load
 import AuthScreen from './AuthScreen';
@@ -58,6 +59,8 @@ function App() {
   const [activeDealId, setActiveDealId] = useState(null);
   const [portfolioFilter, setPortfolioFilter] = useState("All");
   const isOnline = useOnlineStatus();
+  const isMobile = useIsMobile();
+  const showDisclaimer = user && !user.user_metadata?.disclaimer_ack_at;
 
   const { deals, setDeals, syncStatus, syncError, lastSyncedAt, forceRefresh, setLastCloudUpdate, markDealDirty } = useCloudSync(user, isOnline);
 
@@ -303,6 +306,7 @@ function App() {
             onBack={()=>setShowAppSettings(false)}
             onEditProfile={()=>{setShowAppSettings(false); setShowProfile(true);}}
             onSignOut={handleSignOut}
+            deals={deals}
           />
         </Suspense>
       </div>
@@ -352,6 +356,11 @@ function App() {
 
   return(
     <div data-theme={theme} style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
+      {showDisclaimer && (
+        <DisclaimerModal user={user} onAcknowledged={() => {
+          sbClient.auth.getUser().then(({ data }) => { if (data?.user) setUser(data.user); });
+        }}/>
+      )}
       <div style={{borderBottom:"1px solid var(--border)",padding:"0 20px",height:60,display:"flex",alignItems:"center",justifyContent:"space-between",background:dark?"var(--card)":"rgba(253,250,246,0.95)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",position:"sticky",top:0,zIndex:100}}>
         {/* Left: logo + breadcrumb */}
         <div style={{display:"flex",alignItems:"center",gap:10,flex:"0 0 auto"}}>
@@ -539,6 +548,16 @@ function App() {
           </Suspense>
         )}
       </div>
+      {!isMobile && (
+        <div style={{borderTop:'1px solid var(--border)',padding:'7px 20px',background:dark?'var(--card)':'rgba(253,250,246,0.95)',textAlign:'center',position:'sticky',bottom:0,zIndex:50}}>
+          <span style={{fontSize:10,color:'var(--muted)',lineHeight:1.5}}>
+            For informational purposes only. Not financial, legal, or tax advice. Consult qualified professionals before making investment decisions.{' '}
+            <a href="/legal/tos.html" target="_blank" style={{color:'var(--muted)',textDecoration:'underline'}}>Terms</a>
+            {' · '}
+            <a href="/legal/privacy.html" target="_blank" style={{color:'var(--muted)',textDecoration:'underline'}}>Privacy</a>
+          </span>
+        </div>
+      )}
     </div>
   );
 }
