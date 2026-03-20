@@ -36,6 +36,7 @@ function exportDealPDF(deal, user) {
   const BODY_W  = BODY_R - BODY_L;
 
   const fmt$   = v => v == null ? '—' : FMT_USD(Math.round(v));
+  const fmtK   = v => v == null ? '—' : (v >= 0 ? '' : '-') + '$' + Math.round(Math.abs(v) / 1000).toLocaleString() + 'k';
   const fmtPct = v => v == null ? '—' : (v * 100).toFixed(1) + '%';
   const fmtX   = v => v == null ? '—' : v.toFixed(2) + 'x';
   const fmtNum = v => v == null ? '—' : Number(v).toLocaleString();
@@ -245,8 +246,11 @@ function exportDealPDF(deal, user) {
   const halfW = (BODY_W - 16) / 2;
   const col2x = BODY_L + halfW + 16;
 
+  // Both column headers must start at the same y — capture it before calling sectionHead
+  const two_col_head_y = y;
+
   // Left: Financing
-  y = sectionHead('Financing', y);
+  y = sectionHead('Financing', two_col_head_y);
 
   const finRows = [
     ['Loan Amount',      fmt$(r.loanAmt)],
@@ -273,9 +277,8 @@ function exportDealPDF(deal, user) {
 
   const finHeight = finRows.length * 17;
 
-  // Right: Income & Expenses
-  let ry2 = fy_start - 14;
-  ry2 = sectionHead('Income & Expenses (Year 1)', ry2);
+  // Right: Income & Expenses — start at same y as left column header
+  let ry2 = sectionHead('Income & Expenses (Year 1)', two_col_head_y);
 
   const expBrk = r.baseExpBreakdown || {};
   const incRows = [
@@ -503,18 +506,18 @@ function exportDealPDF(deal, user) {
   // ── 10-Year Table ─────────────────────────────────────────────────────────
   const cfHead = [['', 'Yr 1','Yr 2','Yr 3','Yr 4','Yr 5','Yr 6','Yr 7','Yr 8','Yr 9','Yr 10']];
   const cfRows = [
-    { label: 'Gross Rent',    data: r.years.map(y => fmt$(y.grossRent)),    bold: false, teal: false },
-    { label: 'Vacancy Loss',  data: r.years.map(y => fmt$(y.vacancyLoss)),  bold: false, teal: false },
-    { label: 'EGI',           data: r.years.map(y => fmt$(y.egi)),          bold: true,  teal: false, top: true },
-    { label: 'Expenses',      data: r.years.map(y => fmt$(y.expenses)),     bold: false, teal: false },
-    { label: 'NOI',           data: r.years.map(y => fmt$(y.noi)),          bold: true,  teal: true,  top: true },
-    { label: 'Debt Service',  data: r.years.map(y => fmt$(y.debtService)),  bold: false, teal: false },
-    { label: 'Cash Flow',     data: r.years.map(y => fmt$(y.cashFlow)),     bold: true,  teal: true,  top: true },
+    { label: 'Gross Rent',    data: r.years.map(y => fmtK(y.grossRent)),    bold: false, teal: false },
+    { label: 'Vacancy Loss',  data: r.years.map(y => fmtK(y.vacancyLoss)),  bold: false, teal: false },
+    { label: 'EGI',           data: r.years.map(y => fmtK(y.egi)),          bold: true,  teal: false, top: true },
+    { label: 'Expenses',      data: r.years.map(y => fmtK(y.expenses)),     bold: false, teal: false },
+    { label: 'NOI',           data: r.years.map(y => fmtK(y.noi)),          bold: true,  teal: true,  top: true },
+    { label: 'Debt Service',  data: r.years.map(y => fmtK(y.debtService)),  bold: false, teal: false },
+    { label: 'Cash Flow',     data: r.years.map(y => fmtK(y.cashFlow)),     bold: true,  teal: true,  top: true },
     { label: 'CoC Return',    data: r.years.map(y => fmtRate(y.cocReturn)), bold: false, teal: false },
     { label: 'DSCR',          data: r.years.map(y => y.dscr.toFixed(2)),   bold: false, teal: false },
-    { label: 'Prop. Value',   data: r.years.map(y => fmt$(y.propertyValue)),bold: false, teal: false, top: true },
-    { label: 'Loan Balance',  data: r.years.map(y => fmt$(y.loanBalance)),  bold: false, teal: false },
-    { label: 'Equity',        data: r.years.map(y => fmt$(y.equity)),       bold: true,  teal: true },
+    { label: 'Prop. Value',   data: r.years.map(y => fmtK(y.propertyValue)),bold: false, teal: false, top: true },
+    { label: 'Loan Balance',  data: r.years.map(y => fmtK(y.loanBalance)),  bold: false, teal: false },
+    { label: 'Equity',        data: r.years.map(y => fmtK(y.equity)),       bold: true,  teal: true },
   ];
 
   const tableBody = cfRows.map(row => [row.label, ...row.data]);
