@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/react';
 import { initAnalytics, identifyUser, resetAnalyticsUser, trackSignIn, trackSignOut, trackDealCreated, trackDealDeleted, trackDealOpened, trackPDFExported, trackCSVExported } from '../lib/analytics';
 import { iSty } from './ui/InputRow';
 import { sbClient, STORAGE_KEY, STATUS_OPTIONS, FMT_USD, loadLocal, saveLocal, sbRead, sbWrite, sbWriteDeal, sbDeleteDeal, sbWritePrefs, authGetSession, authSignOut } from '../lib/constants';
-import { calcDeal, DEFAULT_PREFS, newDeal } from '../lib/calc';
+import { calcDeal, DEFAULT_PREFS, newDeal, createSampleDeal } from '../lib/calc';
 import { sbGetGroupDeals, sbShareDealToGroup, sbRemoveDealFromGroup, sbReorderGroupDeals } from '../lib/groups';
 import { useIsMobile, useOnlineStatus } from '../lib/hooks';
 import { useCloudSync } from '../lib/useCloudSync';
@@ -65,7 +65,7 @@ function App() {
 
   // Bootstrap: restore session from localStorage, then pull cloud state.
   // Extracted to `bootstrapUser` to avoid duplicating this pattern in onAuthStateChange.
-  const bootstrapUser = useCallback((u, { loadPrefs = false, showTourIfEmpty = false } = {}) => {
+  const bootstrapUser = useCallback((u, { loadPrefs = false } = {}) => {
     hasBootstrappedRef.current = true;
     Sentry.setUser({ id: u.id, email: u.email });
     identifyUser(u);
@@ -75,14 +75,22 @@ function App() {
       sbRead()
         .then(({ data: cloudDeals, prefs: cloudPrefs, updated_at }) => {
           setLastCloudUpdate(updated_at);
+          const resolvedPrefs = (loadPrefs && cloudPrefs) ? { ...DEFAULT_PREFS, ...cloudPrefs } : undefined;
           if (loadPrefs && cloudPrefs) { setPrefs({ ...DEFAULT_PREFS, ...cloudPrefs }); }
           if (cloudDeals.length > 0) {
             setDeals(cloudDeals);
             saveLocal(cloudDeals, u.id);
           } else if (local.length > 0) {
             sbWrite(local).catch(() => {});
-          } else if (showTourIfEmpty) {
-            setTourStep(0);
+          } else {
+            // First login with no deals anywhere — auto-create a sample deal so
+            // the user lands on a populated portfolio instead of a blank canvas.
+            const sample = createSampleDeal(resolvedPrefs);
+            const initialDeals = [sample];
+            setDeals(initialDeals);
+            saveLocal(initialDeals, u.id);
+            sbWrite(initialDeals).catch(() => {});
+            trackDealCreated(sample.id);
           }
         })
         .catch(() => {});
@@ -94,7 +102,7 @@ function App() {
       const u = session?.user || false;
       setUser(u);
       setAuthLoading(false);
-      if (u) bootstrapUser(u, { loadPrefs: true, showTourIfEmpty: true });
+      if (u) bootstrapUser(u, { loadPrefs: true });
     });
     const { data: { subscription } } = sbClient.auth.onAuthStateChange((evt, session) => {
       const u = session?.user || false;

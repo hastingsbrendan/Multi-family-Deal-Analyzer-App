@@ -472,6 +472,53 @@ function calcSensitivity(deal) {
   });
 }
 
+// ─── SAMPLE DEAL ──────────────────────────────────────────────────────────────
+// Returns a pre-filled duplex used as the first-login welcome deal.
+// Realistic Chicago-area numbers; owner-occupied; positive cash flow after rent.
+const createSampleDeal = (prefs) => {
+  const d = newDeal(prefs);
+  d.address    = '123 Maple St, Chicago, IL 60614';
+  d.status     = 'Analyzing';
+  d._isSample  = true; // flag so we can avoid re-creating on subsequent logins
+
+  const a = d.assumptions;
+  a.purchasePrice  = 340000;
+  a.downPaymentPct = 10;
+  a.interestRate   = 6.8;
+  a.amortYears     = 30;
+  a.numUnits       = 2;
+
+  // Both units have rent set — calc engine deducts owner unit via OO logic
+  a.units[0].rent = 1550;  // owner unit market rate (calc deducts this during OO years)
+  a.units[1].rent = 1550;  // tenant unit
+
+  a.ownerOccupied       = true;
+  a.ownerUnit           = 0;
+  a.ownerOccupancyYears = 2;
+  a.alternativeRent     = 1700; // comparable rental nearby — offsets negative CF
+
+  a.vacancyRate = 5;
+
+  // Expenses — realistic for a Chicago 2-flat
+  a.expenseModes.propertyTax = 'value';
+  a.expenseModes.insurance   = 'value';
+  a.expenses.propertyTax  = 5800;
+  a.expenses.insurance    = 1600;
+  a.expenses.maintenance  = 2200;
+  a.expenses.capex        = 2200;
+  a.expenses.propertyMgmt = 0;   // self-managed
+  a.expenses.utilities    = 0;
+
+  a.rentGrowth       = 3;
+  a.expenseGrowth    = 2;
+  a.appreciationRate = 4;
+  a.taxBracket       = 22;
+
+  a.beds = 4; a.baths = 2; a.yearBuilt = 1965; a.sqftTotal = 2400;
+
+  return d;
+};
+
 // ─── CSV EXPORT ───────────────────────────────────────────────────────────────
 
-export { DEFAULT_PREFS, newDeal, resolveExpenses, calcDeal, calcSensitivity };
+export { DEFAULT_PREFS, newDeal, createSampleDeal, resolveExpenses, calcDeal, calcSensitivity };
