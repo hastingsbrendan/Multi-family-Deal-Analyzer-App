@@ -160,16 +160,17 @@ function AssumptionsCheckPanel({ deal, fredAllData }) {
 
   if (rentYoY === null && hpiYoY === null) return null;
 
-  const Check = ({ label, dealVal, marketVal, unit, higherIsBetter = true, note }) => {
+  // higherIsOptimistic=true means: deal assumption ABOVE market → optimistic/risky
+  // For appreciation and rent growth, higher assumption = more optimistic = warn
+  const Check = ({ label, dealVal, marketVal, unit, higherIsOptimistic = true, note }) => {
     if (marketVal === null) return null;
-    const diff = dealVal - marketVal;
-    const isOptimistic = higherIsBetter ? diff > 0.5 : diff < -0.5;
-    const isConservative = higherIsBetter ? diff < -0.5 : diff > 0.5;
-    const isAligned = !isOptimistic && !isConservative;
+    const diff = dealVal - marketVal; // positive = deal is higher than market
+    const isOptimistic   = higherIsOptimistic ? diff >  0.5 : diff < -0.5;
+    const isConservative = higherIsOptimistic ? diff < -0.5 : diff >  0.5;
     const color = isOptimistic ? 'var(--accent2)' : isConservative ? 'var(--green)' : 'var(--accent)';
     const icon  = isOptimistic ? '⚠️' : isConservative ? '✅' : '✓';
     const verdict = isOptimistic
-      ? `Your assumption (${dealVal}${unit}) is above the current national rate (${marketVal}${unit}) — optimistic`
+      ? `Your assumption (${dealVal}${unit}) is above the current national rate (${marketVal}${unit}) — may be optimistic`
       : isConservative
       ? `Your assumption (${dealVal}${unit}) is below the current national rate (${marketVal}${unit}) — conservative`
       : `Your assumption (${dealVal}${unit}) is in line with the current national rate (${marketVal}${unit})`;
@@ -200,7 +201,7 @@ function AssumptionsCheckPanel({ deal, fredAllData }) {
         dealVal={dealRentGrowth}
         marketVal={rentYoY}
         unit="%/yr"
-        higherIsBetter={false}
+        higherIsOptimistic={true}
         note="CPI Rent is a national trailing average — local markets may differ"
       />
       <Check
@@ -208,7 +209,7 @@ function AssumptionsCheckPanel({ deal, fredAllData }) {
         dealVal={dealAppreciation}
         marketVal={hpiYoY}
         unit="%/yr"
-        higherIsBetter={false}
+        higherIsOptimistic={true}
         note="Case-Shiller measures past appreciation — not a forward forecast"
       />
       <div style={{fontSize:10,color:'var(--muted)',marginTop:10,lineHeight:1.5}}>
