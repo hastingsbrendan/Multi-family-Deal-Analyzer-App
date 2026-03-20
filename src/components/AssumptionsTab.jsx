@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { FMT_USD, FMT_PCT, mapsUrl, RENTCAST_KEY, sbClient, SB_BUCKET } from '../lib/constants';;
+import { FMT_USD, FMT_PCT, mapsUrl, sbClient, SB_BUCKET } from '../lib/constants';;
 import { resolveExpenses } from '../lib/calc';
 import { useIsMobile } from '../lib/hooks';
 import InputRow, { iSty, btnSm, srcSty, fmtInputDisplay, parseInputValue, Tip } from './ui/InputRow';
@@ -93,24 +93,27 @@ function PropertyLookupPanel({deal, onChange}) {
 
   const doLookup = async () => {
     if (!input.trim()) return;
-    if (!RENTCAST_KEY) { setError('Add your Rentcast API key to the RENTCAST_KEY constant in the source file.'); return; }
     setLoading(true); setError(''); setPreview(null);
     try {
       const addr = parseAddressFromUrl(input.trim());
       if (!addr) { setError('Could not parse address from URL. Try pasting the address directly.'); setLoading(false); return; }
 
-      const headers = { 'X-Api-Key': RENTCAST_KEY, 'Accept': 'application/json' };
+      // Get session JWT for server-side proxy auth
+      const { data: { session } } = await sbClient.auth.getSession();
+      const token = session?.access_token;
+      if (!token) { setError('Please sign in to use address lookup.'); setLoading(false); return; }
+      const authHeaders = { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' };
+
       const encAddr = encodeURIComponent(addr);
 
-      // Call property records endpoint
-      const propRes = await fetch(`https://api.rentcast.io/v1/properties?address=${encAddr}&limit=1`, { headers });
+      // Call property records endpoint via server proxy
+      const propRes = await fetch(`/api/rentcast?path=/v1/properties&address=${encAddr}&limit=1`, { headers: authHeaders });
       if (!propRes.ok) { const t = await propRes.text(); setError(`Rentcast error (${propRes.status}): ${t}`); setLoading(false); return; }
       const propData = await propRes.json();
       const prop = Array.isArray(propData) ? propData[0] : propData;
 
       if (!prop) { setError('No property found for that address. Try entering the address manually.'); setLoading(false); return; }
 
-      // Call rent estimate endpoint
       // Build unique bedroom counts across configured units so each unit type gets an accurate estimate
       const numUnits = prop.bedrooms
         ? (((prop.propertyType||'').toLowerCase().includes('duplex') ? 2
@@ -124,11 +127,11 @@ function PropertyLookupPanel({deal, onChange}) {
       const uniqueBeds = [...new Set(bedroomCounts)];
       const rentByBeds = {};
       for (const beds of uniqueBeds) {
-        const r = await fetch(`https://api.rentcast.io/v1/avm/rent/long-term?address=${encAddr}&bedrooms=${beds}&propertyType=Apartment`, { headers });
+        const r = await fetch(`/api/rentcast?path=/v1/avm/rent/long-term&address=${encAddr}&bedrooms=${beds}&propertyType=Apartment`, { headers: authHeaders });
         if (r.ok) rentByBeds[beds] = await r.json();
       }
       // Also fetch whole-property estimate as fallback
-      const rentRes = await fetch(`https://api.rentcast.io/v1/avm/rent/long-term?address=${encAddr}`, { headers });
+      const rentRes = await fetch(`/api/rentcast?path=/v1/avm/rent/long-term&address=${encAddr}`, { headers: authHeaders });
       const rentData = rentRes.ok ? await rentRes.json() : null;
 
       setPreview({ prop, rent: rentData, rentByBeds, bedsPerUnit, parsedAddr: addr });
@@ -237,13 +240,16 @@ function PropertyLookupPanel({deal, onChange}) {
     // Async: fetch FEMA flood zone and update deal
     const addrForFlood = d.address || preview.parsedAddr;
     if (addrForFlood) {
-      getFloodZoneForAddress(addrForFlood).then(zone => {
-        if (zone) {
-          const upd2 = JSON.parse(JSON.stringify(d));
-          upd2.assumptions.floodZone = zone;
-          onChange(upd2);
-        }
-      }).catch(() => {/* silent */});
+      sbClient.auth.getSession().then(({ data: { session } }) => {
+        const floodToken = session?.access_token;
+        getFloodZoneForAddress(addrForFlood, floodToken).then(zone => {
+          if (zone) {
+            const upd2 = JSON.parse(JSON.stringify(d));
+            upd2.assumptions.floodZone = zone;
+            onChange(upd2);
+          }
+        }).catch(() => {/* silent */});
+      });
     }
   };
 
@@ -288,11 +294,6 @@ function PropertyLookupPanel({deal, onChange}) {
             </div>
           )}
 
-          {!RENTCAST_KEY && (
-            <div style={{marginTop:10,padding:'8px 12px',background:'#FEF3C7',borderRadius:6,color:'#92400E',fontSize:12}}>
-              ⚠️ No API key set. Get a free key at <a href="https://app.rentcast.io/app/api" target="_blank" rel="noreferrer" style={{color:'#92400E',fontWeight:700}}>rentcast.io/app/api</a>, then paste it into the <code>RENTCAST_KEY</code> constant in this file.
-            </div>
-          )}
 
           {pv && (
             <div style={{marginTop:14,border:'1px solid var(--border)',borderRadius:8,overflow:'hidden'}}>

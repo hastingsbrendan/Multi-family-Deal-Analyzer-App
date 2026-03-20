@@ -2,24 +2,26 @@
  * floodZone.js
  * Fetches FEMA National Flood Hazard Layer (NFHL) flood zone designation
  * for a given address by:
- *  1. Geocoding the address via Google Geocoding API
+ *  1. Geocoding the address via /api/geocode (server-side proxy — keeps GMAPS_KEY off the client)
  *  2. Querying FEMA NFHL ArcGIS REST service (no key required)
  */
-
-import { GMAPS_KEY } from './constants';
 
 // FEMA NFHL ArcGIS REST endpoint — Flood Hazard Areas (layer 28)
 const FEMA_URL = 'https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query';
 
 /**
- * Geocode an address via Google Geocoding API.
+ * Geocode an address via the /api/geocode server-side proxy.
+ * @param {string} address
+ * @param {string} [token]  — Supabase access_token for proxy auth (optional; unauthenticated = 401)
  * Returns { lat, lng } or null.
  */
-export async function geocodeAddress(address) {
-  if (!address || !GMAPS_KEY) return null;
+export async function geocodeAddress(address, token) {
+  if (!address) return null;
   try {
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GMAPS_KEY}`;
-    const res = await fetch(url);
+    const headers = { 'Accept': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`/api/geocode?address=${encodeURIComponent(address)}`, { headers });
+    if (!res.ok) return null;
     const data = await res.json();
     const loc = data?.results?.[0]?.geometry?.location;
     return loc ? { lat: loc.lat, lng: loc.lng } : null;
@@ -58,10 +60,12 @@ export async function fetchFloodZone(lat, lng) {
 
 /**
  * Full pipeline: address → lat/lng → flood zone.
+ * @param {string} address
+ * @param {string} [token] — Supabase access_token for geocode proxy auth
  * Returns zone string or null.
  */
-export async function getFloodZoneForAddress(address) {
-  const coords = await geocodeAddress(address);
+export async function getFloodZoneForAddress(address, token) {
+  const coords = await geocodeAddress(address, token);
   if (!coords) return null;
   return fetchFloodZone(coords.lat, coords.lng);
 }

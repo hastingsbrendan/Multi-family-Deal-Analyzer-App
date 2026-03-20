@@ -213,7 +213,10 @@ const FMT_X   = (v) => v == null || isNaN(v) ? "—" : v.toFixed(2) + "x";
 const mapsUrl = (addr) => addr ? `https://maps.google.com/?q=${encodeURIComponent(addr)}` : null;
 
 // ─── External API keys ────────────────────────────────────────────────────────
-const GMAPS_KEY    = import.meta.env.VITE_GMAPS_KEY;
-const RENTCAST_KEY = import.meta.env.VITE_RENTCAST_KEY;
+// GMAPS_KEY: used by PortfolioMap to load the Maps JS SDK as a browser script tag.
+// This cannot be proxied server-side (it's a JS bundle load, not a REST call).
+// Secure it in Google Cloud Console by restricting it to HTTP referrers (renthack.io).
+// RENTCAST_KEY and the Geocoding REST API key are now server-side only (Cloudflare env vars).
+const GMAPS_KEY = import.meta.env.VITE_GMAPS_KEY;
 
-export { IS_PROD, STORAGE_KEY, GMAPS_KEY, RENTCAST_KEY, SB_URL, SB_ANON_KEY, SB_BUCKET, sbClient, loadLocal, saveLocal, validateDealShape, sbRead, sbWrite, sbWriteDeal, sbDeleteDeal, sbWritePrefs, sbUploadPhoto, sbDeletePhoto, authSignInWithGoogle, authSignUp, authSignIn, authSignOut, authResetPassword, authUpdatePassword, authUpdateProfile, authGetSession, STATUS_OPTIONS, STATUS_COLORS, FMT_USD, FMT_PCT, FMT_X, mapsUrl };
+export { IS_PROD, STORAGE_KEY, GMAPS_KEY, SB_URL, SB_ANON_KEY, SB_BUCKET, sbClient, loadLocal, saveLocal, validateDealShape, sbRead, sbWrite, sbWriteDeal, sbDeleteDeal, sbWritePrefs, sbUploadPhoto, sbDeletePhoto, authSignInWithGoogle, authSignUp, authSignIn, authSignOut, authResetPassword, authUpdatePassword, authUpdateProfile, authGetSession, STATUS_OPTIONS, STATUS_COLORS, FMT_USD, FMT_PCT, FMT_X, mapsUrl };
