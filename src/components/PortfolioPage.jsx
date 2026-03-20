@@ -259,7 +259,7 @@ function PortfolioPage({ deals, onSelect, onAdd, onDelete, onExport, onReorder, 
           <ViewToggle view={viewMode} setView={setViewMode} />
           <button onClick={() => onTour && onTour()} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 14px', color: 'var(--muted)', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>🗺️ Tour</button>
           <button onClick={() => onOpenGroups && onOpenGroups()} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 14px', color: 'var(--muted)', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>👥 Groups</button>
-          <button onClick={onExport} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 16px', color: 'var(--text)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>⬇ Export</button>
+          <button onClick={onExport} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 16px', color: 'var(--text)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>⬇ Excel</button>
           <button onClick={onAdd} data-tour="add-deal" style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '8px 18px', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>+ New Deal</button>
         </div>
       </div>

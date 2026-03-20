@@ -508,7 +508,7 @@ function App() {
               onSelect={id=>setActiveDealId(id)}
               onAdd={activeGroup ? addGroupDeal : addDeal}
               onDelete={activeGroup ? deleteGroupDeal : deleteDeal}
-              onExport={()=>import('../lib/export').then(m=>m.exportPortfolioCSV(activeGroup ? groupDeals : deals))}
+              onExport={()=>import('../lib/export').then(m=>m.exportPortfolioXLSX(activeGroup ? groupDeals : deals, user))}
               onReorder={activeGroup ? reorderGroupDeals : reorderDeals}
               dark={dark} setDark={setDark}
               filterState={[portfolioFilter,setPortfolioFilter]}
