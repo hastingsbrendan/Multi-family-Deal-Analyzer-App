@@ -54,12 +54,12 @@ function exportDealPDF(deal, user) {
   };
 
   // ── Helper: section heading in body area ─────────────────────────────────
-  const sectionHead = (label, y) => {
+  const sectionHead = (label, y, x1 = BODY_L, x2 = BODY_R) => {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7);
     doc.setTextColor(...TEAL);
-    doc.text(label.toUpperCase(), BODY_L, y);
-    rule(y + 4, BODY_L, BODY_R, [203, 213, 225]);
+    doc.text(label.toUpperCase(), x1, y);
+    rule(y + 4, x1, x2, [203, 213, 225]);
     return y + 14;
   };
 
@@ -250,7 +250,7 @@ function exportDealPDF(deal, user) {
   const two_col_head_y = y;
 
   // Left: Financing
-  y = sectionHead('Financing', two_col_head_y);
+  y = sectionHead('Financing', two_col_head_y, BODY_L, BODY_L + halfW - 2);
 
   const finRows = [
     ['Loan Amount',      fmt$(r.loanAmt)],
@@ -278,7 +278,7 @@ function exportDealPDF(deal, user) {
   const finHeight = finRows.length * 17;
 
   // Right: Income & Expenses — start at same y as left column header
-  let ry2 = sectionHead('Income & Expenses (Year 1)', two_col_head_y);
+  let ry2 = sectionHead('Income & Expenses (Year 1)', two_col_head_y, col2x, BODY_R);
 
   const expBrk = r.baseExpBreakdown || {};
   const incRows = [
