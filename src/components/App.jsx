@@ -440,7 +440,7 @@ function App() {
                         style={{display:"block",width:"100%",textAlign:"left",padding:"10px 14px",
                           background:"none",border:"none",color:"var(--text)",fontSize:13,
                           cursor:"pointer",fontFamily:"inherit"}}>
-                        📐 Global Assumptions
+                        📐 Default Deal Settings
                       </button>
                       <button onClick={()=>{setShowAppSettings(true);setProfileMenuOpen(false);}}
                         style={{display:"block",width:"100%",textAlign:"left",padding:"10px 14px",

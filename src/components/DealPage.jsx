@@ -57,7 +57,7 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
           <button onClick={onShare} style={{background:"var(--accentlt, #CCFBF1)",border:"1px solid rgba(13,148,136,0.25)",borderRadius:6,padding:"7px 14px",cursor:"pointer",fontSize:13,color:"var(--accentdk, #0F766E)",fontWeight:700}}>👥 Share</button>
         )}
         {onShare && !canShare && (
-          <button onClick={()=>setTab(-1)} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:6,padding:"7px 14px",cursor:"pointer",fontSize:13,color:"var(--muted)",fontWeight:700}}>🔒 Share</button>
+          <button onClick={()=>setTab(-1)} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:6,padding:"7px 14px",cursor:"pointer",fontSize:13,color:"var(--muted)",fontWeight:700}}>🔒 Share Deal — Pro</button>
         )}
 
         {groupRole==="Viewer"&&<div style={{fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:20,background:"var(--teal-lt, #CCFBF1)",color:"var(--accentdk, #0F766E)",border:"1px solid rgba(13,148,136,0.35)"}}>👁 View Only</div>}
@@ -67,7 +67,7 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
           <button onClick={onExportPDF} style={{background:"var(--card)",color:"var(--accent)",border:"1px solid var(--accent)",borderRadius:100,padding:"7px 14px",cursor:"pointer",fontSize:13,fontWeight:700}}>⬇ PDF</button>
         )}
         {groupRole!=="Viewer" && !canPDF && (
-          <button onClick={()=>setTab(-1)} style={{background:"var(--card)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:100,padding:"7px 14px",cursor:"pointer",fontSize:13,fontWeight:700}}>🔒 PDF</button>
+          <button onClick={()=>setTab(-1)} style={{background:"var(--card)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:100,padding:"7px 14px",cursor:"pointer",fontSize:13,fontWeight:700}}>🔒 Export PDF — Pro</button>
         )}
 
         <button onClick={onExport} style={{background:"var(--accent)",color:"#fff",border:"none",borderRadius:100,padding:"7px 14px",cursor:"pointer",fontSize:13,fontWeight:700}}>⬇ CSV</button>

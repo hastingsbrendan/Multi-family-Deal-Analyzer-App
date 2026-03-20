@@ -87,7 +87,7 @@ function SettingsPage({ prefs, onSave, onBack, deals, dark, setDark }) {
           ← Back
         </button>
         <div>
-          <div style={{fontWeight:800, fontSize:18}}>Global Assumptions</div>
+          <div style={{fontWeight:800, fontSize:18}}>Default Deal Settings</div>
           <div style={{fontSize:12, color:"var(--muted)", marginTop:2}}>Applied to every new deal you create</div>
         </div>
       </div>
