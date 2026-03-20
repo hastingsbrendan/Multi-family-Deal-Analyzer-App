@@ -388,7 +388,7 @@ function SensitivityTab({ deal }) {
       </div>
       <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:"20px 16px"}}>
         <div style={{fontSize:11,fontWeight:800,letterSpacing:"0.1em",color:"var(--muted)",marginBottom:16,textTransform:"uppercase"}}>
-          Tornado Chart — {metric==="irr"?"10-Year IRR":"Year 1 CoC"}
+          Tornado Chart — {metric==="irr"?`${Math.max(1,Math.min(30,+(deal?.assumptions?.holdPeriod||10)))}-Year IRR`:"Year 1 CoC"}
         </div>
         <div style={{display:"grid",gridTemplateColumns:"90px 1fr",gap:0,marginBottom:6}}>
           <div/>

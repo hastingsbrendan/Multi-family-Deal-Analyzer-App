@@ -561,6 +561,44 @@ function AssumptionsTab({deal,onChange}){
               </div>
             );
           })()}
+          {/* Hold Period — configurable exit year (BACK-805) */}
+          {(()=>{
+            const fldSt={width:"100%",padding:"8px 10px",borderRadius:10,fontSize:14,border:"1.5px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit",WebkitAppearance:"none",appearance:"none"};
+            const lblSt={fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4,display:"block"};
+            const holdVal = +a.holdPeriod||10;
+            // Soft warnings for refi/VA year conflicts
+            const refiConflict = a.refi?.enabled && +a.refi?.year >= holdVal;
+            const vaConflict   = a.valueAdd?.enabled && +a.valueAdd?.completionYear >= holdVal;
+            return(
+              <div style={{marginBottom:8}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:10}}>
+                  <div>
+                    <label style={lblSt}>Hold Period</label>
+                    <div style={{display:"flex",alignItems:"center",gap:4}}>
+                      <input type="text" inputMode="numeric" value={holdVal}
+                        onBlur={e=>{const v=Math.max(1,Math.min(30,Math.round(+e.target.value.replace(/,/g,"")||10)));upd("holdPeriod",v);}}
+                        onChange={e=>upd("holdPeriod",e.target.value.replace(/[^0-9]/g,""))}
+                        style={{...fldSt,flex:1}}/>
+                      <span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap"}}>yrs</span>
+                    </div>
+                  </div>
+                  <div style={{display:"flex",alignItems:"flex-end",paddingBottom:2}}>
+                    <span style={{fontSize:11,color:"var(--muted)",lineHeight:1.4}}>
+                      Exit analysis, IRR, and equity multiple all use this period.{" "}
+                      {holdVal<=5&&<span style={{color:"var(--accent2)",fontWeight:700}}>Short hold — BRRRR/flip lens.</span>}
+                      {holdVal>=20&&<span style={{color:"var(--accent)",fontWeight:700}}>Long-term buy &amp; hold.</span>}
+                    </span>
+                  </div>
+                </div>
+                {(refiConflict||vaConflict)&&(
+                  <div style={{marginTop:6,padding:"6px 10px",background:"rgba(217,119,6,0.1)",borderRadius:6,fontSize:11,color:"var(--accent2)",border:"1px solid rgba(217,119,6,0.25)"}}>
+                    ⚠️ {refiConflict&&`Refi year (Yr ${a.refi.year}) is ≥ hold period — it will be ignored in calculations.`}{refiConflict&&vaConflict&&" "}
+                    {vaConflict&&`Value-add completion year (Yr ${a.valueAdd.completionYear}) is ≥ hold period — it will be clamped to Yr ${holdVal-1}.`}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
           {/* ── Down Payment + Loan Limit / Loan Amount — bidirectional ── */}
           {(()=>{
             const pp = +a.purchasePrice || 0;

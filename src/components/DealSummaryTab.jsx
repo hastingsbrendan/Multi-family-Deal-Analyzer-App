@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import { iSty } from './ui/InputRow';
 import { FMT_USD, FMT_PCT, FMT_X, mapsUrl } from '../lib/constants';
+import { calcExitScenarios } from '../lib/calc';
 import PhotoGallery from './PhotoGallery';
 import DSCRBadge from './ui/DSCRBadge';
 
@@ -9,6 +10,8 @@ function DealSummaryTab({deal, result, onUpdate}) {
   const a = deal.assumptions;
   const addr = deal.address;
   const maps = mapsUrl(addr);
+  // Hold period — available at component scope so all sections can reference it
+  const holdYears = result.holdYears||10;
 
   // PITI components
   const pAndI = result.monthlyPayment||0;
@@ -98,9 +101,9 @@ function DealSummaryTab({deal, result, onUpdate}) {
 
     {/* Profitability row: equity hero (left, 2-wide) + 2x2 returns grid (right) */}
     {(()=>{
-      const yr10 = result.years[9]||{};
-      const avgMonthlyAppreciation = (yr10.appreciationGain||0)/10/12;
-      const avgMonthlyPrincipal = (yr10.principalPaydown||0)/10/12;
+      const yrExit = result.years[holdYears-1]||{};
+      const avgMonthlyAppreciation = (yrExit.appreciationGain||0)/holdYears/12;
+      const avgMonthlyPrincipal = (yrExit.principalPaydown||0)/holdYears/12;
       // Avg monthly cash flow across all 10 years
       // When OO + alt rent active, use incremental CF (CF + altRent) so the hero
       // reflects the true cost of owning vs. renting. Falls back to regular monthly CF.
@@ -162,7 +165,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
         );
       };
       const returnItems = [
-        {label:"IRR (10-Year)",val:FMT_PCT(result.irr),good:result.irr>0.12,note:"Target: >12%"},
+        {label:`IRR (${holdYears}-Year)`,val:FMT_PCT(result.irr),good:result.irr>0.12,note:"Target: >12%"},
         {label:"Cap Rate Yr 1",val:FMT_PCT(result.capRate),good:result.capRate>0.05,note:"Target: >5%"},
       ];
       return(
@@ -170,7 +173,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
           {/* Col 1: Hero card (compact) + IRR + Cap Rate side-by-side below */}
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
             <Panel accent>
-              <SLbl>Avg. Monthly Equity Growth · 10-Year Hold</SLbl>
+              <SLbl>Avg. Monthly Equity Growth · {holdYears}-Year Hold</SLbl>
               <div style={{fontSize:36,fontWeight:900,letterSpacing:"-2px",color:avgMonthlyEquity>=0?"var(--accent)":"var(--red)",lineHeight:1,marginBottom:6}}>
                 {avgMonthlyEquity>=0?"+":"-"}{FMT_USD(Math.abs(avgMonthlyEquity))}<span style={{fontSize:13,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
               </div>
@@ -202,7 +205,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
           {/* Col 2: Stacked bar chart — fills full height */}
           <Panel style={{padding:"14px 16px 10px",display:"flex",flexDirection:"column"}}>
             <div style={{marginBottom:8}}>
-              <div style={{fontSize:11,fontWeight:800,color:"var(--text)",letterSpacing:"-0.1px",fontFamily:"'Fraunces',serif"}}>Cumulative Equity Build-Up · 10-Year Hold</div>
+              <div style={{fontSize:11,fontWeight:800,color:"var(--text)",letterSpacing:"-0.1px",fontFamily:"'Fraunces',serif"}}>Cumulative Equity Build-Up · {holdYears}-Year Hold</div>
               <div style={{display:"flex",gap:12,flexWrap:"wrap",marginTop:4}}>
                 {[
                   ["Appreciation","var(--accent)"],
@@ -521,7 +524,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
           ].map(([l,v],i,arr)=><KV key={l} label={l} value={v} last={i===arr.length-1}/>)}
         </Panel>
         <Panel>
-          <SLbl>Exit (Year 10)</SLbl>
+          <SLbl>Exit (Year {holdYears})</SLbl>
           {/* Gross proceeds waterfall */}
           <KV label="Exit Value" value={FMT_USD(result.exitValue)}/>
           <KV label="− Loan Payoff" value={FMT_USD(-result.exitLoanBalance)} color="var(--red)"/>
@@ -629,6 +632,53 @@ function DealSummaryTab({deal, result, onUpdate}) {
         <textarea value={deal.notes||""} onChange={e=>onUpdate({...deal,notes:e.target.value})} placeholder="Add qualitative notes about this property, showing observations, negotiation strategy..." style={{width:"100%",height:170,background:"var(--input-bg)",border:"1px solid var(--border)",borderRadius:8,padding:"10px 12px",color:"var(--text)",fontSize:13,resize:"none",fontFamily:"system-ui",lineHeight:1.5,boxSizing:"border-box"}}/>
       </div>
     </div>
+
+    {/* ── BACK-805: Exit Year Scenarios ── */}
+    {(()=>{
+      const exitScenarios = calcExitScenarios(deal);
+      const holdYrs = result.holdYears||10;
+      const fmtM = v => v>=1000000?`$${(v/1000000).toFixed(2)}M`:v>=1000?`$${(v/1000).toFixed(0)}K`:FMT_USD(v);
+      return(
+        <div style={{marginTop:8,marginBottom:8}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"2px solid var(--accent)",paddingBottom:6,marginBottom:12}}>
+            <div style={{fontSize:12,fontWeight:800,letterSpacing:"0.1em",color:"var(--accent)",textTransform:"uppercase"}}>📅 Exit Year Scenarios</div>
+            <span style={{fontSize:11,color:"var(--muted)"}}>Yr {holdYrs} selected</span>
+          </div>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,fontFamily:"system-ui"}}>
+              <thead>
+                <tr style={{borderBottom:"1px solid var(--border)"}}>
+                  {["Exit Year","IRR","Equity Multiple","Net Proceeds","CoC Yr 1"].map(h=>(
+                    <th key={h} style={{padding:"5px 10px",fontWeight:700,color:"var(--muted)",fontSize:10,textTransform:"uppercase",letterSpacing:"0.06em",textAlign:h==="Exit Year"?"left":"right"}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {exitScenarios.map(s=>{
+                  const isSelected = s.isUserSelected;
+                  const rowBg = isSelected?"var(--accent-soft)":"transparent";
+                  const textCol = isSelected?"var(--accent)":"var(--text)";
+                  return(
+                    <tr key={s.yr} style={{background:rowBg,borderBottom:"1px solid var(--border-faint)"}}>
+                      <td style={{padding:"7px 10px",fontWeight:isSelected?800:500,color:textCol}}>
+                        {isSelected&&<span style={{marginRight:5,fontSize:10}}>▶</span>}Yr {s.yr}
+                      </td>
+                      <td style={{padding:"7px 10px",textAlign:"right",fontWeight:isSelected?800:500,color:s.irr>0.12?"var(--green)":s.irr>0.08?"var(--accent2)":"var(--red)"}}>{FMT_PCT(s.irr)}</td>
+                      <td style={{padding:"7px 10px",textAlign:"right",fontWeight:isSelected?800:500,color:textCol}}>{FMT_X(s.equityMultiple)}</td>
+                      <td style={{padding:"7px 10px",textAlign:"right",fontWeight:isSelected?800:500,color:s.netProceeds>0?"var(--green)":"var(--red)"}}>{fmtM(s.netProceeds)}</td>
+                      <td style={{padding:"7px 10px",textAlign:"right",fontWeight:isSelected?800:500,color:s.cocReturn>0.08?"var(--green)":s.cocReturn>0.05?"var(--accent2)":"var(--red)"}}>{FMT_PCT(s.cocReturn)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div style={{fontSize:10,color:"var(--muted)",marginTop:6,lineHeight:1.5}}>
+            IRR color: <span style={{color:"var(--green)",fontWeight:700}}>&gt;12% ✓</span> · <span style={{color:"var(--accent2)",fontWeight:700}}>8–12% ◐</span> · <span style={{color:"var(--red)",fontWeight:700}}>&lt;8% ✗</span>. Net proceeds after loan payoff and capital gains tax. Assumes same rent growth, expenses, and appreciation across all periods.
+          </div>
+        </div>
+      );
+    })()}
 
     {/* ── Rentcast Property Data ── */}
     {deal.assumptions.rentcastData && (()=>{

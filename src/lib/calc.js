@@ -84,6 +84,8 @@ const DEFAULT_PREFS = {
   dscrFloor:        1.2,
   capRateFloor:     0.06,
   expRatioCeiling:  0.50,
+  // Hold period — configurable exit year (BACK-805)
+  holdPeriod:       10,
   // Advanced Tax Modeling defaults (BACK-013)
   tax: { enabled:false, landValuePct:20, costSegEnabled:false, costSeg5YrPct:15, costSeg15YrPct:10, bonusDepPct:100, sec179Amount:0, paStatus:'active_participant', agi:100000 } };
 
@@ -98,6 +100,7 @@ const newDeal = (prefs) => {
     loanLimit: 0, // conforming/FHA cap; 0 = no cap; set by LoanTypeTab
     interestRate: p.interestRate, interestRateSource: "",
     amortYears: p.amortYears, amortSource: "",
+    holdPeriod: p.holdPeriod||10,
     closingCosts: { ...p.closingCosts },
     insuranceUpfront: false,
     sellerConcessions: 0, sellerConcessionsSource: "",
@@ -212,13 +215,13 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
   const baseExp=resolveExpenses(a,grossRentYear0), baseExpenses=baseExp.total;
   const years=[];
   let balance=loanAmt;
-  const refiEnabled=a.refi?.enabled&&+a.refi?.year>=1&&+a.refi?.year<=9;
+  const refiEnabled=a.refi?.enabled&&+a.refi?.year>=1&&+a.refi?.year<=holdYears-1;
   const refiYear=refiEnabled?+a.refi.year:null;
   const refiRate=refiEnabled?(+a.refi.newRate||7)/100/12:null;
   const refiLTV=refiEnabled?(+a.refi.newLTV||75)/100:null;
   let refiCashOut=0, currentMonthlyPayment=monthlyPayment, currentAnnualDebtService=annualDebtService;
   const va=a.valueAdd||{}, vaEnabled=!!va.enabled;
-  const vaCompletionYr=vaEnabled?Math.max(1,Math.min(10,+va.completionYear||3)):null;
+  const vaCompletionYr=vaEnabled?Math.max(1,Math.min(holdYears,+va.completionYear||3)):null;
   const vaReModelCost=vaEnabled?(+va.reModelCost||0):0;
   const vaRentBump=vaEnabled?(+va.rentBumpPerUnit||0)*Math.min(+va.unitsRenovated||0,a.numUnits)*12:0;
   const totalCashWithVA=totalCash+vaReModelCost;
@@ -239,6 +242,10 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
   const sec179=csEnabled?Math.min(+taxCfg.sec179Amount||0,cs5Val):0; // capped at 5-yr basis
   const paStatus=taxCfg.paStatus||'active_participant';
   const palAgi=+taxCfg.agi||100000;
+  // ── BACK-805: Hold period — clamp to valid range 1–30, default 10 ──────────────
+  const holdYears=Math.max(1,Math.min(30,Math.round(+a.holdPeriod||10)));
+  // Soft validation: clamp refi year and VA completion year to holdYears so they
+  // never reference a year beyond the hold period (silent clamp, no error thrown).
   // BACK-020: PAL carryforward — accumulated suspended losses across years (IRC §469)
   // Grows when suspended losses exceed PAL allowance; absorbed by future taxable income.
   // Released in full upon taxable disposition (BACK-021). NOT released by 1031 exchange.
@@ -246,7 +253,7 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
   // BACK-021: track cumulative depreciation taken for §1250 unrecaptured gain calculation at exit
   // §1250 recapture portion of the gain is taxed at 25% (not 15% LTCG rate)
   let cumulativeDepreciationTaken=0;
-  for(let yr=1;yr<=10;yr++){
+  for(let yr=1;yr<=holdYears;yr++){
     let refiEvent=null;
     if(refiEnabled&&yr===refiYear){
       // Refi: estimate property value at refi year, compute new loan at target LTV,
@@ -414,8 +421,8 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
   //   Net proceeds = exitValue − loanBalance − netTaxOnSale
   //
   // Note: basis adjustments (improvements, closing costs) not modeled — kept conservative.
-  const exitValue=years[9]?.propertyValue||pp*Math.pow(1+appRate,10);
-  const exitLoanBalance=years[9]?.balance||0;
+  const exitValue=years[holdYears-1]?.propertyValue||pp*Math.pow(1+appRate,holdYears);
+  const exitLoanBalance=years[holdYears-1]?.balance||0;
   const totalGainOnSale=Math.max(0,exitValue-pp);
   // §1250 recapture: capped at the actual gain (can't exceed what you're selling for)
   const sec1250RecapturePortion=Math.min(cumulativeDepreciationTaken,totalGainOnSale);
@@ -432,7 +439,7 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
   const capitalGains=totalGainOnSale, capitalGainsTax=netTaxOnSale;
   const netProceeds=exitValue-exitLoanBalance-netTaxOnSale;
   // IRR: Newton-Raphson on cash flow series [-initialCash, cf1..cf10+netProceeds]
-  const irrCFs=[-totalCashWithVA,...years.map(y=>y.cashFlow)]; irrCFs[10]+=netProceeds;
+  const irrCFs=[-totalCashWithVA,...years.map(y=>y.cashFlow)]; irrCFs[holdYears]+=netProceeds;
   let irr=0.1;
   for(let i=0;i<100;i++){let npv=0,dnpv=0;irrCFs.forEach((cf,t)=>{npv+=cf/Math.pow(1+irr,t);dnpv-=t*cf/Math.pow(1+irr,t+1);});if(Math.abs(npv)<0.01)break;irr-=npv/dnpv;}
   const equityMultiple=totalCashWithVA>0?(years.reduce((s,y)=>s+y.cashFlow,0)+netProceeds)/totalCashWithVA:0;
@@ -452,7 +459,32 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     return { applies: true, grossRentAllUnits, threshold75Pct, pitiAnnual, passes, delta };
   })();
 
-  return {totalCash:totalCashWithVA,totalCashBase:totalCash,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExpenses,baseExpBreakdown:baseExp,noi:years[0]?.noi||0,cocReturn:years[0]?.cocReturn||0,capRate:years[0]?.capRate||0,dscr:years[0]?.dscr||0,dscrLenderView:years[0]?.dscrLenderView||0,irr,equityMultiple,breakEvenOccupancy,exitValue,exitLoanBalance,totalGainOnSale,sec1250RecapturePortion,trueLTCGPortion,recaptureTax,ltcgTax,palTaxBenefit,netTaxOnSale,netProceeds,capitalGainsTax,years,refiCashOut,refiYear:refiEnabled?refiYear:null,vaEnabled,vaReModelCost,vaRentBump,vaCompletionYr,irrWithoutVA,irrWithVA,ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,taxAdvEnabled,finalPalCarryforward,cumulativeDepreciationTaken,fhaSelfSufficiency};
+  return {totalCash:totalCashWithVA,totalCashBase:totalCash,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExpenses,baseExpBreakdown:baseExp,noi:years[0]?.noi||0,cocReturn:years[0]?.cocReturn||0,capRate:years[0]?.capRate||0,dscr:years[0]?.dscr||0,dscrLenderView:years[0]?.dscrLenderView||0,irr,equityMultiple,breakEvenOccupancy,exitValue,exitLoanBalance,totalGainOnSale,sec1250RecapturePortion,trueLTCGPortion,recaptureTax,ltcgTax,palTaxBenefit,netTaxOnSale,netProceeds,capitalGainsTax,years,holdYears,refiCashOut,refiYear:refiEnabled?refiYear:null,vaEnabled,vaReModelCost,vaRentBump,vaCompletionYr,irrWithoutVA,irrWithVA,ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,taxAdvEnabled,finalPalCarryforward,cumulativeDepreciationTaken,fhaSelfSufficiency};
+}
+
+// ── BACK-805: Exit Year Scenario Analysis ─────────────────────────────────────
+// Runs calcDeal at a fixed set of standard exit years plus the user's selected
+// holdPeriod, returning a compact array of key metrics per exit year.
+// Used by DealSummaryTab to render the Exit Year Scenarios panel.
+function calcExitScenarios(deal) {
+  const userHold = Math.max(1, Math.min(30, Math.round(+(deal?.assumptions?.holdPeriod)||10)));
+  const standardYears = [3, 5, 7, 10, 15, 20];
+  // Include user's hold period, dedupe, sort
+  const yearsToRun = [...new Set([...standardYears, userHold])].filter(y => y >= 1 && y <= 30).sort((a,b)=>a-b);
+  return yearsToRun.map(yr => {
+    const d = JSON.parse(JSON.stringify(deal));
+    d.assumptions.holdPeriod = yr;
+    const r = calcDeal(d, { _isRecursive: true });
+    return {
+      yr,
+      isUserSelected: yr === userHold,
+      irr: r.irr || 0,
+      equityMultiple: r.equityMultiple || 0,
+      netProceeds: r.netProceeds || 0,
+      cocReturn: r.cocReturn || 0,
+      exitValue: r.exitValue || 0,
+    };
+  });
 }
 
 function calcSensitivity(deal) {
@@ -521,4 +553,4 @@ const createSampleDeal = (prefs) => {
 
 // ─── CSV EXPORT ───────────────────────────────────────────────────────────────
 
-export { DEFAULT_PREFS, newDeal, createSampleDeal, resolveExpenses, calcDeal, calcSensitivity };
+export { DEFAULT_PREFS, newDeal, createSampleDeal, resolveExpenses, calcDeal, calcExitScenarios, calcSensitivity };
