@@ -522,7 +522,7 @@ function App() {
               deal={activeDeal}
               onUpdate={activeGroup ? updateGroupDeal : updateDeal}
               onBack={()=>setActiveDealId(null)}
-              onExport={()=>import('../lib/export').then(m=>{ trackCSVExported(activeDeal.id); m.exportDealCSV(activeDeal); })}
+              onExport={()=>import('../lib/export').then(m=>{ trackCSVExported(activeDeal.id); m.exportDealXLSX(activeDeal, user); })}
               onExportPDF={()=>import('../lib/export').then(m=>{ trackPDFExported(activeDeal.id); m.exportDealPDF(activeDeal, user); })}
               onShare={()=>setShowShareModal(activeDeal)}
               groupRole={activeGroup?.role}

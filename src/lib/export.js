@@ -3,9 +3,477 @@ import { calcDeal } from './calc';
 import { FMT_USD, FMT_PCT, STATUS_OPTIONS } from './constants';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 function exportPortfolioCSV(deals){const hdr=["Address","Status","Purchase Price","Cash In","NOI (Yr1)","CoC (Yr1)","Cap Rate","IRR (10yr)","Equity Multiple","DSCR (Yr1)"];const rows=deals.map(d=>{const r=calcDeal(d);return[d.address,d.status,d.assumptions.purchasePrice,Math.round(r.totalCash),Math.round(r.noi),(r.cocReturn*100).toFixed(2)+"%",(r.capRate*100).toFixed(2)+"%",(r.irr*100).toFixed(2)+"%",r.equityMultiple.toFixed(2)+"x",r.dscr.toFixed(2)];});dlFile([hdr,...rows].map(r=>r.map(c=>`"${c}"`).join(",")).join("\n"),"portfolio_summary.csv","text/csv");}
-function exportDealCSV(deal){const r=calcDeal(deal);const rows=[["DEAL: "+deal.address],[],["Metric","Value"],["Purchase Price",FMT_USD(+deal.assumptions.purchasePrice)],["Total Cash",FMT_USD(r.totalCash)],["NOI (Yr1)",FMT_USD(r.noi)],["CoC (Yr1)",FMT_PCT(r.cocReturn)],["IRR",FMT_PCT(r.irr)],["DSCR",r.dscr.toFixed(2)],[],["Year","Gross Rent","Vacancy","EGI","Expenses","NOI","Debt Svc","Cash Flow","Tax Effect","After-Tax CF","Equity"],...r.years.map(y=>[y.yr,Math.round(y.grossRent),Math.round(y.vacancyLoss),Math.round(y.egi),Math.round(y.expenses),Math.round(y.noi),Math.round(y.debtService),Math.round(y.cashFlow),Math.round(y.taxEffect),Math.round(y.afterTaxCashFlow),Math.round(y.equity)])];dlFile(rows.map(r=>r.map(c=>`"${c}"`).join(",")).join("\n"),`deal_${(deal.address||deal.id).toString().replace(/\s/g,"_")}.csv`,"text/csv");}
+// ─── Excel export (deal level) ───────────────────────────────────────────────
+
+function exportDealXLSX(deal, user) {
+  const r  = calcDeal(deal);
+  const a  = deal.assumptions;
+  const wb = XLSX.utils.book_new();
+
+  // ── Shared style helpers (SheetJS cell objects) ───────────────────────────
+  const NAVY  = '0F172A';
+  const TEAL  = '0D9488';
+  const WHITE = 'FFFFFF';
+  const CREAM = 'FAF8F4';
+  const SLATE = '475569';
+  const LIGHT_TEAL = 'F0FDFB';
+  const LIGHT_GRAY = 'F8FAFF';
+
+  const hdrCell = (v, w = 14) => ({
+    v, t: 's',
+    s: { font: { bold: true, color: { rgb: WHITE }, sz: 11 },
+         fill: { fgColor: { rgb: NAVY } },
+         alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+         border: { bottom: { style: 'thin', color: { rgb: TEAL } } } }
+  });
+  const subHdrCell = (v) => ({
+    v, t: 's',
+    s: { font: { bold: true, color: { rgb: WHITE }, sz: 10 },
+         fill: { fgColor: { rgb: TEAL } },
+         alignment: { horizontal: 'left', vertical: 'center' } }
+  });
+  const labelCell = (v) => ({
+    v, t: 's',
+    s: { font: { bold: false, color: { rgb: SLATE }, sz: 10 },
+         fill: { fgColor: { rgb: CREAM } },
+         alignment: { horizontal: 'left', vertical: 'center' } }
+  });
+  const valCell = (v, fmt) => ({
+    v, t: typeof v === 'number' ? 'n' : 's',
+    z: fmt || undefined,
+    s: { font: { bold: true, color: { rgb: NAVY }, sz: 10 },
+         fill: { fgColor: { rgb: WHITE } },
+         alignment: { horizontal: 'right', vertical: 'center' } }
+  });
+  const accentCell = (v, fmt) => ({
+    v, t: typeof v === 'number' ? 'n' : 's',
+    z: fmt || undefined,
+    s: { font: { bold: true, color: { rgb: TEAL }, sz: 10 },
+         fill: { fgColor: { rgb: LIGHT_TEAL } },
+         alignment: { horizontal: 'right', vertical: 'center' } }
+  });
+  const numHdrCell = (v) => ({
+    v, t: 's',
+    s: { font: { bold: true, color: { rgb: WHITE }, sz: 10 },
+         fill: { fgColor: { rgb: NAVY } },
+         alignment: { horizontal: 'right', vertical: 'center', wrapText: true },
+         border: { bottom: { style: 'thin', color: { rgb: TEAL } } } }
+  });
+  const rowHdrCell = (v, isTeal = false) => ({
+    v, t: 's',
+    s: { font: { bold: isTeal, color: { rgb: isTeal ? TEAL : SLATE }, sz: 10 },
+         fill: { fgColor: { rgb: isTeal ? LIGHT_TEAL : CREAM } },
+         alignment: { horizontal: 'left', vertical: 'center' } }
+  });
+  const cfNumCell = (v, fmt, isTeal = false) => ({
+    v, t: typeof v === 'number' ? 'n' : 's',
+    z: fmt || undefined,
+    s: { font: { bold: isTeal, color: { rgb: isTeal ? TEAL : NAVY }, sz: 10 },
+         fill: { fgColor: { rgb: isTeal ? LIGHT_TEAL : WHITE } },
+         alignment: { horizontal: 'right', vertical: 'center' } }
+  });
+  const blankCell = (bg = WHITE) => ({
+    v: '', t: 's',
+    s: { fill: { fgColor: { rgb: bg } } }
+  });
+
+  const USD   = '$#,##0';
+  const USD0  = '$#,##0;($#,##0);"-"';
+  const PCT1  = '0.0%';
+  const X2    = '0.00"x"';
+  const NUM2  = '0.00';
+  const safeName = (deal.address || deal.id || 'deal').toString().replace(/[^a-z0-9]/gi, '_').toLowerCase();
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // SHEET 1: Deal Summary
+  // ──────────────────────────────────────────────────────────────────────────
+  const expBrk = r.baseExpBreakdown || {};
+  const yr1 = r.years[0] || {};
+
+  const ws1 = {};
+  let row = 1;
+
+  // Title banner
+  ws1[XLSX.utils.encode_cell({ r: row-1, c: 0 })] = {
+    v: `RentHack Deal Analysis — ${deal.address || 'Untitled'}`,
+    t: 's',
+    s: { font: { bold: true, color: { rgb: WHITE }, sz: 14 },
+         fill: { fgColor: { rgb: NAVY } },
+         alignment: { horizontal: 'left', vertical: 'center' } }
+  };
+  // Merge title across A:E (cols 0-4)
+  ws1['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
+  // Sub-title row
+  row = 2;
+  const preparer = user?.user_metadata?.display_name || user?.email || '';
+  const orgLine = user?.user_metadata?.organization ? ` · ${user.user_metadata.organization}` : '';
+  const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  ws1[XLSX.utils.encode_cell({ r: row-1, c: 0 })] = {
+    v: `Generated ${dateStr}${preparer ? ' · Prepared by ' + preparer + orgLine : ''}  |  For informational purposes only. Not financial advice.`,
+    t: 's',
+    s: { font: { italic: true, color: { rgb: SLATE }, sz: 9 },
+         fill: { fgColor: { rgb: CREAM } },
+         alignment: { horizontal: 'left', vertical: 'center' } }
+  };
+  ws1['!merges'].push({ s: { r: 1, c: 0 }, e: { r: 1, c: 4 } });
+  row = 3; // blank separator
+
+  // ── Section: Key Returns ─────────────────────────────────────────────────
+  row = 4;
+  ws1[XLSX.utils.encode_cell({ r: row-1, c: 0 })] = subHdrCell('KEY RETURNS');
+  ws1['!merges'].push({ s: { r: row-1, c: 0 }, e: { r: row-1, c: 4 } });
+  row++;
+
+  const returnRows = [
+    ['IRR (10-Year)',      r.irr,                  PCT1,  true],
+    ['Equity Multiple',   r.equityMultiple,        X2,    true],
+    ['Cash-on-Cash Yr 1', r.cocReturn,             PCT1,  true],
+    ['Cap Rate (Yr 1)',   r.capRate,               PCT1,  false],
+    ['DSCR (Yr 1)',       r.dscr,                  NUM2,  false],
+    ['Break-Even Occ.',   r.breakEvenOccupancy,    PCT1,  false],
+  ];
+  returnRows.forEach(([lbl, val, fmt, accent]) => {
+    ws1[XLSX.utils.encode_cell({ r: row-1, c: 0 })] = labelCell(lbl);
+    ws1[XLSX.utils.encode_cell({ r: row-1, c: 1 })] = accent ? accentCell(val, fmt) : valCell(val, fmt);
+    ws1['!merges'].push({ s: { r: row-1, c: 1 }, e: { r: row-1, c: 2 } });
+    row++;
+  });
+
+  row++; // gap
+
+  // ── Section: Financing ───────────────────────────────────────────────────
+  ws1[XLSX.utils.encode_cell({ r: row-1, c: 0 })] = subHdrCell('FINANCING');
+  ws1['!merges'].push({ s: { r: row-1, c: 0 }, e: { r: row-1, c: 4 } });
+  row++;
+
+  const pp = +a.purchasePrice || 0;
+  const finRows = [
+    ['Purchase Price',     pp,                                            USD],
+    ['Down Payment ($)',   pp - r.loanAmt,                               USD],
+    ['Down Payment (%)',   pp > 0 ? (pp - r.loanAmt) / pp : 0,          PCT1],
+    ['Loan Amount',        r.loanAmt,                                    USD],
+    ['Interest Rate',      (+a.interestRate || 0) / 100,                 PCT1],
+    ['Amortization',       (+a.amortYears || 30) + ' years',             null],
+    ['LTV',               pp > 0 ? r.loanAmt / pp : 0,                  PCT1],
+    ['Monthly P&I',       r.monthlyPayment,                             USD],
+    ['Annual Debt Service', r.annualDebtService,                        USD],
+    ['Closing Costs',     r.closingCostsTotal,                          USD],
+    ['Seller Concessions', +a.sellerConcessions || 0,                   USD],
+    ['PMI (Monthly)',     +a.pmi || 0,                                   USD],
+    ['Total Cash In',     r.totalCash,                                   USD],
+  ];
+  finRows.forEach(([lbl, val, fmt]) => {
+    ws1[XLSX.utils.encode_cell({ r: row-1, c: 0 })] = labelCell(lbl);
+    ws1[XLSX.utils.encode_cell({ r: row-1, c: 1 })] = valCell(typeof val === 'number' ? val : val, fmt || undefined);
+    ws1['!merges'].push({ s: { r: row-1, c: 1 }, e: { r: row-1, c: 2 } });
+    row++;
+  });
+
+  row++; // gap
+
+  // ── Section: Income & Expenses ───────────────────────────────────────────
+  ws1[XLSX.utils.encode_cell({ r: row-1, c: 0 })] = subHdrCell('INCOME & EXPENSES (YEAR 1)');
+  ws1['!merges'].push({ s: { r: row-1, c: 0 }, e: { r: row-1, c: 4 } });
+  row++;
+
+  const incRows = [
+    ['Gross Rent (Annual)',       r.grossRentYear0,              USD,  false],
+    ['Vacancy Rate',              +a.vacancyRate / 100 || 0.05, PCT1, false],
+    ['Vacancy Loss',              yr1.vacancyLoss,               USD,  false],
+    ['Effective Gross Income',    yr1.egi,                       USD,  false],
+    ['Property Tax',              expBrk.propertyTax || 0,       USD,  false],
+    ['Insurance',                 expBrk.insurance || 0,         USD,  false],
+    ['Maintenance',               expBrk.maintenance || 0,       USD,  false],
+    ['CapEx Reserve',             expBrk.capex || 0,             USD,  false],
+    ['Property Management',       expBrk.propertyMgmt || 0,      USD,  false],
+    ['Utilities',                 expBrk.utilities || 0,         USD,  false],
+    ['Total Operating Expenses',  r.baseExpenses,                USD,  false],
+    ['Expense Ratio',             yr1.egi > 0 ? r.baseExpenses / yr1.egi : 0, PCT1, false],
+    ['Net Operating Income',      r.noi,                         USD,  true],
+    ['Debt Service',              r.annualDebtService,           USD,  false],
+    ['Annual Cash Flow',          yr1.cashFlow,                  USD,  true],
+    ['Monthly Cash Flow',         yr1.monthlyCashFlow,           USD,  true],
+  ];
+  incRows.forEach(([lbl, val, fmt, accent]) => {
+    ws1[XLSX.utils.encode_cell({ r: row-1, c: 0 })] = labelCell(lbl);
+    ws1[XLSX.utils.encode_cell({ r: row-1, c: 1 })] = accent ? accentCell(val, fmt) : valCell(val, fmt);
+    ws1['!merges'].push({ s: { r: row-1, c: 1 }, e: { r: row-1, c: 2 } });
+    row++;
+  });
+
+  row++; // gap
+
+  // ── Section: Exit Analysis ───────────────────────────────────────────────
+  ws1[XLSX.utils.encode_cell({ r: row-1, c: 0 })] = subHdrCell('EXIT ANALYSIS (YEAR 10)');
+  ws1['!merges'].push({ s: { r: row-1, c: 0 }, e: { r: row-1, c: 4 } });
+  row++;
+
+  const exitRows = [
+    ['Projected Exit Value',      r.exitValue,           USD,  false],
+    ['Remaining Loan Balance',    r.exitLoanBalance,     USD,  false],
+    ['Total Gain on Sale',        r.totalGainOnSale,     USD,  false],
+    ['Capital Gains Tax',         r.capitalGainsTax,     USD,  false],
+    ['Net Proceeds',              r.netProceeds,         USD,  true],
+    ['Cumulative Cash Flows',     r.years.reduce((s,y) => s + (y.cashFlow||0), 0), USD, false],
+    ['Total Return',              r.netProceeds + r.years.reduce((s,y) => s + (y.cashFlow||0), 0), USD, true],
+  ];
+  exitRows.forEach(([lbl, val, fmt, accent]) => {
+    ws1[XLSX.utils.encode_cell({ r: row-1, c: 0 })] = labelCell(lbl);
+    ws1[XLSX.utils.encode_cell({ r: row-1, c: 1 })] = accent ? accentCell(val, fmt) : valCell(val, fmt);
+    ws1['!merges'].push({ s: { r: row-1, c: 1 }, e: { r: row-1, c: 2 } });
+    row++;
+  });
+
+  // FHA Self-Sufficiency if applicable
+  if (r.fhaSelfSufficiency?.applies) {
+    row++;
+    ws1[XLSX.utils.encode_cell({ r: row-1, c: 0 })] = subHdrCell('FHA SELF-SUFFICIENCY TEST');
+    ws1['!merges'].push({ s: { r: row-1, c: 0 }, e: { r: row-1, c: 4 } });
+    row++;
+    const fha = r.fhaSelfSufficiency;
+    const fhaRows = [
+      ['Gross Rents (All Units)', fha.grossRentAllUnits, USD],
+      ['75% Threshold',           fha.threshold75Pct,    USD],
+      ['PITI (Annual)',            fha.pitiAnnual,        USD],
+      ['Surplus / (Shortfall)',    fha.delta,             USD],
+      ['Result',                  fha.passes ? 'PASS ✓' : 'FAIL ✗', null],
+    ];
+    fhaRows.forEach(([lbl, val, fmt]) => {
+      ws1[XLSX.utils.encode_cell({ r: row-1, c: 0 })] = labelCell(lbl);
+      const cell = fmt ? (fha.passes ? accentCell(val, fmt) : valCell(val, fmt)) : {
+        v: val, t: 's',
+        s: { font: { bold: true, color: { rgb: fha.passes ? TEAL : 'DC2626' }, sz: 11 },
+             fill: { fgColor: { rgb: fha.passes ? LIGHT_TEAL : 'FEF2F2' } },
+             alignment: { horizontal: 'right' } }
+      };
+      ws1[XLSX.utils.encode_cell({ r: row-1, c: 1 })] = cell;
+      ws1['!merges'].push({ s: { r: row-1, c: 1 }, e: { r: row-1, c: 2 } });
+      row++;
+    });
+  }
+
+  // Set sheet range and column widths
+  ws1['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: row, c: 4 } });
+  ws1['!cols'] = [{ wch: 28 }, { wch: 16 }, { wch: 4 }, { wch: 4 }, { wch: 4 }];
+  ws1['!rows'] = [{ hpt: 28 }, { hpt: 18 }];  // title rows taller
+  ws1['!freeze'] = { xSplit: 0, ySplit: 3 };
+  XLSX.utils.book_append_sheet(wb, ws1, 'Deal Summary');
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // SHEET 2: 10-Year Projection
+  // ──────────────────────────────────────────────────────────────────────────
+  const ws2 = {};
+  const YRS = r.years.length; // 10
+  const COL_OFFSET = 1;       // col 0 = row label, cols 1-10 = years
+
+  // Sheet title
+  ws2[XLSX.utils.encode_cell({ r: 0, c: 0 })] = {
+    v: `10-Year Cash Flow Projection — ${deal.address || ''}`,
+    t: 's',
+    s: { font: { bold: true, color: { rgb: WHITE }, sz: 13 },
+         fill: { fgColor: { rgb: NAVY } },
+         alignment: { horizontal: 'left', vertical: 'center' } }
+  };
+  ws2['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: YRS } }];
+
+  // Year headers
+  ws2[XLSX.utils.encode_cell({ r: 1, c: 0 })] = hdrCell('');
+  r.years.forEach((y, i) => {
+    ws2[XLSX.utils.encode_cell({ r: 1, c: i + COL_OFFSET })] = numHdrCell(`Yr ${y.yr}`);
+  });
+
+  // Row definitions: [label, field, format, isAccent, isSection]
+  const cfRowDefs = [
+    { section: 'INCOME' },
+    { label: 'Gross Rent',         field: 'grossRent',       fmt: USD },
+    { label: 'Vacancy Loss',       field: 'vacancyLoss',     fmt: USD },
+    { label: 'Eff. Gross Income',  field: 'egi',             fmt: USD,  accent: false, bold: true },
+    { section: 'EXPENSES & NOI' },
+    { label: 'Operating Expenses', field: 'expenses',        fmt: USD },
+    { label: 'Net Op. Income',     field: 'noi',             fmt: USD,  accent: true },
+    { section: 'CASH FLOW' },
+    { label: 'Debt Service',       field: 'debtService',     fmt: USD },
+    { label: 'Cash Flow',          field: 'cashFlow',        fmt: USD,  accent: true },
+    { label: 'After-Tax CF',       field: 'afterTaxCashFlow',fmt: USD },
+    { section: 'RETURNS' },
+    { label: 'Cash-on-Cash',       field: 'cocReturn',       fmt: PCT1 },
+    { label: 'Cap Rate',           field: 'capRate',         fmt: PCT1 },
+    { label: 'DSCR',               field: 'dscr',            fmt: '0.00x' },
+    { section: 'EQUITY & VALUE' },
+    { label: 'Property Value',     field: 'propertyValue',   fmt: USD },
+    { label: 'Loan Balance',       field: 'balance',         fmt: USD },
+    { label: 'Equity',             field: 'equity',          fmt: USD,  accent: true },
+    { section: 'TAX' },
+    { label: 'Depreciation',       field: 'depreciation',    fmt: USD },
+    { label: 'Tax Effect',         field: 'taxEffect',       fmt: USD },
+    { label: 'Principal Paydown',  field: 'principalPaydown',fmt: USD },
+  ];
+
+  let cfRow = 2;
+  const ws2merges = [{ s: { r: 0, c: 0 }, e: { r: 0, c: YRS } }];
+
+  cfRowDefs.forEach(def => {
+    if (def.section) {
+      // Section header row spans all columns
+      ws2[XLSX.utils.encode_cell({ r: cfRow, c: 0 })] = subHdrCell(def.section);
+      for (let ci = 1; ci <= YRS; ci++) {
+        ws2[XLSX.utils.encode_cell({ r: cfRow, c: ci })] = {
+          v: '', t: 's',
+          s: { fill: { fgColor: { rgb: TEAL } } }
+        };
+      }
+      ws2merges.push({ s: { r: cfRow, c: 0 }, e: { r: cfRow, c: 0 } });
+      cfRow++;
+      return;
+    }
+    // Row label
+    ws2[XLSX.utils.encode_cell({ r: cfRow, c: 0 })] = rowHdrCell(def.label, def.accent);
+    // Year values
+    r.years.forEach((y, i) => {
+      const v = y[def.field];
+      const cell = def.accent
+        ? accentCell(v ?? 0, def.fmt)
+        : cfNumCell(v ?? 0, def.fmt, def.bold);
+      ws2[XLSX.utils.encode_cell({ r: cfRow, c: i + COL_OFFSET })] = cell;
+    });
+    cfRow++;
+  });
+
+  ws2['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: cfRow, c: YRS } });
+  ws2['!merges'] = ws2merges;
+  ws2['!cols'] = [{ wch: 22 }, ...Array(YRS).fill({ wch: 12 })];
+  ws2['!rows'] = [{ hpt: 24 }];
+  ws2['!freeze'] = { xSplit: 1, ySplit: 2 };  // freeze row labels + year headers
+  XLSX.utils.book_append_sheet(wb, ws2, '10-Year Projection');
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // SHEET 3: Assumptions
+  // ──────────────────────────────────────────────────────────────────────────
+  const ws3 = {};
+  let ar = 1;
+  const ws3merges = [];
+
+  const aHdr = (label) => {
+    ws3[XLSX.utils.encode_cell({ r: ar-1, c: 0 })] = subHdrCell(label);
+    ws3merges.push({ s: { r: ar-1, c: 0 }, e: { r: ar-1, c: 2 } });
+    ar++;
+  };
+  const aRow = (lbl, val, fmt) => {
+    ws3[XLSX.utils.encode_cell({ r: ar-1, c: 0 })] = labelCell(lbl);
+    ws3[XLSX.utils.encode_cell({ r: ar-1, c: 1 })] = valCell(val, fmt);
+    ar++;
+  };
+
+  // Title
+  ws3[XLSX.utils.encode_cell({ r: 0, c: 0 })] = {
+    v: `Assumptions — ${deal.address || ''}`,
+    t: 's',
+    s: { font: { bold: true, color: { rgb: WHITE }, sz: 13 },
+         fill: { fgColor: { rgb: NAVY } },
+         alignment: { horizontal: 'left' } }
+  };
+  ws3merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } });
+  ar = 2;
+
+  ar++; // gap
+  aHdr('PROPERTY');
+  aRow('Address',       deal.address || '');
+  aRow('Status',        deal.status || '');
+  aRow('Num. Units',    +a.numUnits || 2);
+  aRow('Beds (total)',  +a.beds || 0);
+  aRow('Baths (total)', +a.baths || 0);
+  aRow('Sq Footage',   +a.sqftTotal || 0);
+  aRow('Year Built',   +a.yearBuilt || 0);
+  aRow('Owner Occupied', a.ownerOccupied ? 'Yes' : 'No');
+  if (a.ownerOccupied) {
+    aRow('Owner Unit',       +a.ownerUnit + 1);
+    aRow('OO Duration (yrs)',+a.ownerOccupancyYears || 0);
+    aRow('Alt. Rent (mo)',   +a.alternativeRent || 0, USD);
+  }
+
+  ar++;
+  aHdr('FINANCING');
+  aRow('Purchase Price',    +a.purchasePrice || 0,         USD);
+  aRow('Down Payment %',    (+a.downPaymentPct || 25) / 100, PCT1);
+  aRow('Interest Rate',     (+a.interestRate || 7) / 100,   PCT1);
+  aRow('Amortization (yrs)',+a.amortYears || 30);
+  aRow('Seller Concessions',+a.sellerConcessions || 0,      USD);
+  aRow('Closing Costs',     r.closingCostsTotal,            USD);
+  aRow('PMI (monthly)',     +a.pmi || 0,                    USD);
+
+  ar++;
+  aHdr('UNIT RENTS');
+  const units = (a.units || []).slice(0, +a.numUnits || 2);
+  units.forEach((u, i) => {
+    const isOwner = a.ownerOccupied && +a.ownerUnit === i;
+    aRow(`Unit ${i+1} Rent${isOwner ? ' (Owner)' : ''}`, +(u.rent || u.listedRent) || 0, USD);
+  });
+  aRow('Total Annual Rent', r.grossRentYear0, USD);
+
+  ar++;
+  aHdr('GROWTH & ANALYSIS');
+  aRow('Vacancy Rate',       (+a.vacancyRate || 5) / 100,     PCT1);
+  aRow('Rent Growth / yr',   (+a.rentGrowth || 3) / 100,      PCT1);
+  aRow('Expense Growth / yr',(+a.expenseGrowth || 3) / 100,   PCT1);
+  aRow('Appreciation / yr',  (+a.appreciationRate || 4) / 100, PCT1);
+  aRow('Tax Bracket',        (+a.taxBracket || 24) / 100,      PCT1);
+
+  ar++;
+  aHdr('EXPENSES (ANNUAL)');
+  aRow('Property Tax',       expBrk.propertyTax || 0,  USD);
+  aRow('Insurance',          expBrk.insurance || 0,    USD);
+  aRow('Maintenance',        expBrk.maintenance || 0,  USD);
+  aRow('CapEx Reserve',      expBrk.capex || 0,        USD);
+  aRow('Property Management',expBrk.propertyMgmt || 0, USD);
+  aRow('Utilities',          expBrk.utilities || 0,    USD);
+  aRow('Total Expenses',     r.baseExpenses,            USD);
+
+  if (a.refi?.enabled) {
+    ar++;
+    aHdr('REFINANCE SCENARIO');
+    aRow('Refi Year',     +a.refi.year || 5);
+    aRow('New Rate',      (+a.refi.newRate || 6) / 100, PCT1);
+    aRow('New LTV',       (+a.refi.newLTV || 75) / 100, PCT1);
+  }
+
+  if (a.valueAdd?.enabled) {
+    ar++;
+    aHdr('VALUE-ADD SCENARIO');
+    aRow('Reno Cost',         +a.valueAdd.reModelCost || 0,    USD);
+    aRow('Rent Bump / Unit',  +a.valueAdd.rentBumpPerUnit || 0, USD);
+    aRow('Units Renovated',   +a.valueAdd.unitsRenovated || 0);
+    aRow('Completion Year',   +a.valueAdd.completionYear || 1);
+    aRow('IRR w/o VA',        r.irrWithoutVA,                   PCT1);
+    aRow('IRR with VA',       r.irrWithVA,                      PCT1);
+  }
+
+  ws3['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: ar+1, c: 2 } });
+  ws3['!merges'] = ws3merges;
+  ws3['!cols'] = [{ wch: 26 }, { wch: 18 }, { wch: 4 }];
+  ws3['!rows'] = [{ hpt: 24 }];
+  ws3['!freeze'] = { xSplit: 0, ySplit: 2 };
+  XLSX.utils.book_append_sheet(wb, ws3, 'Assumptions');
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Write & download
+  // ──────────────────────────────────────────────────────────────────────────
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array', cellStyles: true });
+  const blob  = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url   = URL.createObjectURL(blob);
+  const a2    = document.createElement('a');
+  a2.href     = url;
+  a2.download = `renthack_${safeName}.xlsx`;
+  document.body.appendChild(a2);
+  a2.click();
+  document.body.removeChild(a2);
+  URL.revokeObjectURL(url);
+}
+
+// Keep exportDealCSV as alias for backward compat
+function exportDealCSV(deal) { exportDealXLSX(deal, null); }
 function dlFile(content,filename,type){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;a.click();URL.revokeObjectURL(url);}
 
 // ─── PDF export — redesigned editorial investment brief ───────────────────────
@@ -584,4 +1052,4 @@ function exportDealPDF(deal, user) {
 
 // ─── SHARED UI COMPONENTS ─────────────────────────────────────────────────────
 
-export { exportPortfolioCSV, exportDealCSV, exportDealPDF, dlFile };
+export { exportPortfolioCSV, exportDealCSV, exportDealXLSX, exportDealPDF, dlFile };
