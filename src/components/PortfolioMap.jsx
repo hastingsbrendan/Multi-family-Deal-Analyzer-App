@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { FMT_PCT, FMT_USD, GMAPS_KEY, RENTCAST_KEY, STATUS_COLORS } from '../lib/constants';
+import { FMT_PCT, FMT_USD, GMAPS_KEY, STATUS_COLORS } from '../lib/constants';
 import { calcDeal } from '../lib/calc';
 
 

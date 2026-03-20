@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { iSty, srcSty } from './ui/InputRow';
 import MetricCard from './ui/MetricCard';
 import AddressAutocomplete from './AddressAutocomplete';
-import { FMT_USD, RENTCAST_KEY, GMAPS_KEY } from '../lib/constants';;
+import { FMT_USD } from '../lib/constants';;
 import { useIsMobile } from '../lib/hooks';
 
 function RentCompsTab({deal,onChange}){

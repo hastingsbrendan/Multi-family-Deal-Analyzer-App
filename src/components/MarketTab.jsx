@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { RENTCAST_KEY, GMAPS_KEY, FMT_USD } from '../lib/constants';
+import { FMT_USD, sbClient } from '../lib/constants';
 import { useIsMobile } from '../lib/hooks';
 import MetricCard from './ui/MetricCard';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts';
@@ -257,8 +257,10 @@ function MarketTab({deal}) {
   const fetchAll = useCallback(async (zipCode) => {
     setLoading(true); setError(null);
     try {
-      const headers = { 'X-Api-Key': RENTCAST_KEY, 'Accept': 'application/json' };
-      const mktRes = await fetch(`https://api.rentcast.io/v1/markets?zipCode=${zipCode}&dataType=All&historyMonths=12`, { headers });
+      const { data: { session } } = await sbClient.auth.getSession();
+      const token = session?.access_token;
+      const authHeaders = token ? { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' } : { 'Accept': 'application/json' };
+      const mktRes = await fetch(`/api/rentcast?path=/v1/markets&zipCode=${zipCode}&dataType=All&historyMonths=12`, { headers: authHeaders });
       if (!mktRes.ok) throw new Error(`Rentcast ${mktRes.status}: ${await mktRes.text()}`);
       setMarketData(await mktRes.json());
       const censusRes = await fetch(`https://api.census.gov/data/2023/acs/acs5?get=${CENSUS_VARS}&for=zip%20code%20tabulation%20area:${zipCode}`);
