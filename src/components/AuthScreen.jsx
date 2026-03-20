@@ -10,6 +10,7 @@ function AuthScreen({ onAuth, initialMode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
+  const [tosAccepted, setTosAccepted] = useState(false);
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -53,8 +54,9 @@ function AuthScreen({ onAuth, initialMode }) {
     if (!email || !password) { setError("Please fill in all fields."); return; }
     if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
     if (password !== confirmPw) { setError("Passwords do not match."); return; }
+    if (!tosAccepted) { setError("You must agree to the Terms of Service to create an account."); return; }
     setLoading(true); clr();
-    const { error: e } = await authSignUp(email, password);
+    const { error: e } = await authSignUp(email, password, { tos_accepted_at: new Date().toISOString() });
     setLoading(false);
     if (e) { setError(e.message); return; }
     setMode("verify");
@@ -180,6 +182,12 @@ function AuthScreen({ onAuth, initialMode }) {
               </svg>
               Continue with Google
             </button>
+            <div style={{fontSize:11,color:"var(--muted)",textAlign:"center",marginTop:-4}}>
+              By continuing, you agree to our{" "}
+              <a href="/legal/tos.html" target="_blank" style={{color:"var(--muted)"}}>Terms</a>
+              {" "}&amp;{" "}
+              <a href="/legal/privacy.html" target="_blank" style={{color:"var(--muted)"}}>Privacy Policy</a>
+            </div>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
               <div style={{flex:1,height:1,background:"var(--border)"}}/>
               <span style={{fontSize:12,color:"var(--muted)",whiteSpace:"nowrap"}}>or sign in with email</span>
@@ -228,7 +236,17 @@ function AuthScreen({ onAuth, initialMode }) {
               onChange={e=>{setConfirmPw(e.target.value);clr();}} style={iS}
               onKeyDown={e=>e.key==="Enter"&&doSignup()} />
             {error && <div style={{color:"#ef4444",fontSize:13,padding:"8px 10px",background:"#fee2e222",borderRadius:6}}>{error}</div>}
-            <button onClick={doSignup} disabled={loading} style={{...bS,opacity:loading?.7:1}}>
+            <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"4px 0"}}>
+              <input type="checkbox" checked={tosAccepted} onChange={e=>setTosAccepted(e.target.checked)}
+                style={{marginTop:2,width:15,height:15,cursor:"pointer",accentColor:"var(--accent)"}}/>
+              <span style={{fontSize:13,color:"var(--muted)",lineHeight:1.5}}>
+                I agree to the{" "}
+                <a href="/legal/tos.html" target="_blank" style={{color:"var(--accent)"}}>Terms of Service</a>
+                {" "}and{" "}
+                <a href="/legal/privacy.html" target="_blank" style={{color:"var(--accent)"}}>Privacy Policy</a>
+              </span>
+            </label>
+            <button onClick={doSignup} disabled={loading||!tosAccepted} style={{...bS,opacity:(loading||!tosAccepted)?.7:1}}>
               {loading ? "Creating account…" : "Create Account"}
             </button>
             <div style={{textAlign:"center"}}>
