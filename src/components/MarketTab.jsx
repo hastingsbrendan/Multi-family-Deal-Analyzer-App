@@ -45,21 +45,23 @@ function MarketTab({deal}){
   const [fredLoading,setFredLoading]=useState(false);
 
   const zip=extractZip(deal?.address);
-  const FRED_KEY=import.meta.env.VITE_FRED_API_KEY;
+  // FRED key is now server-side only (Cloudflare Pages Function at /api/fred)
 
   const fetchFred=useCallback(async()=>{
-    if(!FRED_KEY)return;
     setFredLoading(true);
     try{
-      const url=`https://api.stlouisfed.org/fred/series/observations?series_id=${FRED_MORTGAGE_SERIES}&api_key=${FRED_KEY}&file_type=json&sort_order=desc&limit=56&observation_start=2024-01-01`;
+      // /api/fred is a Cloudflare Pages Function that proxies FRED and adds CORS headers.
+      // The API key lives server-side only — never shipped in the JS bundle.
+      const url=`/api/fred?series_id=${FRED_MORTGAGE_SERIES}&sort_order=desc&limit=60`;
       const res=await fetch(url);
-      if(!res.ok)throw new Error(`FRED ${res.status}`);
+      if(!res.ok)throw new Error(`FRED proxy ${res.status}`);
       const json=await res.json();
+      if(json.error)throw new Error(json.error);
       const obs=json.observations?.filter(o=>o.value!=='.'&&+o.value>0).map(o=>({date:o.date,rate:+o.value})).reverse()??[];
       setFredData(obs);
     }catch(e){console.warn('FRED fetch failed:',e.message);}
     finally{setFredLoading(false);}
-  },[FRED_KEY]);
+  },[]);
 
   const fetchAll=useCallback(async(zipCode)=>{
     setLoading(true);setError(null);
@@ -268,8 +270,8 @@ function MarketTab({deal}){
       <Section style={{marginTop:16}}>
         <SectionHeader title="📉 Rate Environment" subtitle={currentRate&&fredData?.length?`30-Yr Fixed Mortgage · Federal Reserve (FRED) · Updated ${fredData[fredData.length-1]?.date}`:'Federal Reserve Economic Data (FRED)'}/>
         {fredLoading&&<div style={{fontSize:12,color:'var(--muted)',padding:'8px 0'}}>Loading rate data…</div>}
-        {!fredLoading&&!currentRate&&!FRED_KEY&&(
-          <div style={{fontSize:12,color:'var(--muted)',padding:'8px 0'}}>Add <code style={{background:'var(--border)',padding:'1px 5px',borderRadius:4}}>VITE_FRED_API_KEY</code> to Cloudflare env vars to enable rate data.</div>
+        {!fredLoading&&!currentRate&&(
+          <div style={{fontSize:12,color:'var(--muted)',padding:'8px 0'}}>Rate data temporarily unavailable — retrying next visit.</div>
         )}
         {currentRate&&!fredLoading&&(
           <>
