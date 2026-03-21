@@ -24,7 +24,7 @@ function CashFlowTab({result,deal}){
       <table style={{borderCollapse:"collapse",fontSize:11}}>
         <thead>
           <tr style={{background:"var(--table-head)"}}>
-            {["","Yr1","Yr2","Yr3","Yr4","Yr5","Yr6","Yr7","Yr8","Yr9","Yr10"].map(h=>(<th key={h} style={{padding:"6px 8px",textAlign:h===""?"left":"right",color:"var(--muted)",fontWeight:700,fontSize:10,letterSpacing:"0.05em",borderBottom:"1px solid var(--border)",whiteSpace:"nowrap",position:h===""?"sticky":"static",left:0,background:"var(--table-head)",zIndex:h===""?2:0,minWidth:h===""?100:62}}>{h}</th>))}
+            {["",...result.years.map(y=>`Yr${y.yr}`)].map(h=>(<th key={h} style={{padding:"6px 8px",textAlign:h===""?"left":"right",color:"var(--muted)",fontWeight:700,fontSize:10,letterSpacing:"0.05em",borderBottom:"1px solid var(--border)",whiteSpace:"nowrap",position:h===""?"sticky":"static",left:0,background:"var(--table-head)",zIndex:h===""?2:0,minWidth:h===""?100:62}}>{h}</th>))}
           </tr>
         </thead>
         <tbody>
@@ -121,7 +121,7 @@ function CashFlowTab({result,deal}){
 
           {/* OO pro-rate notice — only during OO years */}
           {oo&&result.years.some(y=>y.ooTaxProrateRatio<1)&&(
-            <tr><td colSpan={11} style={{padding:"5px 8px",fontSize:10,color:"#f59e0b",fontStyle:"italic",background:"rgba(245,158,11,0.06)"}}>
+            <tr><td colSpan={result.years.length+1} style={{padding:"5px 8px",fontSize:10,color:"#f59e0b",fontStyle:"italic",background:"rgba(245,158,11,0.06)"}}>
               ⚠ During owner-occupancy years only the rental share ({result.years[0]?.ooTaxProrateRatio<1?`${Math.round(result.years[0].ooTaxProrateRatio*100)}%`:"100%"}) of interest &amp; depreciation is deductible. The owner's share of operating expenses is added back to NOI since those costs were not incurred for rental purposes.
             </td></tr>
           )}

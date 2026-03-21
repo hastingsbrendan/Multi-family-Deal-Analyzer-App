@@ -584,9 +584,7 @@ function AssumptionsTab({deal,onChange}){
                   </div>
                   <div style={{display:"flex",alignItems:"flex-end",paddingBottom:2}}>
                     <span style={{fontSize:11,color:"var(--muted)",lineHeight:1.4}}>
-                      Exit analysis, IRR, and equity multiple all use this period.{" "}
-                      {holdVal<=5&&<span style={{color:"var(--accent2)",fontWeight:700}}>Short hold — BRRRR/flip lens.</span>}
-                      {holdVal>=20&&<span style={{color:"var(--accent)",fontWeight:700}}>Long-term buy &amp; hold.</span>}
+                      Exit analysis, IRR, and equity multiple all use this period.
                     </span>
                   </div>
                 </div>
