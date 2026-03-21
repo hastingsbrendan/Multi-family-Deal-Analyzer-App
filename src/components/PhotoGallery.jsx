@@ -29,6 +29,13 @@ function PhotoGallery({ deal, onUpdate, context, contextLabel }) {
   const handleUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
+    const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+    const invalid = files.find(f => !f.type.startsWith('image/') || f.size > MAX_SIZE);
+    if (invalid) {
+      alert(invalid.size > MAX_SIZE ? `"${invalid.name}" exceeds the 10 MB limit.` : `"${invalid.name}" is not a valid image.`);
+      e.target.value = '';
+      return;
+    }
     setUploading(true);
     try {
       const urls = await Promise.all(files.map(f => sbUploadPhoto(deal.id, f, context)));

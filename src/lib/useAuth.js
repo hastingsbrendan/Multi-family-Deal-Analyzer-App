@@ -45,7 +45,7 @@ export function useAuth({ setUser, setAuthLoading, setDeals, setLastCloudUpdate,
             setDeals(cloudDeals);
             saveLocal(cloudDeals, u.id);
           } else if (local.length > 0) {
-            sbWrite(local).catch(() => {});
+            sbWrite(local).catch(e => Sentry.captureException(e, { tags: { origin: 'useAuth.sbWrite.bootstrap' } }));
           } else {
             // First login with no deals anywhere — create a sample deal so the
             // user lands on a populated portfolio instead of a blank canvas.
@@ -53,11 +53,11 @@ export function useAuth({ setUser, setAuthLoading, setDeals, setLastCloudUpdate,
             const initialDeals = [sample];
             setDeals(initialDeals);
             saveLocal(initialDeals, u.id);
-            sbWrite(initialDeals).catch(() => {});
+            sbWrite(initialDeals).catch(e => Sentry.captureException(e, { tags: { origin: 'useAuth.sbWrite.sample' } }));
             trackDealCreated(sample.id);
           }
         })
-        .catch(() => {});
+        .catch(e => Sentry.captureException(e, { tags: { origin: 'useAuth.sbRead' } }));
     }, 300);
   }, [setDeals, setLastCloudUpdate, setPrefs]);
 

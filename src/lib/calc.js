@@ -60,6 +60,12 @@
 //
 import * as Sentry from '@sentry/react';
 import { calcStateTax } from './taxEngine.js';
+
+// ─── Tax & depreciation constants (IRC §168 / §469) ──────────────────────────
+const RESIDENTIAL_DEP_YEARS = 27.5; // IRC §168(c)(1) — residential rental property
+const CS_5YR_LIFE   = 5;            // Personal property / 5-yr cost seg component
+const CS_15YR_LIFE  = 15;           // Land improvements / 15-yr cost seg component
+const DEFAULT_LAND_PCT = 0.20;      // Default land allocation when advanced tax is off
 const DEFAULT_PREFS = {
   // Default assumptions applied to every new deal
   downPaymentPct:   25,
@@ -310,8 +316,8 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     // including the owner's personal share (1/N) which is NOT deductible for rental purposes.
     // Add back the owner's non-deductible expense share so taxable income reflects rental activity only.
     const ooExpAddBack=expenses*ooOwnerExpShare; // owner's share of expenses — not deductible
-    // Depreciation: full 27.5yr schedule × rental ratio only
-    const annualDepreciation=((pp*0.8)/27.5)*ooTaxProrateRatio;
+    // Depreciation: full RESIDENTIAL_DEP_YEARS schedule × rental ratio only
+    const annualDepreciation=((pp*(1-DEFAULT_LAND_PCT))/RESIDENTIAL_DEP_YEARS)*ooTaxProrateRatio;
     // Taxable rental income: NOI + owner expense add-back − rental interest − rental depreciation
     const taxableIncome=(noi+ooExpAddBack)-(interest*ooTaxProrateRatio)-annualDepreciation;
     // QBI deduction: 20% of qualified business income (IRC §199A) if positive
@@ -341,14 +347,14 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     if(csEnabled){
       const cs5BonusBase=Math.max(0,cs5Val-sec179);  // basis eligible for bonus dep (after Sec 179)
       const cs5SLBasis=cs5BonusBase*(1-bonusPct);    // remaining basis for 5-yr SL
-      if(yr===1){cs5Dep=sec179+cs5BonusBase*bonusPct+cs5SLBasis/5;}
-      else if(yr<=5){cs5Dep=cs5SLBasis/5;}
+      if(yr===1){cs5Dep=sec179+cs5BonusBase*bonusPct+cs5SLBasis/CS_5YR_LIFE;}
+      else if(yr<=CS_5YR_LIFE){cs5Dep=cs5SLBasis/CS_5YR_LIFE;}
       const cs15SLBasis=cs15Val*(1-bonusPct);        // remaining 15-yr basis after bonus dep
-      if(yr===1){cs15Dep=cs15Val*bonusPct+cs15SLBasis/15;}
-      else if(yr<=15){cs15Dep=cs15SLBasis/15;}
+      if(yr===1){cs15Dep=cs15Val*bonusPct+cs15SLBasis/CS_15YR_LIFE;}
+      else if(yr<=CS_15YR_LIFE){cs15Dep=cs15SLBasis/CS_15YR_LIFE;}
     }
     // Advanced tax also prorates SL dep by OO ratio; cost seg components only apply to rental portion
-    const slDepreciation=taxAdvEnabled?(structureVal/27.5*ooTaxProrateRatio):annualDepreciation;
+    const slDepreciation=taxAdvEnabled?(structureVal/RESIDENTIAL_DEP_YEARS*ooTaxProrateRatio):annualDepreciation;
     // Cost seg comps: prorated to rental units only during OO years
     const cs5DepProrated=cs5Dep*ooTaxProrateRatio;
     const cs15DepProrated=cs15Dep*ooTaxProrateRatio;

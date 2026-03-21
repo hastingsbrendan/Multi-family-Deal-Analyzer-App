@@ -18,6 +18,24 @@ class ErrorBoundary extends React.Component {
 
   render() {
     if (this.state.hasError) {
+      if (this.props.compact) {
+        return (
+          <div style={{ padding: '40px 24px', textAlign: 'center', color: 'var(--muted)' }}>
+            <div style={{ fontSize: 24, marginBottom: 8 }}>⚠️</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
+              This tab failed to load
+            </div>
+            <div style={{ fontSize: 12, marginBottom: 16 }}>
+              {this.state.error?.message || 'An unexpected error occurred.'}
+            </div>
+            <button
+              onClick={() => this.setState({ hasError: false, error: null })}
+              style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '7px 18px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+              Try Again
+            </button>
+          </div>
+        );
+      }
       return (
         <div style={{
           minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',

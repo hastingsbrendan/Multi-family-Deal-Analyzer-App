@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { FMT_USD, FMT_PCT, mapsUrl, sbClient, SB_BUCKET } from '../lib/constants';;
+import * as Sentry from '@sentry/react';
+import { FMT_USD, FMT_PCT, mapsUrl, sbClient, SB_BUCKET } from '../lib/constants';
 import { resolveExpenses } from '../lib/calc';
 import { useIsMobile } from '../lib/hooks';
 import InputRow, { iSty, btnSm, srcSty, fmtInputDisplay, parseInputValue, Tip } from './ui/InputRow';
@@ -29,10 +30,13 @@ function FmtInt({value, onChange, placeholder, style}) {
 
 function ExpenseInputRow({lbl, modeToggle, isItemPct, rawVal, onChange, mobile, tip}) {
   const [focused, setFocused] = useState(false);
+  const [draft, setDraft] = useState('');
   const displayVal = focused
-    ? (String(rawVal)==="0"||rawVal===0?"":String(rawVal).replace(/,/g,""))
+    ? draft
     : fmtInputDisplay(rawVal);
-  const handleChange = e => onChange(parseInputValue(e.target.value));
+  const handleFocus = () => { setFocused(true); setDraft(rawVal === 0 ? '' : String(rawVal).replace(/,/g,'')); };
+  const handleBlur = () => { setFocused(false); onChange(parseInputValue(draft)); };
+  const handleChange = e => setDraft(e.target.value);
   if(mobile){return(
     <div style={{padding:"10px 0",borderBottom:"1px solid var(--border-faint)"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
@@ -40,7 +44,7 @@ function ExpenseInputRow({lbl, modeToggle, isItemPct, rawVal, onChange, mobile, 
       </div>
       <div style={{display:"flex",alignItems:"center",gap:4}}>
         {!isItemPct&&<span style={{fontSize:13,color:"var(--muted)"}}>$</span>}
-        <input type="text" inputMode="decimal" value={displayVal} onChange={handleChange} onFocus={()=>setFocused(true)} onBlur={()=>setFocused(false)} placeholder="0" style={iSty}/>
+        <input type="text" inputMode="decimal" value={displayVal} onChange={handleChange} onFocus={handleFocus} onBlur={handleBlur} placeholder="0" style={iSty}/>
         <span style={{fontSize:12,color:"var(--muted)",whiteSpace:"nowrap",flexShrink:0,marginLeft:2}}>{isItemPct?"% rent":"/yr"}</span>
       </div>
     </div>
@@ -51,7 +55,7 @@ function ExpenseInputRow({lbl, modeToggle, isItemPct, rawVal, onChange, mobile, 
       {modeToggle}
       <div style={{display:"flex",alignItems:"center",gap:4}}>
         {!isItemPct&&<span style={{fontSize:13,color:"var(--muted)"}}>$</span>}
-        <input type="text" inputMode="decimal" value={displayVal} onChange={handleChange} onFocus={()=>setFocused(true)} onBlur={()=>setFocused(false)} placeholder="0" style={iSty}/>
+        <input type="text" inputMode="decimal" value={displayVal} onChange={handleChange} onFocus={handleFocus} onBlur={handleBlur} placeholder="0" style={iSty}/>
         <span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap"}}>{isItemPct?"% of rent":"/yr"}</span>
       </div>
     </div>
@@ -248,7 +252,7 @@ function PropertyLookupPanel({deal, onChange}) {
             upd2.assumptions.floodZone = zone;
             onChange(upd2);
           }
-        }).catch(() => {/* silent */});
+        }).catch(e => Sentry.captureException(e, { tags: { origin: 'AssumptionsTab.floodZone' } }));
       });
     }
   };

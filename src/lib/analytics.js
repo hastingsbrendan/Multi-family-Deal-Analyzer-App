@@ -85,6 +85,10 @@ export const trackUpgradeGateHit = (feature, dealId) =>
 export const trackUpgradeClicked = (feature)          =>
   track('upgrade_clicked',   { feature });
 
+/** Premium feature usage — fired when a pro user actively accesses a gated feature */
+export const trackFeatureUsed = (feature, dealId) =>
+  track('feature_used', { feature, deal_id: dealId });
+
 /** Exports */
 export const trackPDFExported = (dealId)  => track('export_pdf',  { deal_id: dealId });
 export const trackCSVExported = (dealId)  => track('export_csv',  { deal_id: dealId });
