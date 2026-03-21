@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import * as Sentry from '@sentry/react';
 import { sbGetComments, sbPostComment, sbDeleteComment, sbEditComment } from '../lib/groups';
 
 function CommentsPanel({ groupId, dealId, currentUser }) {
@@ -16,7 +17,7 @@ function CommentsPanel({ groupId, dealId, currentUser }) {
     setLoading(true);
     sbGetComments(groupId, dealId)
       .then(data => { setComments(data); setLoading(false); })
-      .catch(() => setLoading(false));
+      .catch(e => { Sentry.captureException(e, { tags: { origin: 'CommentsPanel.sbGetComments' } }); setLoading(false); });
   }, [groupId, dealId]);
 
   // Scroll to bottom on new comments
@@ -45,6 +46,7 @@ function CommentsPanel({ groupId, dealId, currentUser }) {
       setComments(prev => prev.filter(c => c.id !== id));
     } catch (e) {
       setError('Failed to delete comment.');
+      Sentry.captureException(e, { tags: { origin: 'CommentsPanel.handleDelete' } });
     }
   };
 
@@ -56,6 +58,7 @@ function CommentsPanel({ groupId, dealId, currentUser }) {
       setEditingId(null);
     } catch (e) {
       setError('Failed to edit comment.');
+      Sentry.captureException(e, { tags: { origin: 'CommentsPanel.handleEditSave' } });
     }
   };
 
@@ -181,7 +184,7 @@ function CommentsPanel({ groupId, dealId, currentUser }) {
                           color: 'var(--muted)', cursor: 'pointer', padding: 0 }}>Edit</button>
                       <button onClick={() => handleDelete(comment.id)}
                         style={{ background: 'none', border: 'none', fontSize: 11,
-                          color: '#ef4444', cursor: 'pointer', padding: 0 }}>Delete</button>
+                          color: 'var(--red)', cursor: 'pointer', padding: 0 }}>Delete</button>
                     </div>
                   )}
                 </div>
@@ -194,7 +197,7 @@ function CommentsPanel({ groupId, dealId, currentUser }) {
 
       {/* Error */}
       {error && (
-        <div style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 8,
+        <div style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--red)', borderRadius: 8,
           padding: '6px 12px', fontSize: 12, marginBottom: 8 }}>
           {error}
         </div>

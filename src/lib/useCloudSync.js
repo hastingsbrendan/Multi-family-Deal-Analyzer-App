@@ -51,9 +51,10 @@ export function useCloudSync(user, isOnline) {
       } catch(e) {
         setSyncStatus("error");
         setSyncError(e.message);
-        Sentry.addBreadcrumb({ category: 'sync', message: 'save error', data: { error: e.message, deals: deals.length }, level: 'error' });
+        Sentry.captureException(e, { tags: { origin: 'useCloudSync.sbWrite' }, extra: { dealCount: deals.length } });
       }
     }, 800);
+    return () => clearTimeout(syncTimer.current);
   }, [deals, isOnline]);
 
   // Focus/visibility pull intentionally removed — it raced with the 800ms debounced
@@ -67,7 +68,11 @@ export function useCloudSync(user, isOnline) {
     if (isOnline && syncStatus === "offline" && deals !== null) {
       sbWrite(deals)
         .then(() => { setSyncStatus("saved"); setLastSyncedAt(new Date()); setTimeout(() => setSyncStatus("idle"), 2000); })
-        .catch(e => { setSyncStatus("error"); setSyncError(e.message); });
+        .catch(e => {
+          setSyncStatus("error");
+          setSyncError(e.message);
+          Sentry.captureException(e, { tags: { origin: 'useCloudSync.reOnlineSync' } });
+        });
     }
   }, [isOnline]);
 

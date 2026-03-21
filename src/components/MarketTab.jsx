@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import * as Sentry from '@sentry/react';
 import { FMT_USD, sbClient } from '../lib/constants';
 import { useIsMobile } from '../lib/hooks';
 import MetricCard from './ui/MetricCard';
@@ -229,6 +230,7 @@ function MarketTab({deal}) {
   const [saleFilter, setSaleFilter]   = useState('mf');
   const [fredAllData, setFredAllData] = useState(null); // { mortgage, treasury10, fedTarget, rentCPI, hpi }
   const [fredLoading, setFredLoading] = useState(false);
+  const [fredError, setFredError] = useState(null);
 
   const zip = extractZip(deal?.address);
 
@@ -250,7 +252,10 @@ function MarketTab({deal}) {
         rentCPI:   parseFredObs(r['CUUR0000SEHA'] || []),
         hpi:       parseFredObs(r['CSUSHPINSA']   || []),
       });
-    } catch (e) { console.warn('FRED fetch failed:', e.message); }
+    } catch (e) {
+      setFredError('Unable to load market rate data.');
+      Sentry.captureException(e, { tags: { origin: 'MarketTab.fetchFred' } });
+    }
     finally { setFredLoading(false); }
   }, []);
 
@@ -269,7 +274,10 @@ function MarketTab({deal}) {
         if (raw.length >= 2) { const h=raw[0],v=raw[1],obj={}; h.forEach((k,i)=>{obj[k]=v[i];}); setCensusData(obj); }
       }
       setLastZip(zipCode);
-    } catch (e) { setError(e.message); }
+    } catch (e) {
+      setError(e.message);
+      Sentry.captureException(e, { tags: { origin: 'MarketTab.fetchAll' } });
+    }
     finally { setLoading(false); }
   }, []);
 
@@ -473,7 +481,10 @@ function MarketTab({deal}) {
           subtitle={lastUpdated ? `30-Yr Fixed · 10-Yr Treasury · Fed Rate · FRED · Updated ${lastUpdated}` : 'Federal Reserve Economic Data (FRED)'}
         />
         {fredLoading && <div style={{fontSize:12,color:'var(--muted)',padding:'8px 0'}}>Loading rate data…</div>}
-        {!fredLoading && !currentRate && (
+        {!fredLoading && fredError && (
+          <div style={{fontSize:12,color:'var(--red)',padding:'8px 0'}}>⚠ {fredError}</div>
+        )}
+        {!fredLoading && !fredError && !currentRate && (
           <div style={{fontSize:12,color:'var(--muted)',padding:'8px 0'}}>Rate data temporarily unavailable — retrying next visit.</div>
         )}
         {currentRate && !fredLoading && (

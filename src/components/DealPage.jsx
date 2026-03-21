@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { useIsMobile } from '../lib/hooks';
 import { FMT_USD, FMT_PCT, STATUS_OPTIONS, STATUS_COLORS, IS_PROD } from '../lib/constants';
 import { calcDeal, DEFAULT_PREFS } from '../lib/calc';
@@ -6,7 +6,8 @@ import AddressAutocomplete from './AddressAutocomplete';
 import CommentsPanel from './CommentsPanel';
 import { BlurGate } from './UpgradeModal';
 import { useFeatureCheck } from './FeatureGate';
-import { trackTabViewed } from '../lib/analytics';
+import { trackTabViewed, trackFeatureUsed } from '../lib/analytics';
+import ErrorBoundary from './ErrorBoundary';
 
 // Lazy-load tab components — only downloaded when the user navigates to that tab
 const DealSummaryTab = React.lazy(() => import('./DealSummaryTab'));
@@ -45,14 +46,21 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
   useEffect(() => { if (forceTab != null) setTab(forceTab); }, [forceTab]);
 
   // Track initial tab view and subsequent tab switches
-  useEffect(() => { trackTabViewed(tab, deal?.id); }, [tab, deal?.id]);
+  useEffect(() => {
+    trackTabViewed(tab, deal?.id);
+    // Track active use of gated features (only fires when user has access — not on the blur gate)
+    if (tab === 3 && canRentComps)   trackFeatureUsed('rentComps', deal?.id);
+    if (tab === 7 && canSensitivity) trackFeatureUsed('sensitivity', deal?.id);
+  }, [tab, deal?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleTabChange = (i) => setTab(i);
+  const handleTabChange = useCallback((i) => setTab(i), []);
   const isMobile = useIsMobile();
   const result = useMemo(() => calcDeal(deal), [deal]);
 
-  const canPDF      = useFeatureCheck('pdfExport');
-  const canShare    = useFeatureCheck('sharing');
+  const canPDF        = useFeatureCheck('pdfExport');
+  const canShare      = useFeatureCheck('sharing');
+  const canRentComps  = useFeatureCheck('rentComps');
+  const canSensitivity = useFeatureCheck('sensitivity');
   const userEmail   = currentUser?.email;
 
   return(<div style={{maxWidth:980,margin:"0 auto",paddingBottom:60}}>
@@ -88,7 +96,7 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
     <div data-tour="tab-bar" style={{display:"flex",borderBottom:"1px solid var(--border)",overflowX:"auto",WebkitOverflowScrolling:"touch",scrollbarWidth:"none",msOverflowStyle:"none"}}>
       {VISIBLE_TABS.map(t=>(<button key={t.id} onClick={()=>handleTabChange(t.id)} style={{background:"none",border:"none",borderBottom:tab===t.id?"3px solid var(--accent)":"3px solid transparent",padding:isMobile?"10px 12px":"10px 18px",cursor:"pointer",fontSize:isMobile?12:13,fontWeight:tab===t.id?800:500,color:tab===t.id?"var(--accent)":"var(--muted)",marginBottom:-1,fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}}>{isMobile?t.mobileLabel:t.label}</button>))}
     </div>
-    <div data-tour="tab-content"><Suspense fallback={<TabFallback/>}>
+    <div data-tour="tab-content"><ErrorBoundary compact><Suspense fallback={<TabFallback/>}>
       {tab===0&&<DealSummaryTab deal={deal} result={result} onUpdate={onUpdate}/>}
       {tab===1&&<AssumptionsTab deal={deal} onChange={onUpdate}/>}
       {tab===2&&<CashFlowTab result={result} deal={deal}/>}
@@ -106,7 +114,7 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
         </BlurGate>
       )}
       {tab===8&&!IS_PROD&&<LoanTypeTab deal={deal}/>}
-    </Suspense></div>
+    </Suspense></ErrorBoundary></div>
     {activeGroup && deal._deal_id && (
       <CommentsPanel
         groupId={activeGroup.id}
