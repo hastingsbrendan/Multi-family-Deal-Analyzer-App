@@ -16,6 +16,11 @@ export default defineConfig({
           'vendor-recharts': ['recharts'],
           'vendor-supabase': ['@supabase/supabase-js'],
           'vendor-sentry':   ['@sentry/react'],
+          // Large data files — split so they cache independently from app code.
+          // taxEngine: 865 lines of state tax brackets; loanEngine: 889 lines of loan metadata.
+          // When app logic changes, users don't re-download these stable data chunks.
+          'data-taxengine':  ['./src/lib/taxEngine.js'],
+          'data-loanengine': ['./src/lib/loanEngine.js'],
         },
       },
     },

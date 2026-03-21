@@ -3,6 +3,10 @@
 // financial calculation engine. Import groups functions from here, not calc.js.
 import { sbClient, sbWriteDeal } from './constants';
 
+/**
+ * Returns all groups the current user belongs to, with their membership role and status.
+ * @returns {Promise<Array<{id, name, description, role, status}>>}
+ */
 async function sbGetMyGroups() {
   const { data: { user } } = await sbClient.auth.getUser();
   if (!user) return [];
@@ -18,6 +22,7 @@ async function sbGetMyGroups() {
     status: memberships.find(m => m.group_id === g.id)?.status || 'active' }));
 }
 
+/** Returns pending group invitations for the current user. */
 async function sbGetPendingInvites() {
   const { data: { user } } = await sbClient.auth.getUser();
   if (!user) return [];
@@ -28,6 +33,7 @@ async function sbGetPendingInvites() {
   return data || [];
 }
 
+/** Creates a new group and adds the current user as Owner. @returns {Promise<{id, name, description}>} */
 async function sbCreateGroup(name, description) {
   const { data: { user } } = await sbClient.auth.getUser();
   if (!user) throw new Error('Not authenticated');
@@ -42,6 +48,11 @@ async function sbCreateGroup(name, description) {
   return group;
 }
 
+/**
+ * Invites a user to a group by email. If the email is not yet registered,
+ * stores a pending invite in `group_invites_pending` for pickup on sign-up.
+ * @returns {Promise<{pending: boolean}>}
+ */
 async function sbInviteMember(groupId, email, role) {
   const { data: { user } } = await sbClient.auth.getUser();
   if (!user) throw new Error('Not authenticated');
@@ -59,6 +70,7 @@ async function sbInviteMember(groupId, email, role) {
   return { pending: false };
 }
 
+/** Accepts or declines a group invitation. Decline removes the membership row. */
 async function sbRespondToInvite(groupId, accept) {
   const { data: { user } } = await sbClient.auth.getUser();
   if (!user) return;
@@ -71,6 +83,7 @@ async function sbRespondToInvite(groupId, accept) {
   }
 }
 
+/** Removes the current user from a group (self-service leave). */
 async function sbLeaveGroup(groupId) {
   const { data: { user } } = await sbClient.auth.getUser();
   if (!user) return;
@@ -78,6 +91,10 @@ async function sbLeaveGroup(groupId) {
     .eq('group_id', groupId).eq('user_id', user.id);
 }
 
+/**
+ * Returns all members of a group with their role, status, and profile info.
+ * @returns {Promise<Array<{user_id, role, status, profiles: {display_name, email}}>>}
+ */
 async function sbGetGroupMembers(groupId) {
   const { data } = await sbClient
     .from('group_members')
@@ -86,11 +103,13 @@ async function sbGetGroupMembers(groupId) {
   return data || [];
 }
 
+/** Updates a member's role within a group (e.g. Viewer → Editor). */
 async function sbUpdateMemberRole(groupId, memberId, newRole) {
   await sbClient.from('group_members').update({ role: newRole })
     .eq('group_id', groupId).eq('user_id', memberId);
 }
 
+/** Removes a specific member from a group (admin/owner action). */
 async function sbRemoveMember(groupId, memberId) {
   await sbClient.from('group_members').delete()
     .eq('group_id', groupId).eq('user_id', memberId);
@@ -98,7 +117,11 @@ async function sbRemoveMember(groupId, memberId) {
 
 // ── Group deal refs (A2 schema) ──────────────────────────────────────────────
 
-// Load group deals via refs: fetch refs → fetch owner deal rows → return deal objects
+/**
+ * Loads all deals shared into a group, sorted by `sort_order`.
+ * Fetches ref rows first, then joins the actual deal data from the owner's `deals` table.
+ * @returns {Promise<Array<deal & {_deal_id, _owner_user_id, _shared_at, _sort_order}>>}
+ */
 async function sbGetGroupDeals(groupId) {
   const { data: refs, error: refsErr } = await sbClient
     .from('group_deal_refs')
@@ -129,7 +152,11 @@ async function sbGetGroupDeals(groupId) {
     .filter(Boolean);
 }
 
-// Share a deal into a group — writes a ref row (no data copy)
+/**
+ * Shares a deal into a group by writing a ref row (no data duplication).
+ * If the deal hasn't been saved to the cloud yet, saves it first.
+ * @returns {Promise<deal & {_deal_id: string}>}
+ */
 async function sbShareDealToGroup(deal, groupId) {
   const { data: { user } } = await sbClient.auth.getUser();
   if (!user) throw new Error('Not authenticated');
@@ -147,7 +174,7 @@ async function sbShareDealToGroup(deal, groupId) {
   return { ...deal, _deal_id: dealId };
 }
 
-// Remove a deal from a group (deletes the ref, not the deal itself)
+/** Removes a deal from a group by deleting the ref row. The deal itself is not affected. */
 async function sbRemoveDealFromGroup(dealId, groupId) {
   await sbClient.from('group_deal_refs')
     .delete()
@@ -155,7 +182,7 @@ async function sbRemoveDealFromGroup(dealId, groupId) {
     .eq('deal_id', dealId);
 }
 
-// Update sort order for group deals
+/** Updates the `sort_order` for each deal in a group to match the given array order. */
 async function sbReorderGroupDeals(groupId, orderedDealIds) {
   const updates = orderedDealIds.map((dealId, i) =>
     sbClient.from('group_deal_refs')
@@ -168,6 +195,10 @@ async function sbReorderGroupDeals(groupId, orderedDealIds) {
 
 // ── Group comments ────────────────────────────────────────────────────────────
 
+/**
+ * Returns all comments for a deal within a group, sorted oldest-first.
+ * @returns {Promise<Array<{id, user_id, body, created_at, updated_at, profiles: {display_name, email}}>>}
+ */
 async function sbGetComments(groupId, dealId) {
   const { data, error } = await sbClient
     .from('group_comments')
@@ -179,6 +210,10 @@ async function sbGetComments(groupId, dealId) {
   return data || [];
 }
 
+/**
+ * Posts a new comment on a deal within a group.
+ * @returns {Promise<{id, user_id, body, created_at, updated_at, profiles: {display_name, email}}>}
+ */
 async function sbPostComment(groupId, dealId, body) {
   const { data: { user } } = await sbClient.auth.getUser();
   if (!user) throw new Error('Not authenticated');
@@ -190,10 +225,15 @@ async function sbPostComment(groupId, dealId, body) {
   return data;
 }
 
+/** Permanently deletes a comment by ID. */
 async function sbDeleteComment(commentId) {
   await sbClient.from('group_comments').delete().eq('id', commentId);
 }
 
+/**
+ * Updates the body of an existing comment and sets `updated_at` to now.
+ * @returns {Promise<{id, body, updated_at}>}
+ */
 async function sbEditComment(commentId, body) {
   const { data, error } = await sbClient.from('group_comments')
     .update({ body, updated_at: new Date().toISOString() })
