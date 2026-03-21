@@ -215,6 +215,11 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
   const baseExp=resolveExpenses(a,grossRentYear0), baseExpenses=baseExp.total;
   const years=[];
   let balance=loanAmt;
+  // ── BACK-805: Hold period — clamp to valid range 1–30, default 10 ──────────────
+  // Declared here so refiEnabled and vaCompletionYr can reference it safely.
+  // Soft validation: refi year and VA completion year are clamped to holdYears
+  // rather than throwing — silent clamp, no error, backward compatible.
+  const holdYears=Math.max(1,Math.min(30,Math.round(+a.holdPeriod||10)));
   const refiEnabled=a.refi?.enabled&&+a.refi?.year>=1&&+a.refi?.year<=holdYears-1;
   const refiYear=refiEnabled?+a.refi.year:null;
   const refiRate=refiEnabled?(+a.refi.newRate||7)/100/12:null;
@@ -242,10 +247,6 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
   const sec179=csEnabled?Math.min(+taxCfg.sec179Amount||0,cs5Val):0; // capped at 5-yr basis
   const paStatus=taxCfg.paStatus||'active_participant';
   const palAgi=+taxCfg.agi||100000;
-  // ── BACK-805: Hold period — clamp to valid range 1–30, default 10 ──────────────
-  const holdYears=Math.max(1,Math.min(30,Math.round(+a.holdPeriod||10)));
-  // Soft validation: clamp refi year and VA completion year to holdYears so they
-  // never reference a year beyond the hold period (silent clamp, no error thrown).
   // BACK-020: PAL carryforward — accumulated suspended losses across years (IRC §469)
   // Grows when suspended losses exceed PAL allowance; absorbed by future taxable income.
   // Released in full upon taxable disposition (BACK-021). NOT released by 1031 exchange.
