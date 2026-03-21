@@ -141,8 +141,10 @@ function PortfolioPage({ deals, onSelect, onAdd, onDelete, onExport, onReorder, 
     return map;
   }, [deals]);
 
-  const filtered = (filter === 'All' ? deals : (deals || []).filter(d => d.status === filter))
-    .slice().sort((a, b) => (a.status === 'Pass' ? 1 : 0) - (b.status === 'Pass' ? 1 : 0));
+  const filtered = useMemo(() =>
+    (filter === 'All' ? deals : (deals || []).filter(d => d.status === filter))
+      .slice().sort((a, b) => (a.status === 'Pass' ? 1 : 0) - (b.status === 'Pass' ? 1 : 0)),
+  [deals, filter]);
 
   const handleDragStart = (e, i) => { setDragIdx(i); e.dataTransfer.effectAllowed = 'move'; };
   const handleDragOver  = (e, i) => { e.preventDefault(); setDragOverIdx(i); };

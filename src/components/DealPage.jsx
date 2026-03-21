@@ -19,10 +19,22 @@ const SensitivityTab = React.lazy(() => import('./SensitivityTab'));
 const MarketTab      = React.lazy(() => import('./MarketTab'));
 const LoanTypeTab    = React.lazy(() => import('./LoanTypeTab'));
 
-const TABS_MOBILE_ALL=["Summary","Assumptions","Cash Flow","Comps","Market","Showing","Red Flags","Sensitivity","Loan Type"];
-const TABS_DESK_ALL  =["Deal Summary","Assumptions","Cash Flow","Rent Comps","Market","Showing","Red Flags","Sensitivity","Loan Type"];
-const TABS_MOBILE = IS_PROD ? TABS_MOBILE_ALL.slice(0, 8) : TABS_MOBILE_ALL;
-const TABS_DESK   = IS_PROD ? TABS_DESK_ALL.slice(0, 8)   : TABS_DESK_ALL;
+// TAB_CONFIG is the single source of truth for tab ordering, labels, gating,
+// and visibility. Previously two parallel arrays (TABS_MOBILE_ALL / TABS_DESK_ALL)
+// were index-coupled to the component render block — a mismatch would silently
+// render the wrong tab content.
+const TAB_CONFIG = [
+  { id: 0, label: 'Deal Summary',  mobileLabel: 'Summary'     },
+  { id: 1, label: 'Assumptions',   mobileLabel: 'Assumptions' },
+  { id: 2, label: 'Cash Flow',     mobileLabel: 'Cash Flow'   },
+  { id: 3, label: 'Rent Comps',    mobileLabel: 'Comps',      gated: 'rentComps'   },
+  { id: 4, label: 'Market',        mobileLabel: 'Market'      },
+  { id: 5, label: 'Showing',       mobileLabel: 'Showing'     },
+  { id: 6, label: 'Red Flags',     mobileLabel: 'Red Flags'   },
+  { id: 7, label: 'Sensitivity',   mobileLabel: 'Sensitivity', gated: 'sensitivity' },
+  { id: 8, label: 'Loan Type',     mobileLabel: 'Loan Type',  devOnly: true        },
+];
+const VISIBLE_TABS = TAB_CONFIG.filter(t => !t.devOnly || !IS_PROD);
 
 const TabFallback = () => (
   <div style={{padding:40,textAlign:'center',color:'var(--muted)',fontSize:13}}>Loading…</div>
@@ -38,7 +50,6 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
   const handleTabChange = (i) => setTab(i);
   const isMobile = useIsMobile();
   const result = useMemo(() => calcDeal(deal), [deal]);
-  const tabLabels = isMobile ? TABS_MOBILE : TABS_DESK;
 
   const canPDF      = useFeatureCheck('pdfExport');
   const canShare    = useFeatureCheck('sharing');
@@ -75,7 +86,7 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
     </div>
     <AddressAutocomplete value={deal.address} onChange={v=>onUpdate({...deal,address:v})} placeholder="Enter property address..." inputStyle={{width:"100%",background:"none",border:"none",borderBottom:"2px solid var(--accent)",fontSize:isMobile?18:24,fontFamily:"'Fraunces',serif",fontWeight:900,color:"var(--text)",padding:"6px 0",marginBottom:14,outline:"none",letterSpacing:"-0.5px"}}/>
     <div data-tour="tab-bar" style={{display:"flex",borderBottom:"1px solid var(--border)",overflowX:"auto",WebkitOverflowScrolling:"touch",scrollbarWidth:"none",msOverflowStyle:"none"}}>
-      {tabLabels.map((t,i)=>(<button key={i} onClick={()=>handleTabChange(i)} style={{background:"none",border:"none",borderBottom:tab===i?"3px solid var(--accent)":"3px solid transparent",padding:isMobile?"10px 12px":"10px 18px",cursor:"pointer",fontSize:isMobile?12:13,fontWeight:tab===i?800:500,color:tab===i?"var(--accent)":"var(--muted)",marginBottom:-1,fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}}>{t}</button>))}
+      {VISIBLE_TABS.map(t=>(<button key={t.id} onClick={()=>handleTabChange(t.id)} style={{background:"none",border:"none",borderBottom:tab===t.id?"3px solid var(--accent)":"3px solid transparent",padding:isMobile?"10px 12px":"10px 18px",cursor:"pointer",fontSize:isMobile?12:13,fontWeight:tab===t.id?800:500,color:tab===t.id?"var(--accent)":"var(--muted)",marginBottom:-1,fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}}>{isMobile?t.mobileLabel:t.label}</button>))}
     </div>
     <div data-tour="tab-content"><Suspense fallback={<TabFallback/>}>
       {tab===0&&<DealSummaryTab deal={deal} result={result} onUpdate={onUpdate}/>}

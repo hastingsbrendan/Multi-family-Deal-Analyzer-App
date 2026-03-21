@@ -5,9 +5,10 @@ import { trackUpgradeGateHit } from '../lib/analytics';
 // ─── Stripe Checkout redirect ─────────────────────────────────────────────────
 // Creates a Checkout Session via our Supabase Edge Function and redirects.
 async function startCheckout(userEmail) {
+  const sbUrl = import.meta.env.VITE_SB_URL || 'https://lxkwvayalxuoryuwxtsq.supabase.co';
   try {
     const resp = await fetch(
-      'https://lxkwvayalxuoryuwxtsq.supabase.co/functions/v1/stripe-checkout',
+      `${sbUrl}/functions/v1/stripe-checkout`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

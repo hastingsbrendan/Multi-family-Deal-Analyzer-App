@@ -5,22 +5,47 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx-js-style';
 
+// ─── Shared color palette ────────────────────────────────────────────────────
+// XLSX functions use 6-char hex strings (no #); PDF functions use RGB arrays.
+// Keep both formats here so each function just references COLORS.* instead of
+// repeating literal values.
+const COLORS = {
+  // Hex strings for XLSX (xlsx-js-style format)
+  xlsx: {
+    NAVY:      '0F172A',
+    TEAL:      '0D9488',
+    TEAL_300:  '2DD4BF',
+    INK:       '1E293B',
+    WHITE:     'FFFFFF',
+    SLATE:     '475569',
+    SLATE_LT:  '94A3B8',
+    OFF_WHITE: 'F8FAFC',
+    TEAL_BG:   'F0FDFB',
+    GREEN:     '166534',
+    GREEN_BG:  'DCFCE7',
+    AMBER:     'D97706',
+    AMBER_BG:  'FFFBEB',
+    RED_C:     'DC2626',
+    RED_BG:    'FEF2F2',
+  },
+  // RGB arrays for jsPDF
+  pdf: {
+    NAVY:    [15,  23,  42],
+    TEAL:    [13,  148, 136],
+    TEAL_DK: [10,  110, 100],
+    CREAM:   [250, 248, 244],
+    SLATE:   [71,  85,  105],
+    RULE:    [203, 213, 225],
+    WHITE:   [255, 255, 255],
+    INK:     [30,  30,  40],
+    TEAL_BG: [240, 253, 250],
+    AMBER:   [217, 119,   6],
+  },
+};
+
 function exportPortfolioXLSX(deals, user) {
-  const NAVY     = '0F172A';
-  const TEAL     = '0D9488';
-  const TEAL_300 = '2DD4BF';
-  const INK      = '1E293B';
-  const WHITE    = 'FFFFFF';
-  const SLATE    = '475569';
-  const SLATE_LT = '94A3B8';
-  const OFF_WHITE= 'F8FAFC';
-  const TEAL_BG  = 'F0FDFB';
-  const GREEN    = '166534';
-  const GREEN_BG = 'DCFCE7';
-  const AMBER    = 'D97706';
-  const AMBER_BG = 'FFFBEB';
-  const RED_C    = 'DC2626';
-  const RED_BG   = 'FEF2F2';
+  const { NAVY, TEAL, TEAL_300, INK, WHITE, SLATE, SLATE_LT, OFF_WHITE,
+          TEAL_BG, GREEN, GREEN_BG, AMBER, AMBER_BG, RED_C, RED_BG } = COLORS.xlsx;
 
   const USD  = '"$"#,##0;("$"#,##0)';
   const PCT1 = '0.0%;(0.0%)';
@@ -312,21 +337,8 @@ function exportDealXLSX(deal, user) {
   const a  = deal.assumptions;
   const wb = XLSX.utils.book_new();
 
-  // ─── Palette ──────────────────────────────────────────────────────────────
-  const NAVY     = '0F172A';   // deep navy — banner bg
-  const TEAL     = '0D9488';   // brand teal — section headers, accents
-  const TEAL_300 = '2DD4BF';   // teal-300 — HACK wordmark on navy
-  const INK      = '1E293B';   // near-black — primary text
-  const SLATE    = '475569';   // slate — label text
-  const SLATE_LT = '94A3B8';   // light slate — muted / footer
-  const WHITE    = 'FFFFFF';
-  const OFF_WHITE= 'F8FAFC';   // alternating row
-  const TEAL_BG  = 'F0FDFB';   // teal tint — accent row bg
-  const AMBER    = 'D97706';   // amber — warning highlight
-  const AMBER_BG = 'FFFBEB';
-  const GREEN    = '166534';
-  const GREEN_BG = 'DCFCE7';
-  const RED_C    = 'DC2626';
+  const { NAVY, TEAL, TEAL_300, INK, SLATE, SLATE_LT, WHITE, OFF_WHITE,
+          TEAL_BG, AMBER, AMBER_BG, GREEN, GREEN_BG, RED_C } = COLORS.xlsx;
   const RED_BG   = 'FEF2F2';
 
   // ─── Number formats ───────────────────────────────────────────────────────
@@ -936,17 +948,7 @@ function exportDealPDF(deal, user) {
   const a = deal.assumptions;
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
 
-  // ── Palette ──────────────────────────────────────────────────────────────
-  const NAVY    = [15,  23,  42];   // #0F172A — deep navy for sidebar + headers
-  const TEAL    = [13,  148, 136];  // #0D9488 — brand accent
-  const TEAL_DK = [10,  110, 100];  // darker teal for contrast
-  const CREAM   = [250, 248, 244];  // #FAF8F4 — warm body background
-  const SLATE   = [71,  85,  105];  // #475569 — secondary text
-  const RULE    = [203, 213, 225];  // #CBD5E1 — hairline rules
-  const WHITE   = [255, 255, 255];
-  const INK     = [30,  30,  40];   // near-black for primary text
-  const TEAL_BG = [240, 253, 250];  // very light teal tint for highlight rows
-  const AMBER   = [217, 119,   6];  // #D97706 — accent2 for warnings/flags
+  const { NAVY, TEAL, TEAL_DK, CREAM, SLATE, RULE, WHITE, INK, TEAL_BG, AMBER } = COLORS.pdf;
 
   const W = doc.internal.pageSize.getWidth();   // 612
   const H = doc.internal.pageSize.getHeight();  // 792

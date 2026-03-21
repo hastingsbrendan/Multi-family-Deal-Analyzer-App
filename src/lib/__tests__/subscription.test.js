@@ -18,45 +18,53 @@ import { PLANS } from '../../contexts/SubscriptionContext';
 // ─── PLANS config tests ─────────────────────────────────────────────────────
 
 describe('PLANS config', () => {
-  it('defines free and pro tiers', () => {
-    expect(PLANS.free).toBeDefined();
+  it('defines locked, trial, and pro tiers', () => {
+    expect(PLANS.locked).toBeDefined();
+    expect(PLANS.trial).toBeDefined();
     expect(PLANS.pro).toBeDefined();
   });
 
-  it('free tier has a label', () => {
-    expect(PLANS.free.label).toBe('Free');
+  it('locked tier has label Free', () => {
+    expect(PLANS.locked.label).toBe('Free');
   });
 
-  it('pro tier has a label', () => {
+  it('trial tier has label Trial', () => {
+    expect(PLANS.trial.label).toBe('Trial');
+  });
+
+  it('pro tier has label Pro', () => {
     expect(PLANS.pro.label).toBe('Pro');
   });
 
-  it('both tiers define the same feature keys', () => {
-    const freeKeys = Object.keys(PLANS.free).sort();
-    const proKeys = Object.keys(PLANS.pro).sort();
-    expect(freeKeys).toEqual(proKeys);
+  it('all tiers define the same feature keys', () => {
+    const lockedKeys = Object.keys(PLANS.locked).sort();
+    const trialKeys  = Object.keys(PLANS.trial).sort();
+    const proKeys    = Object.keys(PLANS.pro).sort();
+    expect(trialKeys).toEqual(lockedKeys);
+    expect(proKeys).toEqual(lockedKeys);
   });
 
-  it('all feature values are booleans or numbers', () => {
+  it('all feature values are booleans', () => {
     for (const tier of Object.values(PLANS)) {
       for (const [key, val] of Object.entries(tier)) {
         if (key === 'label') continue;
-        expect(typeof val === 'boolean' || typeof val === 'number').toBe(true);
+        expect(typeof val).toBe('boolean');
       }
     }
   });
 
-  it('pro tier is at least as permissive as free tier', () => {
-    for (const [key, freeVal] of Object.entries(PLANS.free)) {
-      if (key === 'label') continue;
-      const proVal = PLANS.pro[key];
-      if (typeof freeVal === 'boolean') {
-        // If free has it, pro must have it too
-        if (freeVal) expect(proVal).toBe(true);
-      }
-      if (typeof freeVal === 'number') {
-        expect(proVal).toBeGreaterThanOrEqual(freeVal);
-      }
+  it('trial and pro tiers are fully permissive', () => {
+    const gatedFeatures = ['pdfExport', 'rentComps', 'sensitivity', 'sharing'];
+    for (const feature of gatedFeatures) {
+      expect(PLANS.trial[feature]).toBe(true);
+      expect(PLANS.pro[feature]).toBe(true);
+    }
+  });
+
+  it('locked tier blocks all gated features', () => {
+    const gatedFeatures = ['pdfExport', 'rentComps', 'sensitivity', 'sharing'];
+    for (const feature of gatedFeatures) {
+      expect(PLANS.locked[feature]).toBe(false);
     }
   });
 });
@@ -67,6 +75,7 @@ describe('PLANS config', () => {
 
 describe('feature check logic', () => {
   function checkFeature(limits, feature) {
+    if (!limits) return false;
     const val = limits[feature];
     if (val === undefined) return true;
     if (typeof val === 'boolean') return val;
@@ -75,25 +84,22 @@ describe('feature check logic', () => {
   }
 
   it('returns true for boolean true features', () => {
-    expect(checkFeature(PLANS.free, 'pdfExport')).toBe(true);
+    expect(checkFeature(PLANS.trial, 'pdfExport')).toBe(true);
     expect(checkFeature(PLANS.pro, 'pdfExport')).toBe(true);
   });
 
-  it('returns false for boolean false features', () => {
-    const testPlan = { ...PLANS.free, pdfExport: false };
-    expect(checkFeature(testPlan, 'pdfExport')).toBe(false);
-  });
-
-  it('returns true for numeric limits > 0', () => {
-    expect(checkFeature(PLANS.free, 'maxDeals')).toBe(true);
-    expect(checkFeature({ maxDeals: 3 }, 'maxDeals')).toBe(true);
-  });
-
-  it('returns false for numeric limit of 0', () => {
-    expect(checkFeature({ maxDeals: 0 }, 'maxDeals')).toBe(false);
+  it('returns false for boolean false features on locked tier', () => {
+    expect(checkFeature(PLANS.locked, 'pdfExport')).toBe(false);
+    expect(checkFeature(PLANS.locked, 'rentComps')).toBe(false);
   });
 
   it('returns true for unknown feature keys (default allow)', () => {
-    expect(checkFeature(PLANS.free, 'someNewFeature')).toBe(true);
+    expect(checkFeature(PLANS.locked, 'someNewFeature')).toBe(true);
+    expect(checkFeature(PLANS.pro, 'someNewFeature')).toBe(true);
+  });
+
+  it('returns false for null/undefined limits', () => {
+    expect(checkFeature(null, 'pdfExport')).toBe(false);
+    expect(checkFeature(undefined, 'pdfExport')).toBe(false);
   });
 });

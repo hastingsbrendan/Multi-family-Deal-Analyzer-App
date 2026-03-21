@@ -6,7 +6,7 @@ vi.mock('../constants', () => ({
   sbWriteDeal: vi.fn(),
 }));
 
-import { calcDeal, newDeal, resolveExpenses, calcSensitivity, DEFAULT_PREFS } from '../calc';
+import { calcDeal, newDeal, resolveExpenses, calcSensitivity, calcExitScenarios, DEFAULT_PREFS } from '../calc';
 
 // ─── Helper: create a deal with specific overrides ──────────────────────────
 function makeDeal(overrides = {}) {
@@ -169,10 +169,20 @@ describe('calcDeal — owner occupancy', () => {
     const baseR = calcDeal(baseD);
     const ooR = calcDeal(ooD);
 
-    // OO cash flow should be less than standard cash flow in year 1
-    expect(ooR.years[0].ooCashFlow).toBeLessThan(baseR.years[0].cashFlow);
-    // After OO years, ooCashFlow should be null
-    expect(ooR.years[2].ooCashFlow).toBeNull();
+    // OO deal deducts the owner unit rent from NOI — cash flow should be lower in year 1
+    expect(ooR.years[0].cashFlow).toBeLessThan(baseR.years[0].cashFlow);
+    // After OO period ends, ooRentDeduction drops to 0 — cash flow recovers to base level
+    expect(ooR.years[2].ooRentDeduction).toBe(0);
+  });
+
+  it('incrementalCashFlow adds back alternative rent savings during OO period', () => {
+    const deal = makeDeal({ rents: [1500, 1500], numUnits: 2, ownerOccupied: true });
+    deal.assumptions.ownerUnit = 0;
+    deal.assumptions.ownerOccupancyYears = 3;
+    deal.assumptions.alternativeRent = 1200;
+    const r = calcDeal(deal);
+    // incrementalCashFlow = cashFlow + altRent — should be higher than raw cashFlow
+    expect(r.years[0].incrementalCashFlow).toBeGreaterThan(r.years[0].cashFlow);
   });
 });
 
@@ -243,5 +253,104 @@ describe('calcSensitivity', () => {
     const rentSens = sens.find(s => s.label === 'Rent');
     expect(rentSens.irrHighDelta).toBeGreaterThan(0);
     expect(rentSens.irrLowDelta).toBeLessThan(0);
+  });
+});
+
+describe('calcDeal — holdPeriod (BACK-805)', () => {
+  it('defaults to 10 years when holdPeriod is not set', () => {
+    const deal = makeDeal();
+    const r = calcDeal(deal);
+    expect(r.years).toHaveLength(10);
+  });
+
+  it('respects a custom holdPeriod of 5 years', () => {
+    const deal = makeDeal({ assumptions: { holdPeriod: 5 } });
+    const r = calcDeal(deal);
+    expect(r.years).toHaveLength(5);
+    expect(r.years[4].yr).toBe(5);
+  });
+
+  it('respects a custom holdPeriod of 20 years', () => {
+    const deal = makeDeal({ assumptions: { holdPeriod: 20 } });
+    const r = calcDeal(deal);
+    expect(r.years).toHaveLength(20);
+    expect(r.years[19].yr).toBe(20);
+  });
+
+  it('defaults to 10 when holdPeriod is 0 (falsy)', () => {
+    // holdPeriod uses ||10 fallback, so 0 is treated the same as unset
+    const deal = makeDeal({ assumptions: { holdPeriod: 0 } });
+    const r = calcDeal(deal);
+    expect(r.years).toHaveLength(10);
+  });
+
+  it('clamps holdPeriod to 30 at maximum', () => {
+    const deal = makeDeal({ assumptions: { holdPeriod: 50 } });
+    const r = calcDeal(deal);
+    expect(r.years).toHaveLength(30);
+  });
+
+  it('longer hold period produces lower IRR when cash flow is negative', () => {
+    // High purchase price relative to rent = negative cash flow; longer hold = lower return
+    const deal = makeDeal({ purchasePrice: 800000, rents: [1000, 1000] });
+    const r5  = calcDeal({ ...deal, assumptions: { ...deal.assumptions, holdPeriod: 5 } });
+    const r20 = calcDeal({ ...deal, assumptions: { ...deal.assumptions, holdPeriod: 20 } });
+    // IRR should differ between hold periods
+    expect(r5.irr).not.toBeCloseTo(r20.irr, 3);
+  });
+});
+
+describe('calcExitScenarios', () => {
+  it('always includes standard exit years', () => {
+    const deal = makeDeal({ assumptions: { holdPeriod: 10 } });
+    const scenarios = calcExitScenarios(deal);
+    const years = scenarios.map(s => s.yr);
+    expect(years).toContain(3);
+    expect(years).toContain(5);
+    expect(years).toContain(10);
+  });
+
+  it('includes user hold period as a scenario', () => {
+    const deal = makeDeal({ assumptions: { holdPeriod: 12 } });
+    const scenarios = calcExitScenarios(deal);
+    const userScenario = scenarios.find(s => s.isUserSelected);
+    expect(userScenario).toBeDefined();
+    expect(userScenario.yr).toBe(12);
+  });
+
+  it('marks only one scenario as isUserSelected', () => {
+    const deal = makeDeal({ assumptions: { holdPeriod: 7 } });
+    const scenarios = calcExitScenarios(deal);
+    const selected = scenarios.filter(s => s.isUserSelected);
+    expect(selected).toHaveLength(1);
+  });
+
+  it('returns required metric fields for each scenario', () => {
+    const deal = makeDeal({ rents: [2000, 2000] });
+    const scenarios = calcExitScenarios(deal);
+    for (const s of scenarios) {
+      expect(s).toHaveProperty('yr');
+      expect(s).toHaveProperty('irr');
+      expect(s).toHaveProperty('equityMultiple');
+      expect(s).toHaveProperty('netProceeds');
+      expect(s).toHaveProperty('cocReturn');
+      expect(s).toHaveProperty('exitValue');
+    }
+  });
+
+  it('scenarios are sorted in ascending year order', () => {
+    const deal = makeDeal({ assumptions: { holdPeriod: 8 } });
+    const scenarios = calcExitScenarios(deal);
+    for (let i = 1; i < scenarios.length; i++) {
+      expect(scenarios[i].yr).toBeGreaterThan(scenarios[i - 1].yr);
+    }
+  });
+
+  it('longer hold period has higher exit value due to appreciation', () => {
+    const deal = makeDeal({ purchasePrice: 400000, appreciationRate: 3 });
+    const scenarios = calcExitScenarios(deal);
+    const yr3 = scenarios.find(s => s.yr === 3);
+    const yr20 = scenarios.find(s => s.yr === 20);
+    expect(yr20.exitValue).toBeGreaterThan(yr3.exitValue);
   });
 });

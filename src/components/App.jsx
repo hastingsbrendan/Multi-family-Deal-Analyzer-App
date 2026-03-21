@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
-import * as Sentry from '@sentry/react';
-import { initAnalytics, identifyUser, resetAnalyticsUser, trackSignIn, trackSignOut, trackDealCreated, trackDealDeleted, trackDealOpened, trackPDFExported, trackCSVExported } from '../lib/analytics';
+import { trackDealOpened, trackPDFExported, trackCSVExported } from '../lib/analytics';
 import { iSty } from './ui/InputRow';
-import { sbClient, STORAGE_KEY, STATUS_OPTIONS, FMT_USD, loadLocal, saveLocal, sbRead, sbWrite, sbWriteDeal, sbDeleteDeal, sbWritePrefs, authGetSession, authSignOut } from '../lib/constants';
-import { calcDeal, DEFAULT_PREFS, newDeal, createSampleDeal } from '../lib/calc';
+import { sbClient, sbWriteDeal, sbDeleteDeal, sbWritePrefs } from '../lib/constants';
+import { DEFAULT_PREFS, newDeal } from '../lib/calc';
 import { sbGetGroupDeals, sbShareDealToGroup, sbRemoveDealFromGroup, sbReorderGroupDeals } from '../lib/groups';
 import { useIsMobile, useOnlineStatus } from '../lib/hooks';
 import { useCloudSync } from '../lib/useCloudSync';
+import { useAuth } from '../lib/useAuth';
+import { useDeals } from '../lib/useDeals';
 import { TrialBanner } from './UpgradeModal';
 import { FeedbackModal } from './FeedbackModal';
 import UndoToast from './ui/UndoToast';
@@ -29,8 +30,6 @@ const GuidedTour      = React.lazy(() => import('./GuidedTour'));
 // logic works immediately, without blocking the lazy load of GuidedTour itself.
 import { TOUR_STEPS } from './tourSteps';
 
-initAnalytics();
-
 function App() {
   const [dark, setDark] = useState(() => localStorage.getItem("rh_dark") === "true");
   const [showFeedback, setShowFeedback] = useState(false);
@@ -49,7 +48,6 @@ function App() {
   const [showAppSettings, setShowAppSettings] = useState(false);
   const [tourStep, setTourStep] = useState(null); // null = inactive, number = active step
   const tourDealRef = useRef(null); // track sample deal created for tour
-  const hasBootstrappedRef = useRef(false); // guard against TOKEN_REFRESHED re-bootstrapping
   const [showGroups, setShowGroups] = useState(false);
   const [activeGroup, setActiveGroup] = useState(null); // {id, name, role} or null = personal
   const [groupDeals, setGroupDeals] = useState([]);
@@ -60,79 +58,32 @@ function App() {
   const [portfolioFilter, setPortfolioFilter] = useState("All");
   const isOnline = useOnlineStatus();
   const isMobile = useIsMobile();
-  const showDisclaimer = user && !user.user_metadata?.disclaimer_ack_at;
 
+  // useCloudSync first (no user dep at call site — user is passed as reactive value)
   const { deals, setDeals, syncStatus, syncError, lastSyncedAt, forceRefresh, setLastCloudUpdate, markDealDirty } = useCloudSync(user, isOnline);
 
-  const theme = dark ? "dark" : "light";
+  // useAuth second — takes setUser/setDeals/setLastCloudUpdate, returns handleSignOut
+  const { handleSignOut } = useAuth({ setUser, setAuthLoading, setDeals, setLastCloudUpdate, setPrefs });
 
-  // Bootstrap: restore session from localStorage, then pull cloud state.
-  // Extracted to `bootstrapUser` to avoid duplicating this pattern in onAuthStateChange.
-  const bootstrapUser = useCallback((u, { loadPrefs = false } = {}) => {
-    hasBootstrappedRef.current = true;
-    Sentry.setUser({ id: u.id, email: u.email });
-    identifyUser(u);
-    const local = loadLocal(u.id);
-    setDeals(local);
-    setTimeout(() => {
-      sbRead()
-        .then(({ data: cloudDeals, prefs: cloudPrefs, updated_at }) => {
-          setLastCloudUpdate(updated_at);
-          const resolvedPrefs = (loadPrefs && cloudPrefs) ? { ...DEFAULT_PREFS, ...cloudPrefs } : undefined;
-          if (loadPrefs && cloudPrefs) { setPrefs({ ...DEFAULT_PREFS, ...cloudPrefs }); }
-          if (cloudDeals.length > 0) {
-            setDeals(cloudDeals);
-            saveLocal(cloudDeals, u.id);
-          } else if (local.length > 0) {
-            sbWrite(local).catch(() => {});
-          } else {
-            // First login with no deals anywhere — auto-create a sample deal so
-            // the user lands on a populated portfolio instead of a blank canvas.
-            const sample = createSampleDeal(resolvedPrefs);
-            const initialDeals = [sample];
-            setDeals(initialDeals);
-            saveLocal(initialDeals, u.id);
-            sbWrite(initialDeals).catch(() => {});
-            trackDealCreated(sample.id);
-          }
-        })
-        .catch(() => {});
-    }, 300);
-  }, [setDeals, setLastCloudUpdate]);
-
+  // When user signs out, clear all UI state
   useEffect(() => {
-    authGetSession().then(({ data: { session } }) => {
-      const u = session?.user || false;
-      setUser(u);
-      setAuthLoading(false);
-      if (u) bootstrapUser(u, { loadPrefs: true });
-    });
-    const { data: { subscription } } = sbClient.auth.onAuthStateChange((evt, session) => {
-      const u = session?.user || false;
-      setUser(u);
-      if (u) Sentry.setUser({ id: u.id, email: u.email });
-      else Sentry.setUser(null);
-      if (u && (evt === "SIGNED_IN" || evt === "USER_UPDATED")) {
-        identifyUser(u);
-        if (evt === "SIGNED_IN") trackSignIn();
-        if (window.location.hash.includes("access_token")) {
-          window.history.replaceState(null, "", window.location.pathname);
-        }
-        // Supabase fires SIGNED_IN on every token refresh (~hourly) and on
-        // tab-visibility restore. Skip re-bootstrapping if we've already loaded
-        // deals — otherwise it clobbers any unsaved edits the user is making.
-        if (evt === "SIGNED_IN" && hasBootstrappedRef.current) return;
-        bootstrapUser(u);
-      }
-      if (!u) { setDeals([]); setActiveDealId(null); setShowProfile(false); }
-    });
-    return () => subscription.unsubscribe();
-  }, []);
+    if (!user) {
+      setActiveDealId(null);
+      setShowProfile(false);
+      setShowSettings(false);
+      setShowAppSettings(false);
+      setShowGroups(false);
+      setActiveGroup(null);
+      setGroupDeals([]);
+      setProfileMenuOpen(false);
+    }
+  }, [user]);
 
-  const addDeal      = () => { const d=newDeal(prefs); setDeals(p=>[...p,d]); setActiveDealId(d.id); trackDealCreated(d.id); };
-  const updateDeal   = useCallback((u) => { markDealDirty(u.id); setDeals(p=>p.map(d=>d.id===u.id?u:d)); }, [markDealDirty]);
-  const deleteDeal   = (id) => { trackDealDeleted(id); setDeals(p=>p.filter(d=>d.id!==id)); };
-  const reorderDeals = useCallback((next) => { setDeals(next); }, []);
+  const { addDeal: _addDeal, updateDeal, deleteDeal, reorderDeals } = useDeals({ prefs, setDeals, markDealDirty });
+  const addDeal = useCallback(() => _addDeal(setActiveDealId), [_addDeal, setActiveDealId]);
+
+  const theme = dark ? "dark" : "light";
+  const showDisclaimer = user && !user.user_metadata?.disclaimer_ack_at;
   const activeDeal   = (activeGroup ? (groupDeals||[]) : (deals||[])).find(d=>d.id===activeDealId);
 
   // ─── Tour navigation ────────────────────────────────────────────────
@@ -178,17 +129,6 @@ function App() {
   };
   const tourBack = () => {
     if (tourStep > 0) setTourStep(s => s - 1);
-  };
-
-  const handleSignOut = async () => {
-    trackSignOut();
-    resetAnalyticsUser();
-    await authSignOut();
-    Sentry.setUser(null);
-    setDeals(null); setActiveDealId(null);
-    setShowProfile(false); setShowSettings(false); setShowAppSettings(false); setShowGroups(false); setActiveGroup(null); setGroupDeals([]); setProfileMenuOpen(false);
-    setPrefs(DEFAULT_PREFS);
-    saveLocal([]);
   };
 
   // Load group deals when switching to a group context
