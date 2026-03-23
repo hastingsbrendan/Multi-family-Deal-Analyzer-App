@@ -570,7 +570,7 @@ function AssumptionsTab({deal,onChange}){
                   <label style={lblSt}>Interest Rate</label>
                   <div style={{display:"flex",alignItems:"center",gap:4}}>
                     <input type="text" inputMode="decimal" value={a.interestRate||""} placeholder="0"
-                      onChange={e=>{ const d=JSON.parse(JSON.stringify(deal)); d.assumptions.interestRate=e.target.value.replace(/,/g,""); }}
+                      onChange={e=>{ const d=JSON.parse(JSON.stringify(deal)); d.assumptions.interestRate=e.target.value.replace(/,/g,""); onChange(d); }}
                       onBlur={e=>upd("interestRate",e.target.value.replace(/,/g,""))}
                       style={{...fldSt,flex:1}}/>
                     <span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap"}}>%</span>
@@ -580,7 +580,7 @@ function AssumptionsTab({deal,onChange}){
                   <label style={lblSt}>Amortization</label>
                   <div style={{display:"flex",alignItems:"center",gap:4}}>
                     <input type="text" inputMode="decimal" value={a.amortYears||""} placeholder="0"
-                      onChange={e=>{ const d=JSON.parse(JSON.stringify(deal)); d.assumptions.amortYears=e.target.value.replace(/,/g,""); }}
+                      onChange={e=>{ const d=JSON.parse(JSON.stringify(deal)); d.assumptions.amortYears=e.target.value.replace(/,/g,""); onChange(d); }}
                       onBlur={e=>upd("amortYears",e.target.value.replace(/,/g,""))}
                       style={{...fldSt,flex:1}}/>
                     <span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap"}}>yrs</span>
