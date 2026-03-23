@@ -33,11 +33,22 @@ export function useCloudSync(user, isOnline) {
     syncTimer.current = setTimeout(async () => {
       try {
         const dirty = pendingDealIds.current;
-        if (dirty.size > 0 && dirty.size < deals.length) {
-          // Granular path: only write changed deals
+        if (dirty.size > 0) {
+          // Granular path: only write changed deals.
+          // Changed condition from `dirty.size < deals.length` to just `dirty.size > 0`
+          // so that adding the very first deal (dirty.size === deals.length === 1) still
+          // takes the granular path and gets a _deal_id back-filled (see below).
           const changedDeals = deals.filter(d => dirty.has(d.id));
-          await Promise.all(changedDeals.map(d => sbWriteDeal(d)));
+          const results = await Promise.all(changedDeals.map(d => sbWriteDeal(d)));
           Sentry.addBreadcrumb({ category: 'sync', message: 'saved (granular)', data: { changed: dirty.size, total: deals.length }, level: 'info' });
+          // Back-fill _deal_id for newly-persisted deals (those that had no UUID yet).
+          // sbWriteDeal returns the DB-assigned uuid. Without this, every subsequent
+          // granular write of the same new deal would insert another duplicate row.
+          const idUpdates = {};
+          changedDeals.forEach((d, i) => { if (!d._deal_id && results[i]) idUpdates[d.id] = results[i]; });
+          if (Object.keys(idUpdates).length > 0) {
+            setDeals(prev => prev.map(d => idUpdates[d.id] ? { ...d, _deal_id: idUpdates[d.id] } : d));
+          }
         } else {
           // Bulk path: initial sync, reorder, or first write
           await sbWrite(deals);
