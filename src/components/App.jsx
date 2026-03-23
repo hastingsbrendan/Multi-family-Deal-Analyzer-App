@@ -48,11 +48,14 @@ function App() {
   const [showAppSettings, setShowAppSettings] = useState(false);
   const [tourStep, setTourStep] = useState(null); // null = inactive, number = active step
   const tourDealRef = useRef(null); // track sample deal created for tour
+  const profileMenuRef = useRef(null);
   const [showGroups, setShowGroups] = useState(false);
   const [activeGroup, setActiveGroup] = useState(null); // {id, name, role} or null = personal
   const [groupDeals, setGroupDeals] = useState([]);
   const [showShareModal, setShowShareModal] = useState(null); // deal to share
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [showSyncDetail, setShowSyncDetail] = useState(false);
+  const [shareSuccess, setShareSuccess] = useState(null);
   const [prefs, setPrefs] = useState(DEFAULT_PREFS);
   const [activeDealId, setActiveDealId] = useState(null);
   const [portfolioFilter, setPortfolioFilter] = useState("All");
@@ -78,6 +81,22 @@ function App() {
       setProfileMenuOpen(false);
     }
   }, [user]);
+
+  // Profile menu click-outside handler
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+    const handle = (e) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target)) {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handle);
+    document.addEventListener('touchstart', handle);
+    return () => {
+      document.removeEventListener('mousedown', handle);
+      document.removeEventListener('touchstart', handle);
+    };
+  }, [profileMenuOpen]);
 
   const { addDeal: _addDeal, updateDeal, deleteDeal, reorderDeals } = useDeals({ prefs, setDeals, markDealDirty });
   const addDeal = useCallback(() => _addDeal(setActiveDealId), [_addDeal, setActiveDealId]);
@@ -312,7 +331,7 @@ function App() {
         </div>
 
         {/* Centre: primary nav links — hidden on mobile or when a deal is open */}
-        {!activeDeal&&<nav style={{display:"flex",alignItems:"center",gap:28,position:"absolute",left:"50%",transform:"translateX(-50%)"}}>
+        {!activeDeal&&!isMobile&&<nav style={{display:"flex",alignItems:"center",gap:28,position:"absolute",left:"50%",transform:"translateX(-50%)"}}>
           {[
             {label:"How it Works", href:"/landing.html#how"},
             {label:"Pricing",      href:"/landing.html#pricing"},
@@ -336,9 +355,17 @@ function App() {
         {/* Right: sync status + utility buttons + avatar */}
         <div style={{display:"flex",alignItems:"center",gap:6,flex:"0 0 auto"}}>
             {syncBadge && (
-              <div title={syncBadge.detail||""} onClick={()=>syncBadge.detail&&alert("Sync error:\n\n"+syncBadge.detail)}
-                style={{fontSize:11,fontWeight:700,color:syncBadge.color,cursor:syncBadge.detail?"pointer":"default",whiteSpace:"nowrap"}}>
-                {syncBadge.label}
+              <div style={{position:"relative"}}>
+                <div title={syncBadge.detail||""} onClick={()=>syncBadge.detail&&setShowSyncDetail(v=>!v)}
+                  style={{fontSize:11,fontWeight:700,color:syncBadge.color,cursor:syncBadge.detail?"pointer":"default",whiteSpace:"nowrap"}}>
+                  {syncBadge.label}
+                </div>
+                {showSyncDetail && syncBadge?.detail && (
+                  <div style={{position:"absolute",top:24,right:0,background:"var(--card)",border:"1px solid var(--border)",borderRadius:8,padding:"10px 14px",fontSize:11,color:"var(--text)",maxWidth:280,zIndex:200,boxShadow:"0 4px 16px rgba(0,0,0,0.15)",whiteSpace:"pre-wrap"}}>
+                    {syncBadge.detail}
+                    <button onClick={()=>setShowSyncDetail(false)} style={{display:"block",marginTop:8,background:"none",border:"none",color:"var(--muted)",cursor:"pointer",fontSize:10,padding:0}}>Dismiss</button>
+                  </div>
+                )}
               </div>
             )}
             {lastSyncedAt && (
@@ -363,7 +390,7 @@ function App() {
                 : parts.length === 1 ? parts[0].slice(0,2).toUpperCase()
                 : (user?.email||"?")[0].toUpperCase();
               return (
-                <div style={{position:"relative"}}>
+                <div ref={profileMenuRef} style={{position:"relative"}}>
                   <button onClick={()=>setProfileMenuOpen(v=>!v)}
                     title={name || user?.email}
                     style={{width:28,height:28,borderRadius:"50%",background:"var(--accent)",border:"2px solid transparent",
@@ -412,7 +439,7 @@ function App() {
                       </button>
                       <button onClick={handleSignOut}
                         style={{display:"block",width:"100%",textAlign:"left",padding:"10px 14px",
-                          background:"none",border:"none",color:"#ef4444",fontSize:13,
+                          background:"none",border:"none",color:"var(--red)",fontSize:13,
                           cursor:"pointer",fontFamily:"inherit",borderTop:"1px solid var(--border)"}}>
                         ↩ Sign Out
                       </button>
@@ -425,6 +452,12 @@ function App() {
       </div>
       <div style={{padding:"18px 16px 0"}}>
         <TrialBanner userEmail={user?.email}/>
+        {shareSuccess && (
+          <div style={{background:"rgba(13,148,136,0.12)",border:"1px solid rgba(13,148,136,0.35)",borderRadius:10,padding:"10px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:12,fontSize:13}}>
+            <span style={{color:"var(--text)",fontWeight:700}}>✓ Deal shared to "{shareSuccess}" successfully.</span>
+            <button onClick={()=>setShareSuccess(null)} style={{background:"none",border:"none",color:"var(--muted)",cursor:"pointer",fontSize:16,padding:"0 4px"}}>×</button>
+          </div>
+        )}
         {showUpgradeSuccess && (
           <div style={{
             background:"rgba(13,148,136,0.12)",
@@ -482,22 +515,20 @@ function App() {
               onClose={()=>setShowShareModal(null)}
               onShared={(groupName)=>{
                 setShowShareModal(null);
-                alert(`Deal shared to "${groupName}" successfully.`);
+                setShareSuccess(groupName);
               }}
             />
           </Suspense>
         )}
       </div>
-      {!isMobile && (
-        <div style={{borderTop:'1px solid var(--border)',padding:'7px 20px',background:dark?'var(--card)':'rgba(253,250,246,0.95)',textAlign:'center',position:'sticky',bottom:0,zIndex:50}}>
-          <span style={{fontSize:10,color:'var(--muted)',lineHeight:1.5}}>
-            For informational purposes only. Not financial, legal, or tax advice. Consult qualified professionals before making investment decisions.{' '}
-            <a href="/legal/tos.html" target="_blank" style={{color:'var(--muted)',textDecoration:'underline'}}>Terms</a>
-            {' · '}
-            <a href="/legal/privacy.html" target="_blank" style={{color:'var(--muted)',textDecoration:'underline'}}>Privacy</a>
-          </span>
-        </div>
-      )}
+      <div style={{borderTop:'1px solid var(--border)',padding: isMobile ? '5px 16px' : '7px 20px',background:dark?'var(--card)':'rgba(253,250,246,0.95)',textAlign:'center',position:'sticky',bottom:0,zIndex:50}}>
+        <span style={{fontSize:isMobile ? 9 : 10,color:'var(--muted)',lineHeight:1.5}}>
+          For informational purposes only. Not financial, legal, or tax advice.{!isMobile && ' Consult qualified professionals before making investment decisions.'}{' '}
+          <a href="/legal/tos.html" target="_blank" style={{color:'var(--muted)',textDecoration:'underline'}}>Terms</a>
+          {' · '}
+          <a href="/legal/privacy.html" target="_blank" style={{color:'var(--muted)',textDecoration:'underline'}}>Privacy</a>
+        </span>
+      </div>
     </div>
   );
 }

@@ -322,7 +322,13 @@ function MarketTab({deal}) {
   const fzInfo    = floodZoneInfo(floodZone);
   const fmtK = v => v >= 1000000 ? `$${(v/1000000).toFixed(2)}M` : v >= 1000 ? `$${(v/1000).toFixed(0)}K` : FMT_USD(v);
 
-  if (!zip) return (<div style={{padding:'16px 0'}}><EmptyState icon="🗺️" title="Enter a property address" sub="Market data will load automatically once an address with a zip code is set."/></div>);
+  if (!zip) return (
+    <div style={{padding:'40px 20px',textAlign:'center',color:'var(--muted)'}}>
+      <div style={{fontSize:32,marginBottom:12}}>📍</div>
+      <div style={{fontSize:15,fontWeight:700,color:'var(--text)',marginBottom:6}}>No address entered</div>
+      <div style={{fontSize:13}}>Enter a property address on the <strong style={{color:'var(--accent)'}}>Assumptions tab</strong> to see local market data including census demographics, unemployment rates, and mortgage rate trends.</div>
+    </div>
+  );
   if (loading) return (<div style={{padding:'16px 0'}}><div style={{textAlign:'center',padding:48,color:'var(--muted)'}}><div style={{fontSize:28,marginBottom:12}}>⏳</div><div style={{fontSize:13,fontWeight:700,color:'var(--text)'}}>Loading market data…</div><div style={{fontSize:12,marginTop:4}}>Fetching Rentcast + Census data for ZIP {zip}</div></div></div>);
   if (error) return (<div style={{padding:'16px 0'}}><EmptyState icon="⚠️" title="Could not load market data" sub={error}/><div style={{textAlign:'center',marginTop:12}}><button onClick={()=>fetchAll(zip)} style={{background:'var(--accent)',color:'#fff',border:'none',borderRadius:100,padding:'8px 20px',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Retry</button></div></div>);
   if (!marketData && !censusData) return (<div style={{padding:'16px 0'}}><EmptyState icon="📊" title="Market data not loaded" sub={`ZIP ${zip} detected. Click below to fetch market data.`}/><div style={{textAlign:'center',marginTop:12}}><button onClick={()=>fetchAll(zip)} style={{background:'var(--accent)',color:'#fff',border:'none',borderRadius:100,padding:'8px 20px',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Load Market Data</button></div></div>);

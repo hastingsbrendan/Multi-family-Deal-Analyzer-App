@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { FMT_USD, FMT_PCT } from '../lib/constants';
 import { calcDeal, calcSensitivity } from '../lib/calc';
+import { useIsMobile } from '../lib/hooks';
 
 // ─── DEFAULT SCENARIO OVERRIDES ───────────────────────────────────────────────
 const DEFAULT_SCENARIOS = {
@@ -82,6 +83,7 @@ const SLIDER_DEFS = [
 const THRESHOLDS = { coc: 0, irr: 0.07, dscr: 1.0, cashFlow: 0 };
 
 function SensitivityTab({ deal }) {
+  const isMobile = useIsMobile();
   const [metric, setMetric] = useState('irr');
   const [activeScenario, setActiveScenario] = useState('base');
   const [customScenarios, setCustomScenarios] = useState({
@@ -205,7 +207,7 @@ function SensitivityTab({ deal }) {
         <div style={{fontSize:10,color:"var(--muted)",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>{label}</div>
         <div style={{fontSize:16,fontWeight:800,color:"var(--text)"}}>{fmt(scen)}</div>
         {d !== null && Math.abs(d) > 0.1 && (
-          <div style={{fontSize:10,fontWeight:700,color:isGood?"#10b981":"#ef4444",marginTop:2}}>
+          <div style={{fontSize:10,fontWeight:700,color:isGood?"var(--green)":"var(--red)",marginTop:2}}>
             {d > 0 ? "▲" : "▼"} {Math.abs(d).toFixed(1)}% vs base
           </div>
         )}
@@ -230,13 +232,13 @@ function SensitivityTab({ deal }) {
         </div>
 
         {/* Scenario metrics */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:14}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:8,marginBottom:14}}>
           {metricCard("CoC Yr1",    base.cocReturn,  scenCalc.cocReturn,  FMT_PCT, true)}
           {metricCard("Cap Rate",   base.capRate,    scenCalc.capRate,    FMT_PCT, true)}
           {metricCard("IRR 10yr",   base.irr,        scenCalc.irr,        FMT_PCT, true)}
           {metricCard("DSCR",       base.dscr,       scenCalc.dscr,       v => v?.toFixed(2)+'x', true)}
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:14}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:8,marginBottom:14}}>
           {metricCard("Monthly CF", base.monthlyCF,  scenCalc.monthlyCF,  FMT_USD, true)}
           {metricCard("NOI Yr1",    base.noi,        scenCalc.noi,        FMT_USD, true)}
           {metricCard("Eq. Multiple", base.eqMultiple, scenCalc.eqMultiple, v => (v||0).toFixed(2)+'x', true)}
@@ -304,7 +306,7 @@ function SensitivityTab({ deal }) {
         </div>
 
         {/* Live metrics strip */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:16,
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:6,marginBottom:16,
           padding:10,background:"var(--bg)",borderRadius:8,border:"1px solid var(--border-faint)"}}>
           {[
             ["CoC",  FMT_PCT(sliderCalc.cocReturn),  sliderCalc.cocReturn  >= THRESHOLDS.coc],
@@ -314,7 +316,7 @@ function SensitivityTab({ deal }) {
           ].map(([lbl, val, isGood]) => (
             <div key={lbl} style={{textAlign:"center"}}>
               <div style={{fontSize:9,color:"var(--muted)",fontWeight:700,textTransform:"uppercase",marginBottom:2}}>{lbl}</div>
-              <div style={{fontSize:14,fontWeight:800,color:isGood?"#10b981":"#ef4444"}}>{val}</div>
+              <div style={{fontSize:14,fontWeight:800,color:isGood?"var(--green)":"var(--red)"}}>{val}</div>
             </div>
           ))}
         </div>
@@ -390,12 +392,12 @@ function SensitivityTab({ deal }) {
         <div style={{fontSize:11,fontWeight:800,letterSpacing:"0.1em",color:"var(--muted)",marginBottom:16,textTransform:"uppercase"}}>
           Tornado Chart — {metric==="irr"?`${Math.max(1,Math.min(30,+(deal?.assumptions?.holdPeriod||10)))}-Year IRR`:"Year 1 CoC"}
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"90px 1fr",gap:0,marginBottom:6}}>
+        <div style={{display:"grid",gridTemplateColumns:`${isMobile?70:90}px 1fr`,gap:0,marginBottom:6}}>
           <div/>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1px 1fr"}}>
-            <div style={{textAlign:"center",fontSize:10,fontWeight:700,color:"#ef4444",paddingBottom:4,borderBottom:"1px solid var(--border-faint)"}}>↙ Downside</div>
+            <div style={{textAlign:"center",fontSize:10,fontWeight:700,color:"var(--red)",paddingBottom:4,borderBottom:"1px solid var(--border-faint)"}}>↙ Downside</div>
             <div/>
-            <div style={{textAlign:"center",fontSize:10,fontWeight:700,color:"#10b981",paddingBottom:4,borderBottom:"1px solid var(--border-faint)"}}>Upside ↗</div>
+            <div style={{textAlign:"center",fontSize:10,fontWeight:700,color:"var(--green)",paddingBottom:4,borderBottom:"1px solid var(--border-faint)"}}>Upside ↗</div>
           </div>
         </div>
         {sorted.map((s,i)=>{
@@ -406,7 +408,7 @@ function SensitivityTab({ deal }) {
           const lowW  = (Math.abs(lowD)/maxDelta)*BAR_PCT;
           const highW = (Math.abs(highD)/maxDelta)*BAR_PCT;
           return (
-            <div key={i} style={{display:"grid",gridTemplateColumns:"90px 1fr",gap:0,marginBottom:10,alignItems:"center"}}>
+            <div key={i} style={{display:"grid",gridTemplateColumns:`${isMobile?70:90}px 1fr`,gap:0,marginBottom:10,alignItems:"center"}}>
               <div style={{paddingRight:8,textAlign:"right"}}>
                 <div style={{fontSize:11,fontWeight:700,color:"var(--text)"}}>{s.label}</div>
                 <div style={{fontSize:9,color:"var(--muted)"}}>{s.unit}</div>
@@ -415,13 +417,13 @@ function SensitivityTab({ deal }) {
                 <div style={{display:"flex",alignItems:"center",gap:4,justifyContent:"flex-end"}}>
                   <span style={{fontSize:10,color:"var(--muted)",whiteSpace:"nowrap",minWidth:44,textAlign:"right",fontWeight:600}}>{FMT_PCT(lowAbs)}</span>
                   <div style={{width:`${BAR_PCT}%`,display:"flex",justifyContent:"flex-end"}}>
-                    <div style={{width:`${lowW}%`,height:24,background:"#ef4444cc",borderRadius:"3px 0 0 3px",minWidth:lowW>0?3:0}}/>
+                    <div style={{width:`${lowW}%`,height:24,background:"rgba(239,68,68,0.8)",borderRadius:"3px 0 0 3px",minWidth:lowW>0?3:0}}/>
                   </div>
                 </div>
                 <div style={{background:"var(--border)",height:24,width:1}}/>
                 <div style={{display:"flex",alignItems:"center",gap:4}}>
                   <div style={{width:`${BAR_PCT}%`,display:"flex",justifyContent:"flex-start"}}>
-                    <div style={{width:`${highW}%`,height:24,background:"#10b981cc",borderRadius:"0 3px 3px 0",minWidth:highW>0?3:0}}/>
+                    <div style={{width:`${highW}%`,height:24,background:"rgba(16,185,129,0.8)",borderRadius:"0 3px 3px 0",minWidth:highW>0?3:0}}/>
                   </div>
                   <span style={{fontSize:10,color:"var(--muted)",whiteSpace:"nowrap",minWidth:44,fontWeight:600}}>{FMT_PCT(highAbs)}</span>
                 </div>
@@ -430,8 +432,8 @@ function SensitivityTab({ deal }) {
           );
         })}
         <div style={{display:"flex",gap:16,marginTop:12,paddingTop:12,borderTop:"1px solid var(--border-faint)",fontSize:10,color:"var(--muted)",flexWrap:"wrap"}}>
-          <span><span style={{color:"#ef4444",fontWeight:700}}>■</span> Downside</span>
-          <span><span style={{color:"#10b981",fontWeight:700}}>■</span> Upside</span>
+          <span><span style={{color:"var(--red)",fontWeight:700}}>■</span> Downside</span>
+          <span><span style={{color:"var(--green)",fontWeight:700}}>■</span> Upside</span>
         </div>
       </div>
     </div>

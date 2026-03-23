@@ -14,6 +14,7 @@ function ShowingTab({deal,onChange}){
   const PH=["1","2","3"];
   const PH_LABEL={"1":"Repairs at Closing","2":"Repair w/in 2 Yrs","3":"Defer"};
   const DEF_UNIT=[{cat:"Flooring",cost:0,phase:"1"},{cat:"Kitchen",cost:0,phase:"1"},{cat:"Bathrooms",cost:0,phase:"1"},{cat:"Paint",cost:0,phase:"1"},{cat:"Appliances",cost:0,phase:"1"},{cat:"Electrical",cost:0,phase:"1"},{cat:"Plumbing",cost:0,phase:"1"},{cat:"HVAC",cost:0,phase:"1"},{cat:"Roof",cost:0,phase:"1"},{cat:"Windows",cost:0,phase:"1"},{cat:"Other",cost:0,phase:"1",customLabel:""}];
+  const REHAB_HINTS={Flooring:'2K–8K typical',Kitchen:'5K–25K typical',Bathrooms:'3K–12K typical',Paint:'1K–4K typical',Appliances:'1K–5K typical',Electrical:'1K–8K typical',Plumbing:'1K–6K typical',HVAC:'3K–12K typical',Roof:'5K–20K typical',Windows:'3K–15K typical',Other:'custom amount',Siding:'3K–15K typical',Foundation:'2K–20K typical',Landscaping:'1K–5K typical','Driveway/Parking':'2K–8K typical','Windows/Doors':'3K–12K typical'};
   const DEF_EXT=[{cat:"Roof",cost:0,phase:"1"},{cat:"Siding",cost:0,phase:"1"},{cat:"Foundation",cost:0,phase:"1"},{cat:"Landscaping",cost:0,phase:"1"},{cat:"Driveway/Parking",cost:0,phase:"1"},{cat:"Windows/Doors",cost:0,phase:"1"},{cat:"Other",cost:0,phase:"1",customLabel:""}];
   const upd=(fn)=>{
     const d=JSON.parse(JSON.stringify(deal));
@@ -68,7 +69,7 @@ function ShowingTab({deal,onChange}){
         {items.map((li,lIdx)=>(
           <div key={lIdx} style={{display:"grid",gridTemplateColumns:li.cat==="Other"?"1fr 80px 70px":"auto 80px 70px",gap:5,marginBottom:5,alignItems:"center"}}>
             {li.cat==="Other"?<input value={li.customLabel||""} onChange={e=>setLI(lIdx,"customLabel",e.target.value)} placeholder="Custom category…" style={{...iSty,fontSize:11}}/>:<span style={{fontSize:12,color:"var(--text)"}}>{li.cat}</span>}
-            <input type="number" value={li.cost||""} onChange={e=>setLI(lIdx,"cost",+e.target.value)} placeholder="0" style={{...iSty,fontSize:11}}/>
+            <input type="number" value={li.cost||""} onChange={e=>setLI(lIdx,"cost",+e.target.value)} placeholder={REHAB_HINTS[li.cat]||'0'} style={{...iSty,fontSize:11}}/>
             <select value={li.phase||"1"} onChange={e=>setLI(lIdx,"phase",e.target.value)} style={{...iSty,fontSize:11,padding:"7px 3px"}}>{PH.map(p=><option key={p} value={p}>{PH_LABEL[p]}</option>)}</select>
           </div>
         ))}

@@ -37,6 +37,14 @@ const TAB_CONFIG = [
 ];
 const VISIBLE_TABS = TAB_CONFIG.filter(t => !t.devOnly || !IS_PROD);
 
+const TAB_NEXT = {
+  0: { id: 1, hint: 'Adjust your assumptions' },
+  1: { id: 2, hint: 'Review your cash flow projections' },
+  2: { id: 4, hint: 'Check local market conditions' },
+  4: { id: 6, hint: 'Review potential red flags' },
+  6: { id: 0, hint: 'Back to your deal summary' },
+};
+
 const TabFallback = () => (
   <div style={{padding:40,textAlign:'center',color:'var(--muted)',fontSize:13}}>Loading…</div>
 );
@@ -93,8 +101,11 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
       </div>
     </div>
     <AddressAutocomplete value={deal.address} onChange={v=>onUpdate({...deal,address:v})} placeholder="Enter property address..." inputStyle={{width:"100%",background:"none",border:"none",borderBottom:"2px solid var(--accent)",fontSize:isMobile?18:24,fontFamily:"'Fraunces',serif",fontWeight:900,color:"var(--text)",padding:"6px 0",marginBottom:14,outline:"none",letterSpacing:"-0.5px"}}/>
-    <div data-tour="tab-bar" style={{display:"flex",borderBottom:"1px solid var(--border)",overflowX:"auto",WebkitOverflowScrolling:"touch",scrollbarWidth:"none",msOverflowStyle:"none"}}>
-      {VISIBLE_TABS.map(t=>(<button key={t.id} onClick={()=>handleTabChange(t.id)} style={{background:"none",border:"none",borderBottom:tab===t.id?"3px solid var(--accent)":"3px solid transparent",padding:isMobile?"10px 12px":"10px 18px",cursor:"pointer",fontSize:isMobile?12:13,fontWeight:tab===t.id?800:500,color:tab===t.id?"var(--accent)":"var(--muted)",marginBottom:-1,fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}}>{isMobile?t.mobileLabel:t.label}</button>))}
+    <div style={{position:"relative"}}>
+      <div data-tour="tab-bar" style={{display:"flex",borderBottom:"1px solid var(--border)",overflowX:"auto",WebkitOverflowScrolling:"touch",scrollbarWidth:"none",msOverflowStyle:"none"}}>
+        {VISIBLE_TABS.map(t=>(<button key={t.id} onClick={()=>handleTabChange(t.id)} style={{background:"none",border:"none",borderBottom:tab===t.id?"3px solid var(--accent)":"3px solid transparent",padding:isMobile?"10px 12px":"10px 18px",cursor:"pointer",fontSize:isMobile?12:13,fontWeight:tab===t.id?800:500,color:tab===t.id?"var(--accent)":"var(--muted)",marginBottom:-1,fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}}>{isMobile?t.mobileLabel:t.label}</button>))}
+      </div>
+      <div style={{position:"absolute",right:0,top:0,bottom:1,width:40,background:"linear-gradient(to right, transparent, var(--bg))",pointerEvents:"none"}}/>
     </div>
     <div data-tour="tab-content"><ErrorBoundary compact><Suspense fallback={<TabFallback/>}>
       {tab===0&&<DealSummaryTab deal={deal} result={result} onUpdate={onUpdate}/>}
@@ -115,6 +126,18 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
       )}
       {tab===8&&!IS_PROD&&<LoanTypeTab deal={deal}/>}
     </Suspense></ErrorBoundary></div>
+    {TAB_NEXT[tab] && (
+      <div style={{marginTop:24,paddingTop:16,borderTop:"1px solid var(--border-faint)",display:"flex",justifyContent:"flex-end"}}>
+        <button
+          onClick={()=>handleTabChange(TAB_NEXT[tab].id)}
+          style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:100,padding:"8px 18px",fontSize:12,fontWeight:700,color:"var(--muted)",cursor:"pointer",display:"flex",alignItems:"center",gap:6,transition:"all 0.15s"}}
+          onMouseEnter={e=>{e.currentTarget.style.color="var(--accent)";e.currentTarget.style.borderColor="var(--accent)";}}
+          onMouseLeave={e=>{e.currentTarget.style.color="var(--muted)";e.currentTarget.style.borderColor="var(--border)";}}
+        >
+          {TAB_NEXT[tab].hint} →
+        </button>
+      </div>
+    )}
     {activeGroup && deal._deal_id && (
       <CommentsPanel
         groupId={activeGroup.id}
