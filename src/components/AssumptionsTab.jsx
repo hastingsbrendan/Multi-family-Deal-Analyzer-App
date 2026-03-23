@@ -404,7 +404,7 @@ function AssumptionsTab({deal,onChange}){
   }, [deal.address]);
 
   const grossRentYear0=a.units.slice(0,a.numUnits).reduce((s,u)=>s+(+u.rent||0)*12,0);
-  const expFields=[["propertyTax","propertyTaxPct","Property Tax"],["maintenance","maintenancePct","Maintenance"],["capex","capexPct","CapEx Reserve"],["propertyMgmt","propertyMgmtPct","Property Management"],["utilities","utilitiesPct","Utilities"]];
+  const expFields=[["propertyTax","propertyTaxPct","Property Tax"],["insurance","insurancePct","Property Insurance"],["maintenance","maintenancePct","Maintenance"],["capex","capexPct","CapEx Reserve"],["propertyMgmt","propertyMgmtPct","Property Management"],["utilities","utilitiesPct","Utilities"]];
   const expTips={
     propertyTax:"Annual property tax bill. Check your county assessor's website for the actual amount — it's often lower than the listing estimate.",
     maintenance:"Ongoing repairs like plumbing leaks, appliances, and paint. Rule of thumb: 1% of purchase price per year, split across units.",
@@ -743,8 +743,9 @@ function AssumptionsTab({deal,onChange}){
                     <span style={{fontSize:13,color:"var(--muted)"}}>$</span>
                     <input type="text" inputMode="decimal" value={a.expenses?.insurance||""} placeholder="0"
                       onChange={e=>upd("expenses.insurance",e.target.value.replace(/,/g,""))}
-                      style={{...fldSt,flex:1}}/>
+                      style={{...fldSt,flex:1,borderColor:(+a.expenses?.insurance||0)===0?"#D97706":undefined}}/>
                   </div>
+                  {(+a.expenses?.insurance||0)===0&&<div style={{fontSize:11,color:"#D97706",marginTop:3}}>⚠ Enter annual insurance premium</div>}
                 </div>
                 <div>
                   <label style={lblSt}>PMI ($/mo)</label>
@@ -843,6 +844,26 @@ function AssumptionsTab({deal,onChange}){
             <div key={vk} style={{display:"flex",alignItems:"center",padding:"9px 0",borderBottom:"1px solid var(--border-faint)"}}>
               <span style={{...roLabel,flex:"0 0 160px"}}>Property Tax <span style={{fontSize:10,fontWeight:400,fontStyle:"italic"}}>(set in Property Details)</span></span>
               <span style={{...roVal,marginLeft:"auto"}}>{ptVal>0?FMT_USD(ptVal)+"/yr":"—"}</span>
+            </div>
+          );
+        }
+        // Property Insurance is edited in Financing — show read-only here
+        if(vk==="insurance"){
+          const insVal = +a.expenses?.insurance||0;
+          const roLabel2 = {fontSize:12,fontWeight:600,color:"var(--muted)"};
+          const roVal2 = {fontSize:13,fontWeight:700,color:"var(--text)"};
+          if(isMobile){return(
+            <div key={vk} style={{padding:"10px 0",borderBottom:"1px solid var(--border-faint)"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={roLabel2}>Property Insurance <span style={{fontSize:10,fontWeight:400,fontStyle:"italic"}}>(set in Financing)</span></span>
+                <span style={roVal2}>{insVal>0?FMT_USD(insVal)+"/yr":"—"}</span>
+              </div>
+            </div>
+          );}
+          return(
+            <div key={vk} style={{display:"flex",alignItems:"center",padding:"9px 0",borderBottom:"1px solid var(--border-faint)"}}>
+              <span style={{...roLabel2,flex:"0 0 160px"}}>Property Insurance <span style={{fontSize:10,fontWeight:400,fontStyle:"italic"}}>(set in Financing)</span></span>
+              <span style={{...roVal2,marginLeft:"auto"}}>{insVal>0?FMT_USD(insVal)+"/yr":"—"}</span>
             </div>
           );
         }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
-import { useIsMobile } from '../lib/hooks';
+import { useIsMobile, lazyWithRetry } from '../lib/hooks';
 import { FMT_USD, FMT_PCT, STATUS_OPTIONS, STATUS_COLORS, IS_PROD } from '../lib/constants';
 import { calcDeal, DEFAULT_PREFS } from '../lib/calc';
 import AddressAutocomplete from './AddressAutocomplete';
@@ -10,15 +10,16 @@ import { trackTabViewed, trackFeatureUsed } from '../lib/analytics';
 import ErrorBoundary from './ErrorBoundary';
 
 // Lazy-load tab components — only downloaded when the user navigates to that tab
-const DealSummaryTab = React.lazy(() => import('./DealSummaryTab'));
-const AssumptionsTab = React.lazy(() => import('./AssumptionsTab'));
-const CashFlowTab    = React.lazy(() => import('./CashFlowTab'));
-const RentCompsTab   = React.lazy(() => import('./RentCompsTab'));
-const ShowingTab     = React.lazy(() => import('./ShowingTab'));
-const RedFlagsTab    = React.lazy(() => import('./RedFlagsTab'));
-const SensitivityTab = React.lazy(() => import('./SensitivityTab'));
-const MarketTab      = React.lazy(() => import('./MarketTab'));
-const LoanTypeTab    = React.lazy(() => import('./LoanTypeTab'));
+// lazyWithRetry auto hard-reloads on stale-chunk errors after a new deployment
+const DealSummaryTab = lazyWithRetry(() => import('./DealSummaryTab'));
+const AssumptionsTab = lazyWithRetry(() => import('./AssumptionsTab'));
+const CashFlowTab    = lazyWithRetry(() => import('./CashFlowTab'));
+const RentCompsTab   = lazyWithRetry(() => import('./RentCompsTab'));
+const ShowingTab     = lazyWithRetry(() => import('./ShowingTab'));
+const RedFlagsTab    = lazyWithRetry(() => import('./RedFlagsTab'));
+const SensitivityTab = lazyWithRetry(() => import('./SensitivityTab'));
+const MarketTab      = lazyWithRetry(() => import('./MarketTab'));
+const LoanTypeTab    = lazyWithRetry(() => import('./LoanTypeTab'));
 
 // TAB_CONFIG is the single source of truth for tab ordering, labels, gating,
 // and visibility. Previously two parallel arrays (TABS_MOBILE_ALL / TABS_DESK_ALL)

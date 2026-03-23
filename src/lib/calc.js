@@ -108,7 +108,7 @@ const newDeal = (prefs) => {
     amortYears: p.amortYears, amortSource: "",
     holdPeriod: p.holdPeriod||10,
     closingCosts: { ...p.closingCosts },
-    insuranceUpfront: false,
+    insuranceUpfront: true,
     sellerConcessions: 0, sellerConcessionsSource: "",
     pmi: 0, pmiSource: "",
     units: Array(4).fill(null).map((_,i) => ({ rent: 0, rentSource:"", listedRent: 0, rentcastRent: 0 })),
