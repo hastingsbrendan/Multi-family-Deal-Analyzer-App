@@ -5,8 +5,10 @@ import { FMT_USD, FMT_PCT, FMT_X, mapsUrl } from '../lib/constants';
 import { calcExitScenarios } from '../lib/calc';
 import PhotoGallery from './PhotoGallery';
 import DSCRBadge from './ui/DSCRBadge';
+import { useIsMobile } from '../lib/hooks';
 
 function DealSummaryTab({deal, result, onUpdate}) {
+  const isMobile = useIsMobile();
   const a = deal.assumptions;
   const addr = deal.address;
   const maps = mapsUrl(addr);
@@ -96,6 +98,19 @@ function DealSummaryTab({deal, result, onUpdate}) {
       </div>
     </div>
 
+    {(+a.purchasePrice === 0 || !a.purchasePrice) && (
+      <div style={{background:"var(--card)",border:"2px dashed var(--border)",borderRadius:14,padding:"32px 24px",textAlign:"center",marginBottom:16}}>
+        <div style={{fontSize:40,marginBottom:12}}>🏘</div>
+        <div style={{fontSize:17,fontWeight:800,color:"var(--text)",marginBottom:8,fontFamily:"'Fraunces',serif"}}>Start by entering your property details</div>
+        <div style={{fontSize:13,color:"var(--muted)",marginBottom:16,maxWidth:360,margin:"0 auto 16px"}}>Enter a purchase price, rents, and financing terms on the <strong style={{color:"var(--accent)"}}>Assumptions tab</strong> to see your full deal analysis here.</div>
+        <div style={{display:"flex",justifyContent:"center",gap:12,flexWrap:"wrap"}}>
+          <div style={{background:"var(--accent-soft)",borderRadius:10,padding:"10px 16px",fontSize:12,color:"var(--accent)",fontWeight:700}}>📊 Cap Rate & IRR</div>
+          <div style={{background:"var(--accent-soft)",borderRadius:10,padding:"10px 16px",fontSize:12,color:"var(--accent)",fontWeight:700}}>💰 Monthly Cash Flow</div>
+          <div style={{background:"var(--accent-soft)",borderRadius:10,padding:"10px 16px",fontSize:12,color:"var(--accent)",fontWeight:700}}>📈 10-Year Equity Growth</div>
+        </div>
+      </div>
+    )}
+
     {/* ══ SUBHEADER 1: Profitability (moved above cash flow) ══ */}
     <SubHdr>Profitability</SubHdr>
 
@@ -169,7 +184,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
         {label:"Cap Rate Yr 1",val:FMT_PCT(result.capRate),good:result.capRate>0.05,note:"Target: >5%"},
       ];
       return(
-        <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:10,marginBottom:10,alignItems:"stretch"}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 2fr",gap:10,marginBottom:10,alignItems:"stretch"}}>
           {/* Col 1: Hero card (compact) + IRR + Cap Rate side-by-side below */}
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
             <Panel accent>
@@ -348,7 +363,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
         <div style={{marginBottom:10}}>
 
           {/* ── Row A: CF hero + Effective Mortgage + PITI coverage ── */}
-          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:10,marginBottom:10}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"2fr 1fr 1fr",gap:10,marginBottom:10}}>
 
             {/* Cash Flow hero */}
             <Panel accent>
@@ -481,7 +496,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
               {passText}
             </div>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 1fr",gap:10,marginBottom:10}}>
             {[
               ["Gross Rent (all units)",  FMT_USD(fha.grossRentAllUnits/12)+"/mo",   "var(--text)"],
               ["75% Threshold (FHA rule)",FMT_USD(fha.threshold75Pct/12)+"/mo",      passColor],
@@ -507,7 +522,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
     <SubHdr>Property Details</SubHdr>
 
     {/* Row 3: 3-column detail panels */}
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
+    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:10,marginBottom:10}}>
 
       {/* Col 1: Property facts + Exit */}
       <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -609,7 +624,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
       <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,overflow:"hidden",marginBottom:10}}>
         <a href={maps} target="_blank" rel="noreferrer" style={{display:"block",textDecoration:"none"}}>
           <img
-            src={"https://maps.googleapis.com/maps/api/staticmap?center="+encodeURIComponent(addr)+"&zoom=15&size=800x600&scale=2&maptype=roadmap&markers=color:red%7C"+encodeURIComponent(addr)+"&key=AIzaSyAg90J2ZmwbAwPwlRHTeREfAWfiOwR1hiQ"}
+            src={"https://maps.googleapis.com/maps/api/staticmap?center="+encodeURIComponent(addr)+"&zoom=15&size=800x600&scale=2&maptype=roadmap&markers=color:red%7C"+encodeURIComponent(addr)+"&key="+import.meta.env.VITE_GMAPS_KEY}
             alt="Map"
             style={{width:"100%",height:300,objectFit:"cover",display:"block"}}
           />
@@ -622,7 +637,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
     )}
 
     {/* ── PHOTOS + NOTES side by side, double height ── */}
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:10}}>
       <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:14,minHeight:220}}>
         <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--muted)",marginBottom:10,fontFamily:"system-ui"}}>Photos</div>
         <PhotoGallery deal={deal} onUpdate={onUpdate}/>

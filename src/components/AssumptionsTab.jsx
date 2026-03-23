@@ -62,6 +62,29 @@ function ExpenseInputRow({lbl, modeToggle, isItemPct, rawVal, onChange, mobile, 
   );
 }
 
+// ─── COLLAPSIBLE SECTION ──────────────────────────────────────────────────────
+function CollapsibleSection({ title, defaultOpen = false, children, badge }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+          background: 'none', border: 'none', cursor: 'pointer', padding: '12px 0 8px',
+          borderBottom: open ? 'none' : '1px solid var(--border-faint)',
+          marginBottom: open ? 0 : 8,
+        }}
+      >
+        <span style={{ fontWeight: 800, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--accent)', borderLeft: '3px solid var(--accent)', paddingLeft: 8, fontFamily: 'system-ui' }}>{title}</span>
+        {badge && <span style={{ fontSize: 10, fontWeight: 700, background: 'var(--accent-soft)', color: 'var(--accent)', borderRadius: 100, padding: '1px 7px' }}>{badge}</span>}
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--muted)', fontWeight: 700 }}>{open ? '▲ Hide' : '▼ Show'}</span>
+      </button>
+      {open && <div style={{ paddingBottom: 8 }}>{children}</div>}
+    </div>
+  );
+}
+
 // ─── ASSUMPTIONS TAB ──────────────────────────────────────────────────────────
 
 // ─── PROPERTY LOOKUP (RENTCAST) ────────────────────────────────────────────────
@@ -425,8 +448,8 @@ function AssumptionsTab({deal,onChange}){
                     (() => { const v = +a.purchasePrice||0; return v ? v.toLocaleString() : ""; })()
                   } placeholder="450,000"
                   onFocus={e=>{const v=+a.purchasePrice||0;e.target.value=v?String(v):"";}}
-                  onBlur={e=>{const v=+e.target.value.replace(/,/g,"")||0;e.target.value=v?v.toLocaleString():"";}}
-                  onChange={e=>upd("purchasePrice",+e.target.value.replace(/,/g,"")||0)}
+                  onBlur={e=>{const v=+e.target.value.replace(/,/g,"")||0;e.target.value=v?v.toLocaleString():"";upd("purchasePrice",v);}}
+                  onChange={e=>{e.target.value=e.target.value.replace(/[^0-9,]/g,"");}}
                   style={{...{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"},flex:1}}/>
               </div>
             </div>
@@ -548,7 +571,8 @@ function AssumptionsTab({deal,onChange}){
                   <label style={lblSt}>Interest Rate</label>
                   <div style={{display:"flex",alignItems:"center",gap:4}}>
                     <input type="text" inputMode="decimal" value={a.interestRate||""} placeholder="0"
-                      onChange={e=>upd("interestRate",e.target.value.replace(/,/g,""))}
+                      onChange={e=>{ const d=JSON.parse(JSON.stringify(deal)); d.assumptions.interestRate=e.target.value.replace(/,/g,""); }}
+                      onBlur={e=>upd("interestRate",e.target.value.replace(/,/g,""))}
                       style={{...fldSt,flex:1}}/>
                     <span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap"}}>%</span>
                   </div>
@@ -557,7 +581,8 @@ function AssumptionsTab({deal,onChange}){
                   <label style={lblSt}>Amortization</label>
                   <div style={{display:"flex",alignItems:"center",gap:4}}>
                     <input type="text" inputMode="decimal" value={a.amortYears||""} placeholder="0"
-                      onChange={e=>upd("amortYears",e.target.value.replace(/,/g,""))}
+                      onChange={e=>{ const d=JSON.parse(JSON.stringify(deal)); d.assumptions.amortYears=e.target.value.replace(/,/g,""); }}
+                      onBlur={e=>upd("amortYears",e.target.value.replace(/,/g,""))}
                       style={{...fldSt,flex:1}}/>
                     <span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap"}}>yrs</span>
                   </div>
@@ -1109,9 +1134,12 @@ function AssumptionsTab({deal,onChange}){
         );
       })()}
     </Section>
-    <Section title="Refinance Scenario" action={<label style={{fontSize:12,color:"var(--muted)",display:"flex",gap:8,alignItems:"center",cursor:"pointer"}}><input type="checkbox" checked={a.refi.enabled} onChange={e=>upd("refi.enabled",e.target.checked)}/> Enable</label>}>
-      {a.refi.enabled?<><InputRow label="Refi Year" value={a.refi.year} onChange={v=>upd("refi.year",v)}/><InputRow label="New Rate" value={a.refi.newRate} onChange={v=>upd("refi.newRate",v)} suffix="%"/><InputRow label="New LTV" value={a.refi.newLTV} onChange={v=>upd("refi.newLTV",v)} suffix="%"/></>:<div style={{fontSize:13,color:"var(--muted)",padding:"8px 0"}}>Enable to model a cash-out refinance during the hold period.</div>}
-    </Section>
+    <CollapsibleSection title="Refinance Scenario" defaultOpen={!!a.refi?.enabled} badge={a.refi?.enabled ? 'Enabled' : undefined}>
+      <Section title="Refinance Scenario" action={<label style={{fontSize:12,color:"var(--muted)",display:"flex",gap:8,alignItems:"center",cursor:"pointer"}}><input type="checkbox" checked={a.refi.enabled} onChange={e=>upd("refi.enabled",e.target.checked)}/> Enable</label>}>
+        {a.refi.enabled?<><InputRow label="Refi Year" value={a.refi.year} onChange={v=>upd("refi.year",v)}/><InputRow label="New Rate" value={a.refi.newRate} onChange={v=>upd("refi.newRate",v)} suffix="%"/><InputRow label="New LTV" value={a.refi.newLTV} onChange={v=>upd("refi.newLTV",v)} suffix="%"/></>:<div style={{fontSize:13,color:"var(--muted)",padding:"8px 0"}}>Enable to model a cash-out refinance during the hold period.</div>}
+      </Section>
+    </CollapsibleSection>
+    <CollapsibleSection title="Value Add" defaultOpen={!!a.valueAdd?.enabled} badge={a.valueAdd?.enabled ? 'Enabled' : undefined}>
     <Section title="Value Add" action={<label style={{fontSize:12,color:"var(--muted)",display:"flex",gap:8,alignItems:"center",cursor:"pointer"}}><input type="checkbox" checked={!!(a.valueAdd?.enabled)} onChange={e=>upd("valueAdd.enabled",e.target.checked)}/> Enable</label>}>
       {a.valueAdd?.enabled?<>{(()=>{
         const fldSt={width:"100%",padding:"8px 10px",borderRadius:10,fontSize:14,border:"1.5px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit",WebkitAppearance:"none",appearance:"none"};
@@ -1161,6 +1189,7 @@ function AssumptionsTab({deal,onChange}){
         </>);
       })()}</>:<div style={{fontSize:13,color:"var(--muted)",padding:"8px 0"}}>Enable to model remodeling costs and post-renovation rent uplift.</div>}
     </Section>
+    </CollapsibleSection>
     {(()=>{
       const [taxOpen, setTaxOpen] = React.useState(false);
       const tax = a.tax || {};

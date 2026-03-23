@@ -38,6 +38,31 @@ function CashFlowTab({result,deal}){
   const hasCF=result.taxAdvEnabled&&result.years.some(y=>y.cumulativeCarryforward>0||y.suspendedLossThisYr>0);
 
   return(<div style={{padding:"16px 0"}}>
+    {/* Year 1 Quick Summary */}
+    {result.years?.[0] && (
+      <div style={{display:"flex",flexWrap:"wrap",gap:10,marginBottom:16,padding:"12px 14px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:12}}>
+        <div style={{fontSize:11,fontWeight:800,letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--accent)",width:"100%",marginBottom:4}}>Year 1 Snapshot</div>
+        {[
+          {label:"Monthly Cash Flow", value: result.years[0].monthlyCashFlow, fmt:"usd", sign:true},
+          {label:"NOI", value: result.noi, fmt:"usd"},
+          {label:"DSCR", value: result.dscr, fmt:"x"},
+          {label:"Cash-on-Cash", value: result.cocReturn, fmt:"pct"},
+        ].map(({label, value, fmt, sign}) => {
+          const isGood = fmt==="usd"&&sign ? value>=0 : fmt==="x" ? value>=1.25 : fmt==="pct" ? value>=0.06 : true;
+          const color = (fmt==="usd"&&sign) || fmt==="x" || fmt==="pct" ? (isGood?"var(--green)":"var(--red)") : "var(--text)";
+          const display = fmt==="usd" ? FMT_USD(Math.abs(value||0)) : fmt==="pct" ? FMT_PCT(value) : fmt==="x" ? (value!=null?(+value).toFixed(2)+"x":"—") : "—";
+          return (
+            <div key={label} style={{flex:"1 1 120px",minWidth:100}}>
+              <div style={{fontSize:10,color:"var(--muted)",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3}}>{label}</div>
+              <div style={{fontSize:18,fontWeight:900,color,lineHeight:1}}>
+                {fmt==="usd"&&sign&&value!=null?(value>=0?"+":"-"):""}
+                {display}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    )}
     <div style={{fontSize:11,color:"var(--muted)",marginBottom:8}}>← Swipe to see all years</div>
     <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
       <table style={{borderCollapse:"collapse",fontSize:11}}>

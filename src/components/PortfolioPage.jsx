@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { iSty } from './ui/InputRow';
+import InputRow, { iSty, Tip } from './ui/InputRow';
 import { FMT_PCT, FMT_USD, FMT_X, STATUS_COLORS, STATUS_OPTIONS } from '../lib/constants';
 import { useIsMobile } from '../lib/hooks';
 import { calcDeal } from '../lib/calc';
@@ -85,12 +85,12 @@ function DealCard({ d, r, onSelect, onDelete, onShareDeal }) {
       {/* Metrics grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
         {[
-          { label: 'CoC Yr 1', val: FMT_PCT(r.cocReturn), color: cocColor(r.cocReturn) },
-          { label: 'IRR 10yr', val: FMT_PCT(r.irr),       color: irrColor(r.irr) },
-          { label: 'Cap Rate', val: FMT_PCT(r.capRate),    color: capColor(r.capRate) },
-        ].map(({ label, val, color }) => (
+          { label: 'CoC', tip: 'Cash-on-Cash Return — your first-year cash income as a % of cash invested', val: FMT_PCT(r.cocReturn), color: cocColor(r.cocReturn) },
+          { label: 'IRR', tip: 'Internal Rate of Return — annualized return including appreciation and equity over the hold period', val: FMT_PCT(r.irr), color: irrColor(r.irr) },
+          { label: 'Cap Rate', tip: 'Capitalization Rate — annual NOI divided by purchase price, measures income yield', val: FMT_PCT(r.capRate), color: capColor(r.capRate) },
+        ].map(({ label, tip, val, color }) => (
           <div key={label} style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: 2 }}>{label}</div>
+            <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: 2, display:'flex', alignItems:'center', justifyContent:'center', gap:2 }}>{label}<Tip text={tip}/></div>
             <div style={{ fontSize: 14, fontWeight: 700, color }}>{val}</div>
           </div>
         ))}
@@ -98,7 +98,7 @@ function DealCard({ d, r, onSelect, onDelete, onShareDeal }) {
 
       {/* Footer */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, borderTop: '1px solid var(--border-faint)' }}>
-        {(r.dscr != null && r.dscr > 0) ? <DSCRBadge dscr={r.dscr} /> : <span style={{ fontSize: 11, color: 'var(--muted)' }}>DSCR —</span>}
+        {(r.dscr != null && r.dscr > 0) ? <DSCRBadge dscr={r.dscr} /> : <span style={{ fontSize: 11, color: 'var(--muted)', display:'flex', alignItems:'center', gap:2 }}>DSCR —<Tip text="Debt Service Coverage Ratio — NOI divided by annual mortgage payment. Lenders require ≥1.25x"/></span>}
         <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
           {onShareDeal && <button onClick={() => onShareDeal(d)} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 16, padding: '2px 4px', cursor: 'pointer' }} title="Share">👥</button>}
           <button onClick={() => onDelete(d.id)} style={{ background: 'none', border: 'none', color: 'var(--red)', fontSize: 16, padding: '2px 4px', cursor: 'pointer' }} title="Delete">✕</button>
@@ -133,6 +133,7 @@ function PortfolioPage({ deals, onSelect, onAdd, onDelete, onExport, onReorder, 
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
   const [toast, setToast] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const isMobile = useIsMobile();
 
   const resultsByDealId = useMemo(() => {
@@ -166,10 +167,15 @@ function PortfolioPage({ deals, onSelect, onAdd, onDelete, onExport, onReorder, 
   };
 
   const handleDelete = id => {
+    setConfirmDeleteId(id);
+  };
+  const confirmDelete = () => {
+    if (!confirmDeleteId) return;
     const snapshot = [...deals];
-    const deal = deals.find(d => d.id === id);
-    onDelete(id);
-    setToast({ message: `"${deal.address || 'Deal'}" deleted`, snapshot });
+    const deal = deals.find(d => d.id === confirmDeleteId);
+    onDelete(confirmDeleteId);
+    setToast({ message: `"${deal?.address || 'Deal'}" deleted`, snapshot });
+    setConfirmDeleteId(null);
   };
 
   const fmtShowing = d => {
@@ -243,6 +249,18 @@ function PortfolioPage({ deals, onSelect, onAdd, onDelete, onExport, onReorder, 
             ))}
           </div>
         )}
+        {confirmDeleteId && (
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+            <div style={{background:"var(--card)",borderRadius:14,padding:"24px 24px",maxWidth:340,width:"100%",boxShadow:"0 8px 32px rgba(0,0,0,0.25)"}}>
+              <div style={{fontSize:16,fontWeight:800,color:"var(--text)",marginBottom:8}}>Delete this deal?</div>
+              <div style={{fontSize:13,color:"var(--muted)",marginBottom:20}}>This action can be undone immediately after.</div>
+              <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+                <button onClick={()=>setConfirmDeleteId(null)} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 18px",fontSize:13,fontWeight:700,cursor:"pointer",color:"var(--text)"}}>Cancel</button>
+                <button onClick={confirmDelete} style={{background:"var(--red)",border:"none",borderRadius:8,padding:"8px 18px",fontSize:13,fontWeight:700,cursor:"pointer",color:"#fff"}}>Delete</button>
+              </div>
+            </div>
+          </div>
+        )}
         {toast && <UndoToast message={toast.message} onUndo={() => { onReorder(toast.snapshot); setToast(null); }} onDismiss={() => setToast(null)} />}
       </div>
     );
@@ -255,7 +273,7 @@ function PortfolioPage({ deals, onSelect, onAdd, onDelete, onExport, onReorder, 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
           <div style={{ fontFamily: "'Fraunces',serif", fontSize: 28, fontWeight: 900, color: 'var(--text)', letterSpacing: '-0.5px' }}><span>Rent</span><span style={{ color: 'var(--accent)' }}>Hack</span></div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>{(deals || []).length} deal{(deals || []).length !== 1 ? 's' : ''} · 10-year hold model</div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>{(deals || []).length} deal{(deals || []).length !== 1 ? 's' : ''} · multifamily analyzer</div>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <ViewToggle view={viewMode} setView={setViewMode} />
@@ -316,7 +334,7 @@ function PortfolioPage({ deals, onSelect, onAdd, onDelete, onExport, onReorder, 
                     <td style={{ padding: '12px', color: 'var(--text)' }}>{FMT_X(r.equityMultiple)}</td>
                     <td style={{ padding: '12px' }}>{(r.dscr != null && r.dscr > 0) ? <DSCRBadge dscr={r.dscr} /> : '—'}</td>
                     <td style={{ padding: '12px' }}>
-                      <button onClick={e => { e.stopPropagation(); handleDelete(d.id); }} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: 16, padding: 0, cursor: 'pointer' }}>✕</button>
+                      <button onClick={e => { e.stopPropagation(); setConfirmDeleteId(d.id); }} style={{ background: 'none', border: 'none', color: 'var(--red)', fontSize: 16, padding: 0, cursor: 'pointer' }}>✕</button>
                       {onShareDeal && <button onClick={e => { e.stopPropagation(); onShareDeal(d); }} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 14, padding: '0 2px', cursor: 'pointer' }}>👥</button>}
                     </td>
                   </tr>
@@ -324,6 +342,18 @@ function PortfolioPage({ deals, onSelect, onAdd, onDelete, onExport, onReorder, 
               })}
             </tbody>
           </table>
+        </div>
+      )}
+      {confirmDeleteId && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:"var(--card)",borderRadius:14,padding:"24px 24px",maxWidth:340,width:"100%",boxShadow:"0 8px 32px rgba(0,0,0,0.25)"}}>
+            <div style={{fontSize:16,fontWeight:800,color:"var(--text)",marginBottom:8}}>Delete this deal?</div>
+            <div style={{fontSize:13,color:"var(--muted)",marginBottom:20}}>This action can be undone immediately after.</div>
+            <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+              <button onClick={()=>setConfirmDeleteId(null)} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 18px",fontSize:13,fontWeight:700,cursor:"pointer",color:"var(--text)"}}>Cancel</button>
+              <button onClick={confirmDelete} style={{background:"var(--red)",border:"none",borderRadius:8,padding:"8px 18px",fontSize:13,fontWeight:700,cursor:"pointer",color:"#fff"}}>Delete</button>
+            </div>
+          </div>
         </div>
       )}
       {toast && <UndoToast message={toast.message} onUndo={() => { onReorder(toast.snapshot); setToast(null); }} onDismiss={() => setToast(null)} />}
