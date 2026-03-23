@@ -44,6 +44,12 @@ function DealSummaryTab({deal, result, onUpdate}) {
   // vsRent: altRent (what you'd pay to rent, positive) + monthly CF (signed net of owning)
   const vsRent = result.ooEnabled ? altRent + regularCF : 0;
 
+  // Average monthly CF over the full hold period
+  const _holdLen = result.years?.length || 1;
+  const avgMonthlyCF = (result.years||[]).reduce((s,y) => s + (y.monthlyCashFlow||0), 0) / _holdLen;
+  // Incremental = avg CF + alt rent savings (OO only)
+  const avgMonthlyIncremental = avgMonthlyCF + (result.ooEnabled ? altRent : 0);
+
   // Property detail fields
   const beds = a.beds||"—", baths = a.baths||"—";
   const yearBuilt = a.yearBuilt||"—", sqft = a.sqftTotal||"—", lotSize = a.lotSize||"—";
@@ -367,23 +373,21 @@ function DealSummaryTab({deal, result, onUpdate}) {
 
             {/* Cash Flow hero */}
             <Panel accent>
-              <SLbl>{result.ooEnabled?"Monthly Cash Flow · You in Unit "+(( result.ooUnit||0)+1)+", Yr 1":"Non-Occ. Cash Flow · Year 1"}</SLbl>
-              <div style={{fontSize:44,fontWeight:900,letterSpacing:"-2px",color:regularCF>=0?"#16a34a":"var(--accent2)",lineHeight:1,marginBottom:10}}>
-                {regularCF>=0?"+":"-"}{FMT_USD(Math.abs(regularCF))}<span style={{fontSize:14,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
+              <SLbl>{result.ooEnabled?"Avg Monthly Cash Flow · You in Unit "+(( result.ooUnit||0)+1):"Avg Monthly Cash Flow · "+_holdLen+"-Yr Hold"}</SLbl>
+              <div style={{fontSize:44,fontWeight:900,letterSpacing:"-2px",color:avgMonthlyCF>=0?"#16a34a":"var(--accent2)",lineHeight:1,marginBottom:10}}>
+                {avgMonthlyCF>=0?"+":"-"}{FMT_USD(Math.abs(avgMonthlyCF))}<span style={{fontSize:14,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
               </div>
-              {/* Alt rent comparison — OO only */}
+              {/* Avg incremental CF sub-metric — OO only */}
               {result.ooEnabled&&altRent>0&&(
-                <div style={{background:vsRent>=0?"rgba(13,148,136,0.08)":"rgba(217,119,6,0.08)",border:"1px solid "+(vsRent>=0?"rgba(13,148,136,0.25)":"rgba(217,119,6,0.3)"),borderRadius:8,padding:"9px 12px"}}>
-                  <div style={{fontSize:10,fontFamily:"system-ui",fontWeight:800,letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--muted)",marginBottom:6}}>vs. Alternative Rent</div>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-                    <div style={{fontFamily:"system-ui",fontSize:12}}>
-                      <div style={{color:"var(--muted)",marginBottom:2}}>If you rented instead</div>
-                      <div style={{fontWeight:800,fontSize:15,color:"#dc2626"}}>−{FMT_USD(altRent)}<span style={{fontSize:11,fontWeight:400,color:"var(--muted)"}}>/mo</span></div>
+                <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,padding:"9px 12px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,gap:8,flexWrap:"wrap"}}>
+                    <div style={{fontSize:10,fontFamily:"system-ui",fontWeight:800,letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--muted)"}}>Avg Monthly Incremental Cash Flow</div>
+                    <div style={{background:"var(--table-head)",border:"1px solid var(--border)",borderRadius:100,padding:"3px 10px",fontSize:11,color:"var(--muted)",fontFamily:"system-ui",whiteSpace:"nowrap"}}>
+                      Alt Rent&nbsp;&nbsp;{FMT_USD(altRent)}/mo
                     </div>
-                    <div style={{background:vsRent>=0?"var(--accent)":"var(--accent2)",color:"#fff",borderRadius:8,padding:"5px 10px",fontFamily:"system-ui",fontSize:12,fontWeight:800,textAlign:"center",whiteSpace:"nowrap"}}>
-                      {vsRent>=0?"▼ ":"▲ "}{FMT_USD(Math.abs(vsRent))}/mo<br/>
-                      <span style={{fontSize:10,fontWeight:600,opacity:0.85}}>{vsRent>=0?"cheaper to buy":"pricier than renting"}</span>
-                    </div>
+                  </div>
+                  <div style={{fontSize:22,fontWeight:900,letterSpacing:"-0.5px",color:avgMonthlyIncremental>=0?"#16a34a":"var(--accent2)",fontFamily:"system-ui"}}>
+                    {avgMonthlyIncremental>=0?"+":"-"}{FMT_USD(Math.abs(avgMonthlyIncremental))}<span style={{fontSize:12,color:"var(--muted)",fontWeight:400}}>/mo</span>
                   </div>
                 </div>
               )}
@@ -471,48 +475,6 @@ function DealSummaryTab({deal, result, onUpdate}) {
                 <div style={{fontSize:11,color:"var(--muted)",fontFamily:"system-ui",padding:"12px 0"}}>No operating expenses configured in Assumptions.</div>
               )}
             </Panel>
-          </div>
-        </div>
-      );
-    })()}
-    {/* ══ FHA Self-Sufficiency Test (BACK-062) — 3–4 unit only ══ */}
-    {result.fhaSelfSufficiency?.applies && (() => {
-      const fha = result.fhaSelfSufficiency;
-      const pass = fha.passes;
-      const passColor = pass ? "var(--green)" : "var(--red)";
-      const passText  = pass ? "PASS" : "FAIL";
-      const passBg    = pass ? "rgba(16,185,129,0.08)" : "rgba(239,68,68,0.08)";
-      const passBorder= pass ? "rgba(16,185,129,0.3)"  : "rgba(239,68,68,0.3)";
-      return (
-        <div style={{background:passBg,border:`1px solid ${passBorder}`,borderRadius:12,padding:14,marginBottom:10}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10,flexWrap:"wrap",gap:8}}>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--muted)",fontFamily:"system-ui"}}>
-                FHA Self-Sufficiency Test
-              </div>
-              <div style={{fontSize:10,color:"var(--muted)",fontFamily:"system-ui"}}>· 3–4 unit properties only</div>
-            </div>
-            <div style={{fontSize:13,fontWeight:900,color:passColor,letterSpacing:"0.05em",background:pass?"rgba(16,185,129,0.15)":"rgba(239,68,68,0.15)",padding:"3px 12px",borderRadius:100,fontFamily:"system-ui"}}>
-              {passText}
-            </div>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 1fr",gap:10,marginBottom:10}}>
-            {[
-              ["Gross Rent (all units)",  FMT_USD(fha.grossRentAllUnits/12)+"/mo",   "var(--text)"],
-              ["75% Threshold (FHA rule)",FMT_USD(fha.threshold75Pct/12)+"/mo",      passColor],
-              ["Your PITI",               FMT_USD(fha.pitiAnnual/12)+"/mo",          "var(--text)"],
-            ].map(([label, val, col]) => (
-              <div key={label} style={{background:"var(--card)",borderRadius:8,padding:"10px 12px",border:"1px solid var(--border)"}}>
-                <div style={{fontSize:10,color:"var(--muted)",fontFamily:"system-ui",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:4}}>{label}</div>
-                <div style={{fontSize:16,fontWeight:800,color:col,fontFamily:"system-ui"}}>{val}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{fontSize:11,color:"var(--muted)",fontFamily:"system-ui",lineHeight:1.5}}>
-            {pass
-              ? `FHA requires 75% of gross rents ≥ PITI. This property passes with a ${FMT_USD(Math.abs(fha.delta)/12)}/mo surplus — it qualifies for FHA financing on this test.`
-              : `FHA requires 75% of gross rents ≥ PITI. This property falls ${FMT_USD(Math.abs(fha.delta)/12)}/mo short. To pass: increase rents by ${FMT_USD(Math.abs(fha.delta)/(0.75*12))}/mo per unit, or reduce the purchase price.`
-            }
           </div>
         </div>
       );
@@ -616,6 +578,30 @@ function DealSummaryTab({deal, result, onUpdate}) {
           {expRows.map(([l,v],i)=><KV key={l} label={l} value={FMT_USD(v)+"/yr"} last={i===expRows.length-1}/>)}
           {expRows.length===0&&<div style={{fontSize:12,color:"var(--muted)",fontFamily:"system-ui"}}>No expenses configured.</div>}
         </Panel>
+        {/* ── FHA Self-Sufficiency — compact, 3–4 unit only ── */}
+        {result.fhaSelfSufficiency?.applies && (() => {
+          const fha = result.fhaSelfSufficiency;
+          const pass = fha.passes;
+          return (
+            <div style={{background:pass?"rgba(16,185,129,0.07)":"rgba(239,68,68,0.07)",border:`1px solid ${pass?"rgba(16,185,129,0.25)":"rgba(239,68,68,0.25)"}`,borderRadius:10,padding:"10px 12px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--muted)",fontFamily:"system-ui"}}>FHA Self-Sufficiency</div>
+                <div style={{fontSize:11,fontWeight:900,color:pass?"var(--green)":"var(--red)",background:pass?"rgba(16,185,129,0.15)":"rgba(239,68,68,0.15)",padding:"2px 10px",borderRadius:100,fontFamily:"system-ui"}}>
+                  {pass?"PASS":"FAIL"}
+                </div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                {[["75% of Rents",FMT_USD(fha.threshold75Pct/12)+"/mo"],["Your PITI",FMT_USD(fha.pitiAnnual/12)+"/mo"]].map(([l,v])=>(
+                  <div key={l}>
+                    <div style={{fontSize:10,color:"var(--muted)",fontFamily:"system-ui",marginBottom:2}}>{l}</div>
+                    <div style={{fontSize:13,fontWeight:700,fontFamily:"system-ui",color:"var(--text)"}}>{v}</div>
+                  </div>
+                ))}
+              </div>
+              {!pass&&<div style={{fontSize:10,color:"var(--red)",fontFamily:"system-ui",marginTop:6}}>Short by {FMT_USD(Math.abs(fha.delta)/12)}/mo · 3–4 unit FHA requirement</div>}
+            </div>
+          );
+        })()}
       </div>
     </div>
 
