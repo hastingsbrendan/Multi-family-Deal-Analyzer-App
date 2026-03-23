@@ -48,7 +48,7 @@ export async function onRequest(context) {
 
   // ── Temporary API pause ──────────────────────────────────────────────────────
   // Flip RENTCAST_PAUSED to false to re-enable all Rentcast endpoints.
-  const RENTCAST_PAUSED = true;
+  const RENTCAST_PAUSED = false;
   if (RENTCAST_PAUSED) {
     return json({ error: 'Rentcast API is temporarily paused. Cached data is shown where available.', paused: true }, 503);
   }
