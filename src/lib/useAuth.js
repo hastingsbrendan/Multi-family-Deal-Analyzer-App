@@ -23,14 +23,19 @@ import {
 export function useAuth({ setUser, setAuthLoading, setDeals, setLastCloudUpdate, setPrefs }) {
   const hasBootstrappedRef = useRef(false);
 
-  // Bootstrap: load local deals immediately, then pull cloud state.
+  // Bootstrap: pull authoritative cloud state, fall back to localStorage on failure.
   // Called once per sign-in to avoid overwriting unsaved edits on token refreshes.
+  //
+  // IMPORTANT: do NOT call setDeals(local) before sbRead returns. Doing so triggers
+  // the 800ms debounced sbWrite with stale localStorage data — which upserts every
+  // deal by its stored _deal_id UUID. If any of those UUIDs point to rows that were
+  // deleted or never existed in the DB, upsert INSERTs them as new rows (a specific
+  // non-NULL deal_id that finds no conflict is always treated as an INSERT). This was
+  // the root cause of persistent deal duplication even after DB cleanup.
   const bootstrapUser = useCallback((u, { loadPrefs = false } = {}) => {
     hasBootstrappedRef.current = true;
     Sentry.setUser({ id: u.id, email: u.email });
     identifyUser(u);
-    const local = loadLocal(u.id);
-    setDeals(local);
     setTimeout(() => {
       sbRead()
         .then(({ data: cloudDeals, prefs: cloudPrefs, updated_at }) => {
@@ -44,20 +49,31 @@ export function useAuth({ setUser, setAuthLoading, setDeals, setLastCloudUpdate,
           if (cloudDeals.length > 0) {
             setDeals(cloudDeals);
             saveLocal(cloudDeals, u.id);
-          } else if (local.length > 0) {
-            sbWrite(local).catch(e => Sentry.captureException(e, { tags: { origin: 'useAuth.sbWrite.bootstrap' } }));
           } else {
-            // First login with no deals anywhere — create a sample deal so the
-            // user lands on a populated portfolio instead of a blank canvas.
-            const sample = createSampleDeal(resolvedPrefs);
-            const initialDeals = [sample];
-            setDeals(initialDeals);
-            saveLocal(initialDeals, u.id);
-            sbWrite(initialDeals).catch(e => Sentry.captureException(e, { tags: { origin: 'useAuth.sbWrite.sample' } }));
-            trackDealCreated(sample.id);
+            // DB has no deals — check localStorage, then fall back to a sample deal
+            const local = loadLocal(u.id);
+            if (local.length > 0) {
+              setDeals(local);
+              sbWrite(local).catch(e => Sentry.captureException(e, { tags: { origin: 'useAuth.sbWrite.bootstrap' } }));
+            } else {
+              // First login with no deals anywhere — create a sample deal so the
+              // user lands on a populated portfolio instead of a blank canvas.
+              const sample = createSampleDeal(resolvedPrefs);
+              const initialDeals = [sample];
+              setDeals(initialDeals);
+              saveLocal(initialDeals, u.id);
+              sbWrite(initialDeals).catch(e => Sentry.captureException(e, { tags: { origin: 'useAuth.sbWrite.sample' } }));
+              trackDealCreated(sample.id);
+            }
           }
         })
-        .catch(e => Sentry.captureException(e, { tags: { origin: 'useAuth.sbRead' } }));
+        .catch(e => {
+          // sbRead failed — fall back to localStorage so the app isn't stuck on the
+          // loading screen. Deals may be stale but are better than nothing.
+          const local = loadLocal(u.id);
+          setDeals(local.length > 0 ? local : []);
+          Sentry.captureException(e, { tags: { origin: 'useAuth.sbRead' } });
+        });
     }, 300);
   }, [setDeals, setLastCloudUpdate, setPrefs]);
 
