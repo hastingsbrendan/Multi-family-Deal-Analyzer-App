@@ -4,7 +4,7 @@ import { iSty } from './ui/InputRow';
 import { sbClient, sbWriteDeal, sbDeleteDeal, sbWritePrefs } from '../lib/constants';
 import { DEFAULT_PREFS, newDeal } from '../lib/calc';
 import { sbGetGroupDeals, sbShareDealToGroup, sbRemoveDealFromGroup, sbReorderGroupDeals } from '../lib/groups';
-import { useIsMobile, useOnlineStatus } from '../lib/hooks';
+import { useIsMobile, useOnlineStatus, lazyWithRetry } from '../lib/hooks';
 import { useCloudSync } from '../lib/useCloudSync';
 import { useAuth } from '../lib/useAuth';
 import { useDeals } from '../lib/useDeals';
@@ -19,12 +19,13 @@ import PortfolioPage from './PortfolioPage';
 import DealPage from './DealPage';
 
 // Secondary pages — lazy loaded, only downloaded when user navigates there
-const ProfilePage     = React.lazy(() => import('./ProfilePage'));
-const SettingsPage    = React.lazy(() => import('./SettingsPage'));
-const AppSettingsPage = React.lazy(() => import('./AppSettingsPage'));
-const GroupsPage      = React.lazy(() => import('./GroupsPage'));
-const ShareDealModal  = React.lazy(() => import('./ShareDealModal'));
-const GuidedTour      = React.lazy(() => import('./GuidedTour'));
+// lazyWithRetry auto hard-reloads on stale-chunk errors after a new deployment
+const ProfilePage     = lazyWithRetry(() => import('./ProfilePage'));
+const SettingsPage    = lazyWithRetry(() => import('./SettingsPage'));
+const AppSettingsPage = lazyWithRetry(() => import('./AppSettingsPage'));
+const GroupsPage      = lazyWithRetry(() => import('./GroupsPage'));
+const ShareDealModal  = lazyWithRetry(() => import('./ShareDealModal'));
+const GuidedTour      = lazyWithRetry(() => import('./GuidedTour'));
 
 // TOUR_STEPS is a tiny data array in its own file — imported synchronously so step-count
 // logic works immediately, without blocking the lazy load of GuidedTour itself.
