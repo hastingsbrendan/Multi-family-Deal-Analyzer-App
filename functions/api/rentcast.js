@@ -46,6 +46,13 @@ export async function onRequest(context) {
     return json({ error: 'Method not allowed' }, 405);
   }
 
+  // ── Temporary API pause ──────────────────────────────────────────────────────
+  // Flip RENTCAST_PAUSED to false to re-enable all Rentcast endpoints.
+  const RENTCAST_PAUSED = true;
+  if (RENTCAST_PAUSED) {
+    return json({ error: 'Rentcast API is temporarily paused. Cached data is shown where available.', paused: true }, 503);
+  }
+
   // ── Auth: verify Supabase JWT ────────────────────────────────────────────────
   const authHeader = request.headers.get('Authorization') || '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
