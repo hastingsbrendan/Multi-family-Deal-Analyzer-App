@@ -47,8 +47,8 @@ function DealSummaryTab({deal, result, onUpdate}) {
   // Average monthly CF over the full hold period
   const _holdLen = result.years?.length || 1;
   const avgMonthlyCF = (result.years||[]).reduce((s,y) => s + (y.monthlyCashFlow||0), 0) / _holdLen;
-  // Incremental = avg CF + alt rent savings (OO only)
-  const avgMonthlyIncremental = avgMonthlyCF + (result.ooEnabled ? altRent : 0);
+  // Incremental CF displayed separately alongside alt rent pill — not summed
+  const avgMonthlyIncremental = avgMonthlyCF;
 
   // Property detail fields
   const beds = a.beds||"—", baths = a.baths||"—";
