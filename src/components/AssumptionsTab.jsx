@@ -448,13 +448,8 @@ function AssumptionsTab({deal,onChange}){
               <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Purchase Price</div>
               <div style={{display:"flex",alignItems:"center",gap:6}}>
                 <span style={{color:"var(--muted)",fontSize:13}}>$</span>
-                <input type="text" inputMode="numeric" value={
-                    (() => { const v = +a.purchasePrice||0; return v ? v.toLocaleString() : ""; })()
-                  } placeholder="450,000"
-                  onFocus={e=>{const v=+a.purchasePrice||0;e.target.value=v?String(v):"";}}
-                  onBlur={e=>{const v=+e.target.value.replace(/,/g,"")||0;e.target.value=v?v.toLocaleString():"";upd("purchasePrice",v);}}
-                  onChange={e=>{e.target.value=e.target.value.replace(/[^0-9,]/g,"");}}
-                  style={{...{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"},flex:1}}/>
+                <FmtInt value={a.purchasePrice||0} onChange={v=>upd("purchasePrice",v)} placeholder="450,000"
+                  style={{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit",flex:1}}/>
               </div>
             </div>
             {/* Bedrooms */}
