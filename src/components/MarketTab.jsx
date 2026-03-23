@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import * as Sentry from '@sentry/react';
 import { FMT_USD, sbClient } from '../lib/constants';
 import { useIsMobile } from '../lib/hooks';
@@ -220,17 +220,26 @@ function AssumptionsCheckPanel({ deal, fredAllData }) {
   );
 }
 
-function MarketTab({deal}) {
+function MarketTab({deal, onChange}) {
   const isMobile = useIsMobile();
-  const [marketData, setMarketData]   = useState(null);
+  // Initialise from deal cache so the tab doesn't re-fetch on every visit
+  const _initZip = extractZip(deal?.address);
+  const _cached  = deal?.assumptions?.marketData;
+  const _hit     = _cached?.zipCode === _initZip && !!_cached?.data;
+  const [marketData, setMarketData]   = useState(_hit ? _cached.data  : null);
   const [censusData, setCensusData]   = useState(null);
   const [loading, setLoading]         = useState(false);
   const [error, setError]             = useState(null);
-  const [lastZip, setLastZip]         = useState(null);
+  const [lastZip, setLastZip]         = useState(_hit ? _initZip : null);
+  const [marketFetchedAt, setMarketFetchedAt] = useState(_hit ? (_cached.fetchedAt || null) : null);
+  const [apiPaused, setApiPaused]     = useState(false);
   const [saleFilter, setSaleFilter]   = useState('mf');
   const [fredAllData, setFredAllData] = useState(null); // { mortgage, treasury10, fedTarget, rentCPI, hpi }
   const [fredLoading, setFredLoading] = useState(false);
   const [fredError, setFredError] = useState(null);
+  // Ref so fetchAll can write back to deal without a stale closure
+  const dealRef = useRef(deal);
+  useEffect(() => { dealRef.current = deal; }, [deal]);
 
   const zip = extractZip(deal?.address);
 
@@ -260,26 +269,41 @@ function MarketTab({deal}) {
   }, []);
 
   const fetchAll = useCallback(async (zipCode) => {
-    setLoading(true); setError(null);
+    setLoading(true); setError(null); setApiPaused(false);
     try {
       const { data: { session } } = await sbClient.auth.getSession();
       const token = session?.access_token;
       const authHeaders = token ? { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' } : { 'Accept': 'application/json' };
       const mktRes = await fetch(`/api/rentcast?path=/v1/markets&zipCode=${zipCode}&dataType=All&historyMonths=12`, { headers: authHeaders });
+      // Handle paused state — show cached data instead of an error
+      if (mktRes.status === 503) {
+        let body = {}; try { body = await mktRes.json(); } catch {}
+        if (body.paused) { setApiPaused(true); setLoading(false); return; }
+      }
       if (!mktRes.ok) throw new Error(`Rentcast ${mktRes.status}: ${await mktRes.text()}`);
-      setMarketData(await mktRes.json());
+      const data = await mktRes.json();
+      const fetchedAt = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      setMarketData(data);
+      setMarketFetchedAt(fetchedAt);
+      setLastZip(zipCode);
+      // Persist to deal so data survives tab switches without re-fetching
+      if (onChange) {
+        const d = JSON.parse(JSON.stringify(dealRef.current));
+        d.assumptions = d.assumptions || {};
+        d.assumptions.marketData = { zipCode, fetchedAt, data };
+        onChange(d);
+      }
       const censusRes = await fetch(`https://api.census.gov/data/2023/acs/acs5?get=${CENSUS_VARS}&for=zip%20code%20tabulation%20area:${zipCode}`);
       if (censusRes.ok) {
         const raw = await censusRes.json();
         if (raw.length >= 2) { const h=raw[0],v=raw[1],obj={}; h.forEach((k,i)=>{obj[k]=v[i];}); setCensusData(obj); }
       }
-      setLastZip(zipCode);
     } catch (e) {
       setError(e.message);
       Sentry.captureException(e, { tags: { origin: 'MarketTab.fetchAll' } });
     }
     finally { setLoading(false); }
-  }, []);
+  }, [onChange]);
 
   useEffect(() => { if (zip && zip !== lastZip && !loading) fetchAll(zip); }, [zip, lastZip, loading, fetchAll]);
   useEffect(() => { fetchFred(); }, [fetchFred]);
@@ -331,7 +355,10 @@ function MarketTab({deal}) {
   );
   if (loading) return (<div style={{padding:'16px 0'}}><div style={{textAlign:'center',padding:48,color:'var(--muted)'}}><div style={{fontSize:28,marginBottom:12}}>⏳</div><div style={{fontSize:13,fontWeight:700,color:'var(--text)'}}>Loading market data…</div><div style={{fontSize:12,marginTop:4}}>Fetching Rentcast + Census data for ZIP {zip}</div></div></div>);
   if (error) return (<div style={{padding:'16px 0'}}><EmptyState icon="⚠️" title="Could not load market data" sub={error}/><div style={{textAlign:'center',marginTop:12}}><button onClick={()=>fetchAll(zip)} style={{background:'var(--accent)',color:'#fff',border:'none',borderRadius:100,padding:'8px 20px',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Retry</button></div></div>);
-  if (!marketData && !censusData) return (<div style={{padding:'16px 0'}}><EmptyState icon="📊" title="Market data not loaded" sub={`ZIP ${zip} detected. Click below to fetch market data.`}/><div style={{textAlign:'center',marginTop:12}}><button onClick={()=>fetchAll(zip)} style={{background:'var(--accent)',color:'#fff',border:'none',borderRadius:100,padding:'8px 20px',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Load Market Data</button></div></div>);
+  if (!marketData && !censusData) {
+    if (apiPaused) return (<div style={{padding:'16px 0'}}><EmptyState icon="⏸️" title="Market data temporarily unavailable" sub="Rentcast API is paused. No cached data available for this ZIP yet — check back soon."/></div>);
+    return (<div style={{padding:'16px 0'}}><EmptyState icon="📊" title="Market data not loaded" sub={`ZIP ${zip} detected. Click below to fetch market data.`}/><div style={{textAlign:'center',marginTop:12}}><button onClick={()=>fetchAll(zip)} style={{background:'var(--accent)',color:'#fff',border:'none',borderRadius:100,padding:'8px 20px',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Load Market Data</button></div></div>);
+  }
 
   const gridStyle = isMobile ? {display:'flex',flexDirection:'column',gap:14} : {display:'grid',gridTemplateColumns:'1fr 1fr',gap:16};
 
@@ -339,13 +366,22 @@ function MarketTab({deal}) {
     <div style={{padding:'16px 0'}}>
 
       {/* HEADER */}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:apiPaused ? 8 : 20}}>
         <div>
           <div style={{fontFamily:"'Fraunces',serif",fontSize:18,fontWeight:900,color:'var(--text)',letterSpacing:'-0.5px'}}>Market Overview · ZIP {zip}</div>
-          <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>Rentcast · US Census ACS 2023 · Federal Reserve (FRED)</div>
+          <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>
+            {marketFetchedAt ? `Rentcast data cached ${marketFetchedAt} · Census ACS 2023 · FRED` : 'Rentcast · US Census ACS 2023 · Federal Reserve (FRED)'}
+          </div>
         </div>
-        <button onClick={()=>{fetchAll(zip);fetchFred();}} style={{background:'none',border:'1px solid var(--border)',borderRadius:100,padding:'6px 14px',fontSize:11,fontWeight:700,color:'var(--muted)',cursor:'pointer',fontFamily:'inherit'}}>↻ Refresh</button>
+        {!apiPaused && <button onClick={()=>{fetchAll(zip);fetchFred();}} style={{background:'none',border:'1px solid var(--border)',borderRadius:100,padding:'6px 14px',fontSize:11,fontWeight:700,color:'var(--muted)',cursor:'pointer',fontFamily:'inherit'}}>↻ Refresh</button>}
       </div>
+
+      {/* PAUSED BANNER */}
+      {apiPaused && (
+        <div style={{marginBottom:16,padding:'10px 14px',borderRadius:10,background:'#fffbeb',border:'1px solid rgba(217,119,6,0.3)',fontSize:12,color:'#d97706',fontWeight:600}}>
+          ⏸ Rentcast API is temporarily paused — showing cached data from {marketFetchedAt || 'a previous session'}.
+        </div>
+      )}
 
       {/* FLOOD ZONE BANNER */}
       {fzInfo && fzInfo.risk !== 'low' && (

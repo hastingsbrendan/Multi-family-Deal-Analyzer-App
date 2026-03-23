@@ -116,7 +116,7 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
           <RentCompsTab deal={deal} onChange={onUpdate}/>
         </BlurGate>
       )}
-      {tab===4&&<MarketTab deal={deal}/>}
+      {tab===4&&<MarketTab deal={deal} onChange={onUpdate}/>}
       {tab===5&&<ShowingTab deal={deal} onChange={onUpdate}/>}
       {tab===6&&<RedFlagsTab deal={deal} result={result} onChange={onUpdate} prefs={prefs||DEFAULT_PREFS}/>}
       {tab===7&&(

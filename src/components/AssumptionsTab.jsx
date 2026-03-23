@@ -135,6 +135,10 @@ function PropertyLookupPanel({deal, onChange}) {
 
       // Call property records endpoint via server proxy
       const propRes = await fetch(`/api/rentcast?path=/v1/properties&address=${encAddr}&limit=1`, { headers: authHeaders });
+      if (propRes.status === 503) {
+        let b = {}; try { b = await propRes.json(); } catch {}
+        if (b.paused) { setError('Rentcast API is temporarily paused — property lookup is unavailable. Try again later.'); setLoading(false); return; }
+      }
       if (!propRes.ok) { const t = await propRes.text(); setError(`Rentcast error (${propRes.status}): ${t}`); setLoading(false); return; }
       const propData = await propRes.json();
       const prop = Array.isArray(propData) ? propData[0] : propData;
