@@ -80,7 +80,7 @@ const SLIDER_DEFS = [
 ];
 
 // Thresholds for "green zone"
-const THRESHOLDS = { coc: 0, irr: 0.07, dscr: 1.0, cashFlow: 0 };
+const THRESHOLDS = { coc: 0.06, irr: 0.12, dscr: 1.25, cashFlow: 0 };
 
 function SensitivityTab({ deal }) {
   const isMobile = useIsMobile();

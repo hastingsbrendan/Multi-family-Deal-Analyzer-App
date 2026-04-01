@@ -90,8 +90,8 @@ function ProfilePage({ user, onBack, onSignOut, dark, setDark }) {
               onKeyDown={e=>e.key==="Enter"&&saveProfile()} />
             <div style={{fontSize:11, color:"var(--muted)", marginTop:4}}>Appears on exported PDF reports</div>
           </div>
-          {profErr && <div style={{color:"#ef4444", fontSize:13}}>{profErr}</div>}
-          {saved   && <div style={{color:"#10b981", fontSize:13, fontWeight:600}}>✓ Profile saved</div>}
+          {profErr && <div style={{color:"var(--red)", fontSize:13}}>{profErr}</div>}
+          {saved   && <div style={{color:"var(--green)", fontSize:13, fontWeight:600}}>✓ Profile saved</div>}
           <button onClick={saveProfile} disabled={saving}
             style={{background:"var(--accent)", color:"#fff", border:"none", borderRadius:8,
               padding:"10px", fontSize:14, fontWeight:700, cursor:"pointer", opacity:saving?.7:1}}>
@@ -118,8 +118,8 @@ function ProfilePage({ user, onBack, onSignOut, dark, setDark }) {
               <input type="password" placeholder="Confirm new password" value={confirmPw}
                 onChange={e=>{setConfirmPw(e.target.value);setPwErr("");}} style={iS}
                 onKeyDown={e=>e.key==="Enter"&&changePw()} />
-              {pwErr   && <div style={{color:"#ef4444", fontSize:13}}>{pwErr}</div>}
-              {pwSaved && <div style={{color:"#10b981", fontSize:13, fontWeight:600}}>✓ Password updated</div>}
+              {pwErr   && <div style={{color:"var(--red)", fontSize:13}}>{pwErr}</div>}
+              {pwSaved && <div style={{color:"var(--green)", fontSize:13, fontWeight:600}}>✓ Password updated</div>}
               <div style={{display:"flex", gap:8}}>
                 <button onClick={changePw} disabled={saving}
                   style={{flex:1, background:"var(--accent)", color:"#fff", border:"none",
@@ -145,7 +145,7 @@ function ProfilePage({ user, onBack, onSignOut, dark, setDark }) {
           You'll need to sign back in to access your deals.
         </div>
         <button onClick={onSignOut}
-          style={{background:"#fee2e2", color:"#991b1b", border:"1px solid #fca5a5",
+          style={{background:"rgba(239,68,68,0.07)", color:"var(--red)", border:"1px solid rgba(239,68,68,0.3)",
             borderRadius:8, padding:"10px 20px", fontSize:14, fontWeight:700, cursor:"pointer"}}>
           Sign Out
         </button>

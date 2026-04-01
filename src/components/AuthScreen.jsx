@@ -142,8 +142,8 @@ function AuthScreen({ onAuth, initialMode }) {
             <input type="password" placeholder="Confirm new password" value={confirmPw}
               onChange={e=>{setConfirmPw(e.target.value);clr();}} style={iS}
               onKeyDown={e=>e.key==="Enter"&&doReset()} />
-            {error && <div style={{color:"#ef4444",fontSize:13,padding:"8px 10px",background:"#fee2e222",borderRadius:6}}>{error}</div>}
-            {msg   && <div style={{color:"#10b981",fontSize:13,fontWeight:600}}>{msg}</div>}
+            {error && <div style={{color:"var(--red)",fontSize:13,padding:"8px 10px",background:"rgba(239,68,68,0.07)",borderRadius:6}}>{error}</div>}
+            {msg   && <div style={{color:"var(--green)",fontSize:13,fontWeight:600}}>{msg}</div>}
             <button onClick={doReset} disabled={loading} style={{...bS,opacity:loading?.7:1}}>
               {loading ? "Updating…" : "Update Password"}
             </button>
@@ -157,8 +157,8 @@ function AuthScreen({ onAuth, initialMode }) {
             <input type="email" placeholder="you@email.com" value={email}
               onChange={e=>{setEmail(e.target.value);clr();}} style={iS}
               onKeyDown={e=>e.key==="Enter"&&doForgot()} />
-            {error && <div style={{color:"#ef4444",fontSize:13,padding:"8px 10px",background:"#fee2e222",borderRadius:6}}>{error}</div>}
-            {msg   && <div style={{color:"#10b981",fontSize:13,fontWeight:600}}>{msg}</div>}
+            {error && <div style={{color:"var(--red)",fontSize:13,padding:"8px 10px",background:"rgba(239,68,68,0.07)",borderRadius:6}}>{error}</div>}
+            {msg   && <div style={{color:"var(--green)",fontSize:13,fontWeight:600}}>{msg}</div>}
             <button onClick={doForgot} disabled={loading} style={{...bS,opacity:loading?.7:1}}>
               {loading ? "Sending…" : "Send Reset Link"}
             </button>
@@ -198,7 +198,7 @@ function AuthScreen({ onAuth, initialMode }) {
             <input type="password" placeholder="Password" value={password} autoComplete="current-password"
               onChange={e=>{setPassword(e.target.value);clr();}} style={iS}
               onKeyDown={e=>e.key==="Enter"&&doLogin()} />
-            {error && <div style={{color:"#ef4444",fontSize:13,padding:"8px 10px",background:"#fee2e222",borderRadius:6}}>{error}</div>}
+            {error && <div style={{color:"var(--red)",fontSize:13,padding:"8px 10px",background:"rgba(239,68,68,0.07)",borderRadius:6}}>{error}</div>}
             <button onClick={doLogin} disabled={loading} style={{...bS,opacity:loading?.7:1}}>
               {loading ? "Signing in…" : "Sign In"}
             </button>
@@ -235,7 +235,7 @@ function AuthScreen({ onAuth, initialMode }) {
             <input type="password" placeholder="Confirm password" value={confirmPw} autoComplete="new-password"
               onChange={e=>{setConfirmPw(e.target.value);clr();}} style={iS}
               onKeyDown={e=>e.key==="Enter"&&doSignup()} />
-            {error && <div style={{color:"#ef4444",fontSize:13,padding:"8px 10px",background:"#fee2e222",borderRadius:6}}>{error}</div>}
+            {error && <div style={{color:"var(--red)",fontSize:13,padding:"8px 10px",background:"rgba(239,68,68,0.07)",borderRadius:6}}>{error}</div>}
             <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"4px 0"}}>
               <input type="checkbox" checked={tosAccepted} onChange={e=>setTosAccepted(e.target.checked)}
                 style={{marginTop:2,width:15,height:15,cursor:"pointer",accentColor:"var(--accent)"}}/>
