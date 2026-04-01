@@ -374,7 +374,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
             {/* Cash Flow hero */}
             <Panel accent>
               <SLbl>{result.ooEnabled?"Avg Monthly Cash Flow · You in Unit "+(( result.ooUnit||0)+1):"Avg Monthly Cash Flow · "+_holdLen+"-Yr Hold"}</SLbl>
-              <div style={{fontSize:44,fontWeight:900,letterSpacing:"-2px",color:avgMonthlyCF>=0?"#16a34a":"var(--accent2)",lineHeight:1,marginBottom:10}}>
+              <div style={{fontSize:44,fontWeight:900,letterSpacing:"-2px",color:avgMonthlyCF>=0?"var(--green)":"var(--accent2)",lineHeight:1,marginBottom:10}}>
                 {avgMonthlyCF>=0?"+":"-"}{FMT_USD(Math.abs(avgMonthlyCF))}<span style={{fontSize:14,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
               </div>
               {/* Avg incremental CF sub-metric — OO only */}
@@ -386,7 +386,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
                       Alt Rent&nbsp;&nbsp;{FMT_USD(altRent)}/mo
                     </div>
                   </div>
-                  <div style={{fontSize:22,fontWeight:900,letterSpacing:"-0.5px",color:avgMonthlyIncremental>=0?"#16a34a":"var(--accent2)",fontFamily:"system-ui"}}>
+                  <div style={{fontSize:22,fontWeight:900,letterSpacing:"-0.5px",color:avgMonthlyIncremental>=0?"var(--green)":"var(--accent2)",fontFamily:"system-ui"}}>
                     {avgMonthlyIncremental>=0?"+":"-"}{FMT_USD(Math.abs(avgMonthlyIncremental))}<span style={{fontSize:12,color:"var(--muted)",fontWeight:400}}>/mo</span>
                   </div>
                 </div>
@@ -397,7 +397,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
             <Panel style={{borderTop:"2px solid var(--accent)"}}>
               <SLbl>Effective Mortgage</SLbl>
               <div style={{fontSize:11,color:"var(--muted)",fontFamily:"system-ui",marginBottom:8}}>PITI − Tenant rents</div>
-              <div style={{fontSize:28,fontWeight:900,letterSpacing:"-1px",color:emPos?"#dc2626":"#16a34a",lineHeight:1,marginBottom:10}}>
+              <div style={{fontSize:28,fontWeight:900,letterSpacing:"-1px",color:emPos?"#dc2626":"var(--green)",lineHeight:1,marginBottom:10}}>
                 {emPos?"+":"-"}{FMT_USD(Math.abs(effectiveMortgage))}<span style={{fontSize:13,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
               </div>
               <div style={{fontSize:10,fontWeight:700,fontFamily:"system-ui",color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Rent covers PITI</div>
