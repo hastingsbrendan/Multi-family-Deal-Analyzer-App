@@ -1,21 +1,6 @@
 import React from 'react';
 import * as Sentry from '@sentry/react';
-
-// Detect stale-chunk errors that occur after a new deployment
-const isChunkError = (err) => {
-  const msg = err?.message || '';
-  return (
-    msg.includes('Failed to fetch dynamically imported module') ||
-    msg.includes('Loading chunk') ||
-    msg.includes('ChunkLoadError') ||
-    msg.includes('dynamically imported module')
-  );
-};
-
-const hardReload = () => {
-  // Navigate to current URL — forces browser to fetch fresh assets
-  window.location.href = window.location.href; // eslint-disable-line no-self-assign
-};
+import { isChunkError } from '../lib/chunkError';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -49,7 +34,7 @@ class ErrorBoundary extends React.Component {
                 : (this.state.error?.message || 'An unexpected error occurred.')}
             </div>
             <button
-              onClick={chunkErr ? hardReload : () => this.setState({ hasError: false, error: null })}
+              onClick={chunkErr ? () => window.location.reload() :() => this.setState({ hasError: false, error: null })}
               style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '7px 18px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
               {chunkErr ? 'Reload App' : 'Try Again'}
             </button>
@@ -74,7 +59,7 @@ class ErrorBoundary extends React.Component {
                 : (this.state.error?.message || 'An unexpected error occurred.')}
             </div>
             <button
-              onClick={chunkErr ? hardReload : () => this.setState({ hasError: false, error: null })}
+              onClick={chunkErr ? () => window.location.reload() :() => this.setState({ hasError: false, error: null })}
               style={{
                 background: 'var(--accent, #0D9488)', color: '#fff', border: 'none',
                 borderRadius: 100, padding: '10px 24px', fontSize: 14, fontWeight: 700,

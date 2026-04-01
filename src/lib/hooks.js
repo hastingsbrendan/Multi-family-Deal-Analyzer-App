@@ -1,34 +1,32 @@
 // ─── Custom React hooks ──────────────────────────────────────────────────────
 import React, { useState, useEffect } from 'react';
+import { isChunkError } from './chunkError';
 
 // ─── lazyWithRetry ────────────────────────────────────────────────────────────
 // Drop-in replacement for React.lazy() that auto hard-reloads on stale-chunk
 // errors (the "Failed to fetch dynamically imported module" error users see
 // after a new Cloudflare deployment invalidates old chunk hashes).
 //
+// The retry key is scoped to the import function's source string so that two
+// different chunks failing in the same session each get one reload attempt,
+// rather than the first failure blocking retries for all subsequent chunks.
+//
 // A sessionStorage flag prevents infinite reload loops: if a reload was already
-// attempted for this error, we give up and let the ErrorBoundary handle it.
+// attempted for this chunk, we give up and let the ErrorBoundary handle it.
 function lazyWithRetry(importFn) {
+  const retryKey = 'rh_chunk_retry_' + importFn.toString().slice(-32);
   return React.lazy(() =>
     importFn().catch(err => {
-      const msg = err?.message || '';
-      const isChunk =
-        msg.includes('Failed to fetch dynamically imported module') ||
-        msg.includes('Loading chunk') ||
-        msg.includes('ChunkLoadError') ||
-        msg.includes('dynamically imported module');
+      if (!isChunkError(err)) throw err;
 
-      if (!isChunk) throw err;
-
-      const retryKey = 'rh_chunk_reload_attempted';
       if (sessionStorage.getItem(retryKey)) {
-        // Already reloaded once — give up and surface the error
+        // Already reloaded once for this chunk — give up and surface the error
         sessionStorage.removeItem(retryKey);
         throw err;
       }
 
       sessionStorage.setItem(retryKey, '1');
-      window.location.href = window.location.href; // eslint-disable-line no-self-assign
+      window.location.reload();
       // Return a never-resolving promise — the reload fires before this matters
       return new Promise(() => {});
     })

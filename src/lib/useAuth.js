@@ -36,8 +36,7 @@ export function useAuth({ setUser, setAuthLoading, setDeals, setLastCloudUpdate,
     hasBootstrappedRef.current = true;
     Sentry.setUser({ id: u.id, email: u.email });
     identifyUser(u);
-    setTimeout(() => {
-      sbRead()
+    sbRead()
         .then(({ data: cloudDeals, prefs: cloudPrefs, updated_at }) => {
           setLastCloudUpdate(updated_at);
           const resolvedPrefs = (loadPrefs && cloudPrefs)
@@ -74,7 +73,6 @@ export function useAuth({ setUser, setAuthLoading, setDeals, setLastCloudUpdate,
           setDeals(local.length > 0 ? local : []);
           Sentry.captureException(e, { tags: { origin: 'useAuth.sbRead' } });
         });
-    }, 300);
   }, [setDeals, setLastCloudUpdate, setPrefs]);
 
   useEffect(() => {
