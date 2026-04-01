@@ -126,7 +126,7 @@ function AppSettingsPage({ user, dark, setDark, onBack, onEditProfile, onSignOut
         <div style={{fontWeight:700, fontSize:14, marginBottom:4}}>Sign Out</div>
         <div style={{color:"var(--muted)", fontSize:13, marginBottom:14}}>You'll need to sign back in to access your deals.</div>
         <button onClick={onSignOut}
-          style={{background:"#fee2e2", color:"#991b1b", border:"1px solid #fca5a5",
+          style={{background:"rgba(239,68,68,0.07)", color:"var(--red)", border:"1px solid rgba(239,68,68,0.3)",
             borderRadius:8, padding:"10px 20px", fontSize:14, fontWeight:700, cursor:"pointer"}}>
           Sign Out
         </button>
@@ -157,15 +157,15 @@ function AppSettingsPage({ user, dark, setDark, onBack, onEditProfile, onSignOut
       </div>
 
       {/* Danger Zone */}
-      <div style={{background:"var(--card)",border:"1px solid #fca5a5",borderRadius:12,padding:24,marginBottom:14}}>
-        <div style={{fontWeight:700,fontSize:14,color:"#991b1b",marginBottom:4}}>Danger Zone</div>
+      <div style={{background:"var(--card)",border:"1px solid rgba(239,68,68,0.35)",borderRadius:12,padding:24,marginBottom:14}}>
+        <div style={{fontWeight:700,fontSize:14,color:"var(--red)",marginBottom:4}}>Danger Zone</div>
         <div style={{color:"var(--muted)",fontSize:13,marginBottom:14,lineHeight:1.5}}>
           Permanently deletes your account, all deals, and cancels your subscription. This cannot be undone.
         </div>
         {!showDeleteModal ? (
           <button
             onClick={() => setShowDeleteModal(true)}
-            style={{background:"#fee2e2",color:"#991b1b",border:"1px solid #fca5a5",borderRadius:8,padding:"10px 20px",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}
+            style={{background:"rgba(239,68,68,0.07)",color:"var(--red)",border:"1px solid rgba(239,68,68,0.3)",borderRadius:8,padding:"10px 20px",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}
           >
             Delete my account
           </button>
@@ -178,16 +178,16 @@ function AppSettingsPage({ user, dark, setDark, onBack, onEditProfile, onSignOut
               value={deleteConfirm}
               onChange={e => setDeleteConfirm(e.target.value)}
               placeholder="Type DELETE to confirm"
-              style={{width:"100%",padding:"10px 13px",borderRadius:8,fontSize:14,border:"1px solid #fca5a5",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit",marginBottom:10}}
+              style={{width:"100%",padding:"10px 13px",borderRadius:8,fontSize:14,border:"1px solid rgba(239,68,68,0.35)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit",marginBottom:10}}
             />
             {deleteError && (
-              <div style={{color:"#ef4444",fontSize:13,padding:"8px 10px",background:"#fee2e222",borderRadius:6,marginBottom:10}}>{deleteError}</div>
+              <div style={{color:"var(--red)",fontSize:13,padding:"8px 10px",background:"rgba(239,68,68,0.07)",borderRadius:6,marginBottom:10}}>{deleteError}</div>
             )}
             <div style={{display:'flex',gap:10}}>
               <button
                 onClick={handleDeleteAccount}
                 disabled={deleteConfirm !== 'DELETE' || deleteLoading}
-                style={{background:"#dc2626",color:"#fff",border:"none",borderRadius:8,padding:"10px 20px",fontSize:14,fontWeight:700,cursor:(deleteConfirm==='DELETE'&&!deleteLoading)?"pointer":"default",opacity:(deleteConfirm==='DELETE'&&!deleteLoading)?1:0.5,fontFamily:"inherit",flex:1}}
+                style={{background:"var(--red)",color:"#fff",border:"none",borderRadius:8,padding:"10px 20px",fontSize:14,fontWeight:700,cursor:(deleteConfirm==='DELETE'&&!deleteLoading)?"pointer":"default",opacity:(deleteConfirm==='DELETE'&&!deleteLoading)?1:0.5,fontFamily:"inherit",flex:1}}
               >
                 {deleteLoading ? 'Deleting…' : 'Permanently delete my account'}
               </button>

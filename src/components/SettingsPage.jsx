@@ -320,7 +320,7 @@ function SettingsPage({ prefs, onSave, onBack, deals, dark, setDark }) {
             </div>
           </button>
         </div>
-        {saved && <div style={{color:"#10b981",fontSize:13,fontWeight:600,marginTop:12}}>✓ Settings saved</div>}
+        {saved && <div style={{color:"var(--green)",fontSize:13,fontWeight:600,marginTop:12}}>✓ Settings saved</div>}
       </div>
     </div>
   );

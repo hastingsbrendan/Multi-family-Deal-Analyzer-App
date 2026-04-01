@@ -114,7 +114,7 @@ function CashFlowTab({result,deal}){
           <R label="Cash Flow" bold color="accent"><Yr bold color="accent">{y=>FMT_USD(y.cashFlow)}</Yr></R>
 
           {/* Monthly Net */}
-          <tr><td style={{...tdL(false,true),color:"var(--accent2)",fontStyle:"italic"}}>↳ Monthly Net</td>{result.years.map(y=>{const mc=y.monthlyCashFlow;return(<td key={y.yr} style={{...tdR(true,null),color:mc>=0?"var(--accent2)":"#ef4444",fontStyle:"italic"}}>{FMT_USD(mc)}</td>);})}</tr>
+          <tr><td style={{...tdL(false,true),color:"var(--accent2)",fontStyle:"italic"}}>↳ Monthly Net</td>{result.years.map(y=>{const mc=y.monthlyCashFlow;return(<td key={y.yr} style={{...tdR(true,null),color:mc>=0?"var(--accent2)":"var(--red)",fontStyle:"italic"}}>{FMT_USD(mc)}</td>);})}</tr>
 
           {/* Alt Rent — muted, informational, only during OO years */}
           {oo&&altRent>0&&(<tr><td style={{...tdL(false,false),color:"var(--muted)"}}>Alt. Rent (if renting)</td>{result.years.map(y=>(<td key={y.yr} style={{...tdR(false,null),color:"var(--muted)",fontStyle:"italic"}}>{y.ooRentDeduction>0?`+${FMT_USD(altRent)}/mo`:"—"}</td>))}</tr>)}
@@ -235,12 +235,12 @@ function CashFlowTab({result,deal}){
 
           {/* Federal Tax / Benefit */}
           <tr><td style={tdL(true,false)}>Federal Tax / (Benefit)</td>
-            {result.years.map(y=>{const te=result.taxAdvEnabled?y.taxEffectAdv:y.taxEffect;return(<td key={y.yr} style={{...tdR(true,null),color:te<0?"#10b981":"#ef4444"}}>{FMT_USD(te)}</td>);})}
+            {result.years.map(y=>{const te=result.taxAdvEnabled?y.taxEffectAdv:y.taxEffect;return(<td key={y.yr} style={{...tdR(true,null),color:te<0?"var(--green)":"var(--red)"}}>{FMT_USD(te)}</td>);})}
           </tr>
           {/* State Income Tax row — only rendered when a state is configured */}
           {result.years[0]?.totalStateTax !== undefined && result.years.some(y => y.totalStateTax > 0) && (
             <tr>
-              <td style={{...tdL(false,false),color:"#ef4444"}}>
+              <td style={{...tdL(false,false),color:"var(--red)"}}>
                 State &amp; Local Tax
                 {result.years[0]?.stateEffectiveRate > 0 && (
                   <span style={{fontSize:10,color:"var(--muted)",fontWeight:400,marginLeft:6}}>
@@ -249,7 +249,7 @@ function CashFlowTab({result,deal}){
                 )}
               </td>
               {result.years.map(y => (
-                <td key={y.yr} style={{...tdR(false,null), color: y.totalStateTax > 0 ? "#ef4444" : "var(--muted)"}}>
+                <td key={y.yr} style={{...tdR(false,null), color: y.totalStateTax > 0 ? "var(--red)" : "var(--muted)"}}>
                   {y.totalStateTax > 0 ? FMT_USD(y.totalStateTax) : "—"}
                 </td>
               ))}
@@ -258,9 +258,9 @@ function CashFlowTab({result,deal}){
           {/* Carryforward tax benefit sub-row — shows the tax saved by CF absorption this year */}
           {result.taxAdvEnabled&&result.years.some(y=>y.taxBenefitFromCF>0)&&(
             <tr>
-              <td style={{...tdL(false,true),color:"#10b981"}}>↳ Carryforward Saves (This Yr)</td>
+              <td style={{...tdL(false,true),color:"var(--green)"}}>↳ Carryforward Saves (This Yr)</td>
               {result.years.map(y=>(
-                <td key={y.yr} style={{...tdR(false,null),color:y.taxBenefitFromCF>0?"#10b981":"var(--muted)"}}>
+                <td key={y.yr} style={{...tdR(false,null),color:y.taxBenefitFromCF>0?"var(--green)":"var(--muted)"}}>
                   {y.taxBenefitFromCF>0?`(${FMT_USD(y.taxBenefitFromCF)})`:"—"}
                 </td>
               ))}
