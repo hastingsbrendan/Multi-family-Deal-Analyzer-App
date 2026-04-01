@@ -44,6 +44,8 @@ export function useCloudSync(user, isOnline) {
           // Back-fill _deal_id for newly-persisted deals (those that had no UUID yet).
           // sbWriteDeal returns the DB-assigned uuid. Without this, every subsequent
           // granular write of the same new deal would insert another duplicate row.
+          // Note: setDeals triggers the sync effect again; we do NOT add these deals
+          // to pendingDealIds so the next sync sees dirty.size===0 and skips the write.
           const idUpdates = {};
           changedDeals.forEach((d, i) => { if (!d._deal_id && results[i]) idUpdates[d.id] = results[i]; });
           if (Object.keys(idUpdates).length > 0) {
