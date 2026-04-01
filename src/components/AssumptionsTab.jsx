@@ -355,7 +355,7 @@ function PropertyLookupPanel({deal, onChange}) {
                 ✏️ <strong>What will be applied:</strong> Address · Property Tax · Rent per unit (all units) · Sq ft / Year Built stored as reference. You can override any values after applying.
               </div>
               <div style={{display:'flex',gap:8,padding:12}}>
-                <button onClick={applyPreview} style={{flex:1,background:'#10B981',color:'#fff',border:'none',borderRadius:6,padding:'9px 0',fontWeight:700,fontSize:13,cursor:'pointer'}}>
+                <button onClick={applyPreview} style={{flex:1,background:'var(--green)',color:'#fff',border:'none',borderRadius:6,padding:'9px 0',fontWeight:700,fontSize:13,cursor:'pointer'}}>
                   ✅ Apply to Deal
                 </button>
                 <button onClick={()=>setPreview(null)} style={{flex:1,background:'var(--card)',color:'var(--muted)',border:'1px solid var(--border)',borderRadius:6,padding:'9px 0',fontWeight:700,fontSize:13,cursor:'pointer'}}>
@@ -664,7 +664,7 @@ function AssumptionsTab({deal,onChange}){
                       <span style={{color:"var(--muted)",fontSize:14,fontWeight:700,flexShrink:0}}>$</span>
                       <div style={{...inputSt,
                         background: capActive?"#fef3c7":"var(--input-bg)",
-                        border: capActive?"1.5px solid #D97706":"1.5px solid var(--border)",
+                        border: capActive?"1.5px solid var(--accent2)":"1.5px solid var(--border)",
                         color: capActive?"#92400e":"var(--text)",
                         fontWeight:700,
                         display:"flex", alignItems:"center",
@@ -672,7 +672,7 @@ function AssumptionsTab({deal,onChange}){
                         {loanAmtVal>0 ? loanAmtVal.toLocaleString() : <span style={{color:"var(--muted)",fontWeight:400}}>—</span>}
                       </div>
                     </div>
-                    {capActive&&<div style={{fontSize:10,color:"#D97706",marginTop:3,fontWeight:600}}>⚠ Capped by loan limit</div>}
+                    {capActive&&<div style={{fontSize:10,color:"var(--accent2)",marginTop:3,fontWeight:600}}>⚠ Capped by loan limit</div>}
                   </div>
                 </div>
 
@@ -719,10 +719,10 @@ function AssumptionsTab({deal,onChange}){
                 {pp>0 && dpPct>0 && (
                   <div style={{marginTop:10,padding:"10px 12px",background:"var(--bg2, var(--bg))",borderRadius:10,border:"1px solid var(--border)"}}>
                     <div style={{display:"flex",gap:16,flexWrap:"wrap",fontSize:11,color:"var(--muted)"}}>
-                      <span>Loan: <strong style={{color:capActive?"#D97706":"var(--text)"}}>{FMT_USD(loanAmtVal)}</strong></span>
+                      <span>Loan: <strong style={{color:capActive?"var(--accent2)":"var(--text)"}}>{FMT_USD(loanAmtVal)}</strong></span>
                       <span>LTV: <strong style={{color:"var(--text)"}}>{pp>0?(loanAmtVal/pp*100).toFixed(1):0}%</strong></span>
                       <span>Down: <strong style={{color:"var(--text)"}}>{FMT_USD(dpDollar)}</strong></span>
-                      {capActive && <span style={{color:"#D97706",fontWeight:700}}>+{FMT_USD(extraDP)} extra down needed</span>}
+                      {capActive && <span style={{color:"var(--accent2)",fontWeight:700}}>+{FMT_USD(extraDP)} extra down needed</span>}
                     </div>
                   </div>
                 )}
@@ -743,9 +743,9 @@ function AssumptionsTab({deal,onChange}){
                     <span style={{fontSize:13,color:"var(--muted)"}}>$</span>
                     <input type="text" inputMode="decimal" value={a.expenses?.insurance||""} placeholder="0"
                       onChange={e=>upd("expenses.insurance",e.target.value.replace(/,/g,""))}
-                      style={{...fldSt,flex:1,borderColor:(+a.expenses?.insurance||0)===0?"#D97706":undefined}}/>
+                      style={{...fldSt,flex:1,borderColor:(+a.expenses?.insurance||0)===0?"var(--accent2)":undefined}}/>
                   </div>
-                  {(+a.expenses?.insurance||0)===0&&<div style={{fontSize:11,color:"#D97706",marginTop:3}}>⚠ Enter annual insurance premium</div>}
+                  {(+a.expenses?.insurance||0)===0&&<div style={{fontSize:11,color:"var(--accent2)",marginTop:3}}>⚠ Enter annual insurance premium</div>}
                 </div>
                 <div>
                   <label style={lblSt}>PMI ($/mo)</label>
@@ -813,8 +813,8 @@ function AssumptionsTab({deal,onChange}){
           </div>
           {/* Rentcast Est — only if populated */}
           {u.rentcastRent>0&&(<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
-            <label style={{fontSize:11,color:"#6366F1",fontWeight:600}}>Rentcast Est.</label>
-            <span style={{fontSize:13,fontWeight:700,color:"#6366F1"}}>{FMT_USD(u.rentcastRent)}/mo</span>
+            <label style={{fontSize:11,color:"var(--rentcast-indigo)",fontWeight:600}}>Rentcast Est.</label>
+            <span style={{fontSize:13,fontWeight:700,color:"var(--rentcast-indigo)"}}>{FMT_USD(u.rentcastRent)}/mo</span>
             {u.rentcastRentRange&&<span style={{fontSize:11,color:"var(--muted)"}}>({u.rentcastRentRange})</span>}
           </div>)}
           <div style={{fontSize:11,color:"var(--muted)",marginTop:4}}>
@@ -942,7 +942,7 @@ function AssumptionsTab({deal,onChange}){
                 </span>
               </div>
               {a.insuranceUpfront && insUpfrontAmt===0 && (
-                <div style={{fontSize:11,color:"#D97706",marginBottom:8,paddingLeft:2}}>
+                <div style={{fontSize:11,color:"var(--accent2)",marginBottom:8,paddingLeft:2}}>
                   ⚠ Set Property Insurance ($/yr) in Financing to populate this value.
                 </div>
               )}
@@ -1030,7 +1030,7 @@ function AssumptionsTab({deal,onChange}){
           );
         })()}
         <div style={{fontSize:12,color:"var(--muted)",padding:"6px 0",borderTop:"1px solid var(--border-faint)",marginTop:4}}>
-          Rent foregone Yr 1–{a.ownerOccupancyYears||2}: <strong style={{color:"#f59e0b"}}>{FMT_USD((+a.units[Math.min(+a.ownerUnit||0,a.numUnits-1)]?.rent||0)*12)}/yr</strong> · Unit {(+a.ownerUnit||0)+1} rented at market rate from Year {(+a.ownerOccupancyYears||2)+1}
+          Rent foregone Yr 1–{a.ownerOccupancyYears||2}: <strong style={{color:"var(--refi-amber)"}}>{FMT_USD((+a.units[Math.min(+a.ownerUnit||0,a.numUnits-1)]?.rent||0)*12)}/yr</strong> · Unit {(+a.ownerUnit||0)+1} rented at market rate from Year {(+a.ownerOccupancyYears||2)+1}
         </div>
       </>) : <div style={{fontSize:13,color:"var(--muted)",padding:"8px 0"}}>Enable to model living in one unit and not collecting rent during your occupancy period.</div>}
     </Section>
@@ -1275,7 +1275,7 @@ function AssumptionsTab({deal,onChange}){
                   </div>
                 )}
                 {tax.paStatus==='passive' && (
-                  <div style={{fontSize:11,color:"#D97706",padding:"3px 0 8px"}}>
+                  <div style={{fontSize:11,color:"var(--accent2)",padding:"3px 0 8px"}}>
                     ⚠ Passive: losses only offset passive income. Model assumes no other passive income; all excess losses carry forward.
                   </div>
                 )}

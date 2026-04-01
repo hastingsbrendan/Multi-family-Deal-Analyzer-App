@@ -8,7 +8,7 @@ const DEFAULT_SCENARIOS = {
   adverse: {
     label: 'Adverse',
     icon: '🌧',
-    color: '#ef4444',
+    color: 'var(--red)',
     softColor: 'rgba(239,68,68,0.12)',
     borderColor: 'rgba(239,68,68,0.4)',
     overrides: { rentDelta: -10, vacancyDelta: 5, expenseDelta: 10, appreciationDelta: -1, rateDelta: 1, propertyTaxDelta: 10 }
@@ -16,7 +16,7 @@ const DEFAULT_SCENARIOS = {
   base: {
     label: 'Base',
     icon: '📊',
-    color: '#0D9488',
+    color: 'var(--accent)',
     softColor: 'rgba(13,148,136,0.12)',
     borderColor: 'rgba(13,148,136,0.4)',
     overrides: { rentDelta: 0, vacancyDelta: 0, expenseDelta: 0, appreciationDelta: 0, rateDelta: 0, propertyTaxDelta: 0 }
@@ -24,7 +24,7 @@ const DEFAULT_SCENARIOS = {
   optimal: {
     label: 'Optimal',
     icon: '🌤',
-    color: '#10b981',
+    color: 'var(--green)',
     softColor: 'rgba(16,185,129,0.12)',
     borderColor: 'rgba(16,185,129,0.4)',
     overrides: { rentDelta: 5, vacancyDelta: -2, expenseDelta: 0, appreciationDelta: 2, rateDelta: -0.5, propertyTaxDelta: 0 }
@@ -355,9 +355,9 @@ function SensitivityTab({ deal }) {
                   {/* Break-even marker for rent */}
                   {showBreakeven && bevenPct !== null && (
                     <div style={{position:"absolute",top:-18,left:`calc(${bevenPct*100}% - 1px)`,
-                      borderLeft:"2px dashed #f59e0b",height:36,pointerEvents:"none"}}>
+                      borderLeft:"2px dashed var(--refi-amber)",height:36,pointerEvents:"none"}}>
                       <div style={{position:"absolute",top:-14,left:4,fontSize:9,fontWeight:700,
-                        color:"#f59e0b",whiteSpace:"nowrap"}}>
+                        color:"var(--refi-amber)",whiteSpace:"nowrap"}}>
                         CF=0 @ {def.format(rentBreakeven)}
                       </div>
                     </div>

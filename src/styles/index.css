@@ -40,6 +40,10 @@ button{cursor:pointer;}
   --table-head: #F5EFE6;
   --row-hover:  rgba(13,148,136,0.05);
   --row-sub:    rgba(245,239,230,0.6);
+  --va-purple:  #a78bfa;
+  --oo-violet:  #7c3aed;
+  --refi-amber: #f59e0b;
+  --rentcast-indigo: #6366f1;
 }
 /* ── Dark Theme ── */
 [data-theme="dark"] {
@@ -63,4 +67,8 @@ button{cursor:pointer;}
   --table-head: #1e293b;
   --row-hover:  rgba(13,148,136,0.08);
   --row-sub:    rgba(15,23,42,0.5);
+  --va-purple:  #a78bfa;
+  --oo-violet:  #7c3aed;
+  --refi-amber: #f59e0b;
+  --rentcast-indigo: #6366f1;
 }

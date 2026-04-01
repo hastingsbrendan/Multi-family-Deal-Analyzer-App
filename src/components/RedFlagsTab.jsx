@@ -36,17 +36,17 @@ function RedFlagsTab({deal,result,onChange,prefs=DEFAULT_PREFS}){
   const manual=deal.redFlags?.manual||[];
   const mit=deal.redFlags?.mitigations||{};
   const upd=(fn)=>{const d=JSON.parse(JSON.stringify(deal));if(!d.redFlags)d.redFlags={manual:[],mitigations:{}};if(!d.redFlags.mitigations)d.redFlags.mitigations={};fn(d);onChange(d);};
-  const SC={critical:"#ef4444",warning:"#f59e0b"};
-  const SB={critical:"#ef444418",warning:"#f59e0b18"};
+  const SC={critical:"var(--red)",warning:"var(--refi-amber)"};
+  const SB={critical:"rgba(239,68,68,0.094)",warning:"rgba(245,158,11,0.094)"};
   const iSty={background:"var(--input-bg)",border:"1px solid var(--border)",borderRadius:100,padding:"7px 10px",fontSize:13,color:"var(--text)",width:"100%",fontFamily:"inherit"};
   const cSty={background:"var(--card)",borderRadius:10,border:"1px solid var(--border)",padding:16,marginBottom:12};
   const trg=AF.filter(f=>f.triggered);
   const clr=AF.filter(f=>!f.triggered);
   return(<div style={{padding:"16px 0"}}>
     <div style={{fontSize:11,fontWeight:700,color:"var(--muted)",letterSpacing:"0.08em",marginBottom:10}}>RULE-BASED FLAGS</div>
-    {trg.length===0&&(<div style={{...cSty,background:"#10b98112",border:"1px solid #10b98144",textAlign:"center",padding:24}}>
+    {trg.length===0&&(<div style={{...cSty,background:"rgba(16,185,129,0.07)",border:"1px solid rgba(16,185,129,0.267)",textAlign:"center",padding:24}}>
       <div style={{fontSize:24,marginBottom:6}}>✅</div>
-      <div style={{fontSize:13,fontWeight:700,color:"#10b981"}}>All automatic checks passed</div>
+      <div style={{fontSize:13,fontWeight:700,color:"var(--green)"}}>All automatic checks passed</div>
       <div style={{fontSize:11,color:"var(--muted)",marginTop:4}}>DSCR, Cap Rate, and Expense Ratio are within thresholds</div>
     </div>)}
     {trg.map(flag=>(<div key={flag.key} style={{...cSty,border:`1px solid ${SC[flag.severity]}55`,background:SB[flag.severity]}}>
@@ -73,7 +73,7 @@ function RedFlagsTab({deal,result,onChange,prefs=DEFAULT_PREFS}){
     {manual.map(flag=>(<div key={flag.id} style={cSty}>
       <div style={{display:"flex",gap:8,marginBottom:8}}>
         <input value={flag.label||""} onChange={e=>upd(d=>{const f=d.redFlags.manual.find(x=>x.id===flag.id);if(f)f.label=e.target.value;})} placeholder="Flag title (e.g. Foundation crack observed)" style={{...iSty,fontWeight:600,flex:1}}/>
-        <button onClick={()=>upd(d=>{const i=d.redFlags.manual.findIndex(x=>x.id===flag.id);if(i!==-1)d.redFlags.manual.splice(i,1);})} style={{background:"none",border:"1px solid var(--border)",borderRadius:100,color:"#ef4444",cursor:"pointer",padding:"7px 10px",fontSize:12,flexShrink:0}}>✕</button>
+        <button onClick={()=>upd(d=>{const i=d.redFlags.manual.findIndex(x=>x.id===flag.id);if(i!==-1)d.redFlags.manual.splice(i,1);})} style={{background:"none",border:"1px solid var(--border)",borderRadius:100,color:"var(--red)",cursor:"pointer",padding:"7px 10px",fontSize:12,flexShrink:0}}>✕</button>
       </div>
       <textarea value={flag.detail||""} onChange={e=>upd(d=>{const f=d.redFlags.manual.find(x=>x.id===flag.id);if(f)f.detail=e.target.value;})} rows={2} placeholder="Describe the issue…" style={{...iSty,resize:"vertical",marginBottom:8}}/>
       <div style={{fontSize:11,fontWeight:700,color:"var(--muted)",marginBottom:4}}>Mitigation Plan</div>

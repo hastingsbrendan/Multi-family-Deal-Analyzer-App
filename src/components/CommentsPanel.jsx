@@ -84,7 +84,7 @@ function CommentsPanel({ groupId, dealId, currentUser }) {
   };
 
   const avatarColor = (userId) => {
-    const colors = ['#0D9488','#3B82F6','#8B5CF6','#F59E0B','#EF4444','#10B981'];
+    const colors = ['var(--accent)','#3B82F6','#8B5CF6','var(--refi-amber)','var(--red)','var(--green)'];
     const idx = userId ? userId.charCodeAt(0) % colors.length : 0;
     return colors[idx];
   };

@@ -193,10 +193,10 @@ function App() {
     );
   }
 
-  const syncBadge = syncStatus==="saving"  ? { label:"Syncing…",       color:"#f59e0b" }
-                  : syncStatus==="saved"   ? { label:"✓ Synced",       color:"#10b981" }
+  const syncBadge = syncStatus==="saving"  ? { label:"Syncing…",       color:"var(--refi-amber)" }
+                  : syncStatus==="saved"   ? { label:"✓ Synced",       color:"var(--green)" }
                   : syncStatus==="offline" ? { label:"📵 Offline",      color:"#8b949e" }
-                  : syncStatus==="error"   ? { label:"⚠ Sync error",   color:"#ef4444", detail:syncError }
+                  : syncStatus==="error"   ? { label:"⚠ Sync error",   color:"var(--red)", detail:syncError }
                   : null;
 
   // Auth gate
