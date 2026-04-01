@@ -97,7 +97,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
       <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
         <span style={{fontSize:11,fontWeight:700,background:"rgba(13,148,136,0.1)",color:"var(--accent)",borderRadius:6,padding:"3px 9px",fontFamily:"system-ui"}}>{numUnits} units</span>
         {sqft!=="—"&&<span style={{fontSize:11,fontWeight:700,background:"rgba(13,148,136,0.1)",color:"var(--accent)",borderRadius:6,padding:"3px 9px",fontFamily:"system-ui"}}>{typeof sqft==="number"?sqft.toLocaleString():sqft} sqft</span>}
-        {result.ooEnabled&&<span style={{fontSize:11,fontWeight:700,background:"rgba(124,58,237,0.1)",color:"#7c3aed",borderRadius:6,padding:"3px 9px",fontFamily:"system-ui"}}>Owner-Occupied Yr 1–{result.ooYears}</span>}
+        {result.ooEnabled&&<span style={{fontSize:11,fontWeight:700,background:"rgba(124,58,237,0.1)",color:"var(--oo-violet)",borderRadius:6,padding:"3px 9px",fontFamily:"system-ui"}}>Owner-Occupied Yr 1–{result.ooYears}</span>}
       </div>
       <div style={{display:"flex",gap:14,alignItems:"center",flexWrap:"wrap"}}>
         {deal.showingDate&&<span style={{fontSize:11,color:"var(--muted)",fontFamily:"system-ui"}}>📅 Showing: <strong style={{color:"var(--text)"}}>{new Date(deal.showingDate+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}{deal.showingTime?" @ "+deal.showingTime:""}</strong></span>}
@@ -112,7 +112,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
         <div style={{display:"flex",justifyContent:"center",gap:12,flexWrap:"wrap"}}>
           <div style={{background:"var(--accent-soft)",borderRadius:10,padding:"10px 16px",fontSize:12,color:"var(--accent)",fontWeight:700}}>📊 Cap Rate & IRR</div>
           <div style={{background:"var(--accent-soft)",borderRadius:10,padding:"10px 16px",fontSize:12,color:"var(--accent)",fontWeight:700}}>💰 Monthly Cash Flow</div>
-          <div style={{background:"var(--accent-soft)",borderRadius:10,padding:"10px 16px",fontSize:12,color:"var(--accent)",fontWeight:700}}>📈 10-Year Equity Growth</div>
+          <div style={{background:"var(--accent-soft)",borderRadius:10,padding:"10px 16px",fontSize:12,color:"var(--accent)",fontWeight:700}}>📈 {holdYears}-Year Equity Growth</div>
         </div>
       </div>
     )}
@@ -232,7 +232,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
                   ["Appreciation","var(--accent)"],
                   ["Principal Paydown","var(--accent2)"],
                   ["Cash Flow","var(--green)"],
-                  ["Tax Benefit","#a78bfa"],
+                  ["Tax Benefit","var(--va-purple)"],
                 ].map(([label,color])=>(
                   <div key={label} style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:"var(--muted)"}}>
                     <div style={{width:8,height:8,borderRadius:2,background:color,flexShrink:0}}/>
@@ -262,11 +262,11 @@ function DealSummaryTab({deal, result, onUpdate}) {
 
     {/* Value Add band — only when VA enabled */}
     {result.vaEnabled&&(<div style={{background:"rgba(167,139,250,0.08)",border:"1px solid rgba(167,139,250,0.35)",borderRadius:12,padding:14,marginBottom:10}}>
-      <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.1em",color:"#a78bfa",marginBottom:10,textTransform:"uppercase",fontFamily:"system-ui"}}>🔨 Value Add Impact</div>
+      <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.1em",color:"var(--va-purple)",marginBottom:10,textTransform:"uppercase",fontFamily:"system-ui"}}>🔨 Value Add Impact</div>
       <div style={{display:"flex",gap:16,flexWrap:"wrap",fontSize:13}}>
         <div><div style={{color:"var(--muted)",fontSize:11,marginBottom:2}}>TOTAL REMODEL COST</div><div style={{fontWeight:800,color:"var(--text)",fontSize:15}}>{FMT_USD(result.vaReModelCost)}</div><div style={{fontSize:11,color:"var(--muted)"}}>50/50 over Yr 1–2</div></div>
-        <div><div style={{color:"var(--muted)",fontSize:11,marginBottom:2}}>ANNUAL RENT LIFT</div><div style={{fontWeight:800,color:"#a78bfa",fontSize:15}}>{FMT_USD(result.vaRentBump)}/yr</div><div style={{fontSize:11,color:"var(--muted)"}}>From Year {result.vaCompletionYr}</div></div>
-        <div><div style={{color:"var(--muted)",fontSize:11,marginBottom:6}}>IRR COMPARISON</div><div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}><div style={{textAlign:"center"}}><div style={{fontSize:10,color:"var(--muted)",marginBottom:1}}>Without VA</div><div style={{fontSize:16,fontWeight:800,color:"var(--text)"}}>{FMT_PCT(result.irrWithoutVA)}</div></div><div style={{fontSize:18,color:"#a78bfa",fontWeight:800}}>→</div><div style={{textAlign:"center"}}><div style={{fontSize:10,color:"var(--muted)",marginBottom:1}}>With VA</div><div style={{fontSize:16,fontWeight:800,color:"#a78bfa"}}>{FMT_PCT(result.irrWithVA)}</div></div><div style={{background:result.irrWithVA>result.irrWithoutVA?"rgba(167,139,250,0.15)":"rgba(239,68,68,0.1)",borderRadius:6,padding:"3px 8px",fontSize:12,fontWeight:800,color:result.irrWithVA>result.irrWithoutVA?"#a78bfa":"#ef4444"}}>{result.irrWithVA>result.irrWithoutVA?"+":""}{FMT_PCT(result.irrWithVA-result.irrWithoutVA)}</div></div></div>
+        <div><div style={{color:"var(--muted)",fontSize:11,marginBottom:2}}>ANNUAL RENT LIFT</div><div style={{fontWeight:800,color:"var(--va-purple)",fontSize:15}}>{FMT_USD(result.vaRentBump)}/yr</div><div style={{fontSize:11,color:"var(--muted)"}}>From Year {result.vaCompletionYr}</div></div>
+        <div><div style={{color:"var(--muted)",fontSize:11,marginBottom:6}}>IRR COMPARISON</div><div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}><div style={{textAlign:"center"}}><div style={{fontSize:10,color:"var(--muted)",marginBottom:1}}>Without VA</div><div style={{fontSize:16,fontWeight:800,color:"var(--text)"}}>{FMT_PCT(result.irrWithoutVA)}</div></div><div style={{fontSize:18,color:"var(--va-purple)",fontWeight:800}}>→</div><div style={{textAlign:"center"}}><div style={{fontSize:10,color:"var(--muted)",marginBottom:1}}>With VA</div><div style={{fontSize:16,fontWeight:800,color:"var(--va-purple)"}}>{FMT_PCT(result.irrWithVA)}</div></div><div style={{background:result.irrWithVA>result.irrWithoutVA?"rgba(167,139,250,0.15)":"rgba(239,68,68,0.1)",borderRadius:6,padding:"3px 8px",fontSize:12,fontWeight:800,color:result.irrWithVA>result.irrWithoutVA?"var(--va-purple)":"var(--red)"}}>{result.irrWithVA>result.irrWithoutVA?"+":""}{FMT_PCT(result.irrWithVA-result.irrWithoutVA)}</div></div></div>
       </div>
     </div>)}
 
@@ -415,11 +415,11 @@ function DealSummaryTab({deal, result, onUpdate}) {
             <Panel>
               <SLbl>Monthly Waterfall</SLbl>
               <WFBar label="Gross Rent"   value={grossRentMo}  color="var(--accent)"  pct={100}     />
-              <WFBar label="−Vacancy"     value={-vacancyMo}   color="#ef4444"        pct={vacancyMo/wfTotal*100}/>
+              <WFBar label="−Vacancy"     value={-vacancyMo}   color="var(--red)"     pct={vacancyMo/wfTotal*100}/>
               <WFBar label="EGI"          value={egiAllMo}     color="var(--accent)"  pct={egiPct}  />
               <WFBar label="−PITI"        value={-pitiMo}      color="#0891B2"        pct={pitiPct} />
-              <WFBar label="−OpEx"        value={-opexMo}      color="#D97706"        pct={opexPct} />
-              <WFBar label="Cash Flow"    value={cfMo}         color={cfMo>=0?"#10B981":"#ef4444"} pct={cfPct} isResult/>
+              <WFBar label="−OpEx"        value={-opexMo}      color="var(--accent2)" pct={opexPct} />
+              <WFBar label="Cash Flow"    value={cfMo}         color={cfMo>=0?"var(--green)":"var(--red)"} pct={cfPct} isResult/>
             </Panel>
           </div>
 
@@ -515,8 +515,8 @@ function DealSummaryTab({deal, result, onUpdate}) {
           {result.taxAdvEnabled&&result.palTaxBenefit>0&&(
             <div style={{background:"rgba(245,158,11,0.07)",border:"1px solid rgba(245,158,11,0.25)",borderRadius:6,padding:"5px 8px",margin:"4px 0"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
-                <span style={{fontSize:10,color:"#f59e0b",fontFamily:"system-ui",fontWeight:700}}>Suspended Loss Tax Benefit</span>
-                <span style={{fontSize:11,color:"#f59e0b",fontWeight:700,fontFamily:"system-ui"}}>+{FMT_USD(result.palTaxBenefit)}</span>
+                <span style={{fontSize:10,color:"var(--refi-amber)",fontFamily:"system-ui",fontWeight:700}}>Suspended Loss Tax Benefit</span>
+                <span style={{fontSize:11,color:"var(--refi-amber)",fontWeight:700,fontFamily:"system-ui"}}>+{FMT_USD(result.palTaxBenefit)}</span>
               </div>
               <div style={{fontSize:9,color:"var(--muted)",fontFamily:"system-ui",marginTop:2,lineHeight:1.4}}>
                 Deferred tax asset — reduces tax owed at sale, not additional cash proceeds. Releases {FMT_USD(result.finalPalCarryforward)} of accumulated suspended losses at your {Math.round((result.taxAdvEnabled&&deal?.assumptions?.taxBracket)||22)}% bracket.
@@ -688,13 +688,13 @@ function DealSummaryTab({deal, result, onUpdate}) {
       const DataRow = ({label, value, highlight}) => (value != null && value !== "" && value !== "—") ? (
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid var(--border-faint)"}}>
           <span style={{fontSize:12,color:"var(--muted)",fontWeight:600}}>{label}</span>
-          <span style={{fontSize:13,fontWeight:700,color:highlight?"#6366F1":"var(--text)"}}>{value}</span>
+          <span style={{fontSize:13,fontWeight:700,color:highlight?"var(--rentcast-indigo)":"var(--text)"}}>{value}</span>
         </div>
       ) : null;
       return(
         <div style={{marginTop:8,padding:"12px 0"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"2px solid #6366F1",paddingBottom:6,marginBottom:12}}>
-            <div style={{fontSize:12,fontWeight:800,letterSpacing:"0.1em",color:"#6366F1",textTransform:"uppercase"}}>🔍 Rentcast Property Data</div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"2px solid var(--rentcast-indigo)",paddingBottom:6,marginBottom:12}}>
+            <div style={{fontSize:12,fontWeight:800,letterSpacing:"0.1em",color:"var(--rentcast-indigo)",textTransform:"uppercase"}}>🔍 Rentcast Property Data</div>
             <span style={{fontSize:11,color:"var(--muted)"}}>Fetched {rd.fetchedAt}</span>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>

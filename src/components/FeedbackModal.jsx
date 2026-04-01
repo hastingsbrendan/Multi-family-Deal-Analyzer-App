@@ -115,7 +115,7 @@ export function FeedbackModal({ user, onClose }) {
               </button>
             </div>
             {status === 'error' && (
-              <div style={{fontSize:12, color:'#ef4444', marginTop:8}}>
+              <div style={{fontSize:12, color:'var(--red)', marginTop:8}}>
                 Something went wrong. Please try again.
               </div>
             )}

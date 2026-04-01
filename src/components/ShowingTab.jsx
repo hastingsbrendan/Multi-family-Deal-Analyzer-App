@@ -8,7 +8,7 @@ function calcRehabTotal(showing,numUnits,phase){let t=0;for(let i=0;i<numUnits;i
 function ShowingTab({deal,onChange}){
   const numUnits=deal.assumptions.numUnits;
   const showing=deal.showing||{};
-  const IMPR=[{val:"",label:"— Select —",color:"var(--muted)"},{val:"strong_pass",label:"Strong Pass",color:"#ef4444"},{val:"pass",label:"Pass",color:"#f97316"},{val:"neutral",label:"Neutral",color:"#8b949e"},{val:"like",label:"Like",color:"#3b82f6"},{val:"strong_like",label:"Strong Like",color:"#10b981"}];
+  const IMPR=[{val:"",label:"— Select —",color:"var(--muted)"},{val:"strong_pass",label:"Strong Pass",color:"var(--red)"},{val:"pass",label:"Pass",color:"#f97316"},{val:"neutral",label:"Neutral",color:"#8b949e"},{val:"like",label:"Like",color:"#3b82f6"},{val:"strong_like",label:"Strong Like",color:"var(--green)"}];
   const COND_OPTS=["","Turnkey","Minor Updates","Moderate Rehab","Full Gut"];
   const COND_CLR={Turnkey:"#10b981","Minor Updates":"#3b82f6","Moderate Rehab":"#f59e0b","Full Gut":"#ef4444"};
   const PH=["1","2","3"];

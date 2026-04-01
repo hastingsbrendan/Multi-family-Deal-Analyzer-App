@@ -97,7 +97,7 @@ function GroupsPage({ user, dark, onBack, onSelectGroup }) {
   const btnPrimary = { background:'var(--accent)', color:'#fff', border:'none', borderRadius:8, padding:'10px 20px', fontSize:14, fontWeight:700, cursor:'pointer' };
   const btnGhost   = { background:'none', border:'1px solid var(--border)', borderRadius:8, padding:'9px 16px', fontSize:13, color:'var(--muted)', cursor:'pointer' };
 
-  const ROLE_COLORS = { Owner:'#0D9488', Editor:'#10b981', Viewer:'#94a3b8', pending:'#f59e0b' };
+  const ROLE_COLORS = { Owner:'var(--accent)', Editor:'var(--green)', Viewer:'#94a3b8', pending:'var(--refi-amber)' };
 
   return (
     <div style={{minHeight:'100vh', background:'var(--bg)', color:'var(--text)'}}>
@@ -189,7 +189,7 @@ function GroupsPage({ user, dark, onBack, onSelectGroup }) {
                 )}
                 {group.role !== 'Owner' && (
                   <button onClick={()=>handleLeave(group.id)}
-                    style={{...btnGhost, padding:'8px 16px', fontSize:13, color:'#ef4444'}}>
+                    style={{...btnGhost, padding:'8px 16px', fontSize:13, color:'var(--red)'}}>
                     Leave
                   </button>
                 )}
@@ -298,7 +298,7 @@ function GroupsPage({ user, dark, onBack, onSelectGroup }) {
                           {['Owner','Editor','Viewer'].map(r=><option key={r} value={r}>{r}</option>)}
                         </select>
                         <button onClick={()=>handleRemoveMember(showMembers.id, m.user_id)}
-                          style={{background:'none',border:'none',color:'#ef4444',cursor:'pointer',fontSize:16,padding:'0 4px'}}>
+                          style={{background:'none',border:'none',color:'var(--red)',cursor:'pointer',fontSize:16,padding:'0 4px'}}>
                           ×
                         </button>
                       </div>

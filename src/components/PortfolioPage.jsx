@@ -87,7 +87,7 @@ function DealCard({ d, r, onSelect, onDelete, onShareDeal }) {
         {[
           { label: 'CoC', tip: 'Cash-on-Cash Return — your first-year cash income as a % of cash invested', val: FMT_PCT(r.cocReturn), color: cocColor(r.cocReturn) },
           { label: 'IRR', tip: 'Internal Rate of Return — annualized return including appreciation and equity over the hold period', val: FMT_PCT(r.irr), color: irrColor(r.irr) },
-          { label: 'Cap Rate', tip: 'Capitalization Rate — annual NOI divided by purchase price, measures income yield', val: FMT_PCT(r.capRate), color: capColor(r.capRate) },
+          { label: 'Cap Rate', tip: 'Cap Rate — annual NOI divided by purchase price, measures income yield', val: FMT_PCT(r.capRate), color: capColor(r.capRate) },
         ].map(({ label, tip, val, color }) => (
           <div key={label} style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: 2, display:'flex', alignItems:'center', justifyContent:'center', gap:2 }}>{label}<Tip text={tip}/></div>

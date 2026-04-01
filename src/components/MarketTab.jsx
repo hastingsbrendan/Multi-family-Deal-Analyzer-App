@@ -14,11 +14,11 @@ const SPREAD_HIST_AVG = 1.7; // historical mortgage-Treasury spread average
 function floodZoneInfo(zone){
   if(!zone)return null;
   const z=zone.toUpperCase();
-  if(z==='X'||z==='X500')return{risk:'low',label:`Zone ${zone}`,color:'#10b981',bg:'#10b98115',desc:'Minimal flood risk — outside 500-year floodplain'};
-  if(z.startsWith('V'))return{risk:'critical',label:`Zone ${zone}`,color:'#ef4444',bg:'#ef444415',desc:'Coastal high-risk — mandatory flood insurance likely required'};
-  if(z.startsWith('A'))return{risk:'high',label:`Zone ${zone}`,color:'#f59e0b',bg:'#f59e0b15',desc:'High-risk flood zone — flood insurance typically required by lenders'};
-  if(z==='D')return{risk:'unknown',label:`Zone ${zone}`,color:'#6366f1',bg:'#6366f115',desc:'Undetermined flood risk — possible but not assessed by FEMA'};
-  return{risk:'moderate',label:`Zone ${zone}`,color:'#f59e0b',bg:'#f59e0b15',desc:'Moderate-to-low flood risk'};
+  if(z==='X'||z==='X500')return{risk:'low',label:`Zone ${zone}`,color:'var(--green)',bg:'rgba(16,185,129,0.08)',desc:'Minimal flood risk — outside 500-year floodplain'};
+  if(z.startsWith('V'))return{risk:'critical',label:`Zone ${zone}`,color:'var(--red)',bg:'rgba(239,68,68,0.08)',desc:'Coastal high-risk — mandatory flood insurance likely required'};
+  if(z.startsWith('A'))return{risk:'high',label:`Zone ${zone}`,color:'var(--refi-amber)',bg:'rgba(245,158,11,0.08)',desc:'High-risk flood zone — flood insurance typically required by lenders'};
+  if(z==='D')return{risk:'unknown',label:`Zone ${zone}`,color:'var(--rentcast-indigo)',bg:'rgba(99,102,241,0.08)',desc:'Undetermined flood risk — possible but not assessed by FEMA'};
+  return{risk:'moderate',label:`Zone ${zone}`,color:'var(--refi-amber)',bg:'rgba(245,158,11,0.08)',desc:'Moderate-to-low flood risk'};
 }
 
 // Parse FRED observations array → clean [{date, value}] newest-last
@@ -378,7 +378,7 @@ function MarketTab({deal, onChange}) {
 
       {/* PAUSED BANNER */}
       {apiPaused && (
-        <div style={{marginBottom:16,padding:'10px 14px',borderRadius:10,background:'#fffbeb',border:'1px solid rgba(217,119,6,0.3)',fontSize:12,color:'#d97706',fontWeight:600}}>
+        <div style={{marginBottom:16,padding:'10px 14px',borderRadius:10,background:'#fffbeb',border:'1px solid rgba(217,119,6,0.3)',fontSize:12,color:'var(--accent2)',fontWeight:600}}>
           ⏸ Rentcast API is temporarily paused — showing cached data from {marketFetchedAt || 'a previous session'}.
         </div>
       )}
