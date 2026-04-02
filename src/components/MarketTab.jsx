@@ -86,10 +86,59 @@ function deltaWeekly(obs, weeksBack = 52) {
 
 function SectionHeader({title,subtitle}){return(<div style={{marginBottom:16}}><div style={{fontSize:13,fontWeight:800,color:'var(--text)',letterSpacing:'-0.2px',fontFamily:"'Fraunces',serif"}}>{title}</div>{subtitle&&<div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{subtitle}</div>}</div>);}
 function StatRow({label,value,sub,accent}){return(<div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderBottom:'1px solid var(--border)'}}><div style={{fontSize:12,color:'var(--muted)',fontWeight:600}}>{label}</div><div style={{textAlign:'right'}}><div style={{fontSize:13,fontWeight:800,color:accent?'var(--accent)':'var(--text)'}}>{value}</div>{sub&&<div style={{fontSize:10,color:'var(--muted)',marginTop:1}}>{sub}</div>}</div></div>);}
+function BenchmarkRow({ label, value, accent, natVal, stateVal, format }) {
+  const fmt = format || (v => v);
+  const hasBench = natVal != null || stateVal != null;
+  const sub = hasBench
+    ? [stateVal != null ? `State: ${fmt(stateVal)}` : null, natVal != null ? `US: ${fmt(natVal)}` : null]
+        .filter(Boolean).join(' · ')
+    : null;
+  return (
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderBottom:'1px solid var(--border)'}}>
+      <div style={{fontSize:12,color:'var(--muted)',fontWeight:600}}>{label}</div>
+      <div style={{textAlign:'right'}}>
+        <div style={{fontSize:13,fontWeight:800,color:accent?'var(--accent)':'var(--text)'}}>{value}</div>
+        {sub && <div style={{fontSize:10,color:'var(--muted)',marginTop:1}}>{sub}</div>}
+      </div>
+    </div>
+  );
+}
 function Section({children,style}){return(<div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:14,padding:'18px 20px',...style}}>{children}</div>);}
 function EmptyState({icon,title,sub}){return(<div style={{textAlign:'center',padding:'32px 16px',color:'var(--muted)'}}><div style={{fontSize:32,marginBottom:8}}>{icon}</div><div style={{fontSize:13,fontWeight:700,color:'var(--text)',marginBottom:4}}>{title}</div><div style={{fontSize:12}}>{sub}</div></div>);}
 function ChartTooltip({active,payload,label,formatter}){if(!active||!payload?.length)return null;return(<div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:8,padding:'8px 12px',fontSize:12}}><div style={{color:'var(--muted)',marginBottom:4}}>{label}</div>{payload.map((p,i)=>(<div key={i} style={{color:p.color,fontWeight:700}}>{p.name}: {formatter?formatter(p.value):p.value}</div>))}</div>);}
 function extractZip(address){if(!address)return null;const m=address.match(/\b(\d{5})\b/);return m?m[1]:null;}
+
+function parseCensusObj(raw) {
+  if (!raw || raw.length < 2) return null;
+  const h = raw[0], v = raw[1], obj = {};
+  h.forEach((k, i) => { obj[k] = v[i]; });
+  return obj;
+}
+
+function deriveCensusMetrics(cd) {
+  if (!cd) return null;
+  const totalOcc   = +cd['B25003_001E'];
+  const renterOcc  = +cd['B25003_003E'];
+  const totalUnits = +cd['B25002_001E'];
+  const vacantUnits= +cd['B25002_003E'];
+  const laborForce = +cd['B23025_002E'];
+  const unemployed = +cd['B23025_005E'];
+  const povertyTot = +cd['B17001_001E'];
+  const belowPov   = +cd['B17001_002E'];
+  const eduTotal   = +cd['B15003_001E'];
+  const eduCollege = +cd['B15003_022E'] + +cd['B15003_023E'] + +cd['B15003_024E'] + +cd['B15003_025E'];
+  return {
+    income:       +cd['B19013_001E'] || null,
+    medianAge:    +cd['B01002_001E'] || null,
+    renterPct:    totalOcc > 0 ? (renterOcc / totalOcc) * 100 : null,
+    vacancyPct:   totalUnits > 0 ? (vacantUnits / totalUnits) * 100 : null,
+    unempRate:    laborForce > 0 ? (unemployed / laborForce) * 100 : null,
+    povertyRate:  povertyTot > 0 ? (belowPov / povertyTot) * 100 : null,
+    medianGrossRent:  +cd['B25064_001E'] || null,
+    medianHomeValue:  +cd['B25077_001E'] || null,
+    collegePlusPct: eduTotal > 0 ? (eduCollege / eduTotal) * 100 : null,
+  };
+}
 
 function RateCompare({fredRate, dealRate}) {
   if (!fredRate || !dealRate) return null;
@@ -267,6 +316,8 @@ function MarketTab({deal, onChange}) {
   const _hit     = _cached?.zipCode === _initZip && !!_cached?.data;
   const [marketData, setMarketData]   = useState(_hit ? _cached.data  : null);
   const [censusData, setCensusData]   = useState(null);
+  const [nationalCensusData, setNationalCensusData] = useState(null);
+  const [stateCensusData, setStateCensusData]       = useState(null);
   const [loading, setLoading]         = useState(false);
   const [error, setError]             = useState(null);
   const [lastZip, setLastZip]         = useState(_hit ? _initZip : null);
@@ -393,10 +444,25 @@ function MarketTab({deal, onChange}) {
         d.assumptions.marketData = { zipCode, fetchedAt, data };
         onChange(d);
       }
-      const censusRes = await fetch(`https://api.census.gov/data/2023/acs/acs5?get=${CENSUS_VARS}&for=zip%20code%20tabulation%20area:${zipCode}`);
+      // Census ACS — fetch ZIP + national + state (if stateFips known) in parallel
+      const sf = dealRef.current?.assumptions?.stateFips;
+      const censusBase = `https://api.census.gov/data/2023/acs/acs5?get=${CENSUS_VARS}`;
+      const [censusRes, nationalRes, stateRes] = await Promise.all([
+        fetch(`${censusBase}&for=zip%20code%20tabulation%20area:${zipCode}`),
+        fetch(`${censusBase}&for=us:1`),
+        sf ? fetch(`${censusBase}&for=state:${sf}`) : Promise.resolve(null),
+      ]);
       if (censusRes.ok) {
         const raw = await censusRes.json();
-        if (raw.length >= 2) { const h=raw[0],v=raw[1],obj={}; h.forEach((k,i)=>{obj[k]=v[i];}); setCensusData(obj); }
+        setCensusData(parseCensusObj(raw));
+      }
+      if (nationalRes?.ok) {
+        const raw = await nationalRes.json();
+        setNationalCensusData(parseCensusObj(raw));
+      }
+      if (stateRes?.ok) {
+        const raw = await stateRes.json();
+        setStateCensusData(parseCensusObj(raw));
       }
     } catch (e) {
       setError(e.message);
@@ -415,6 +481,17 @@ function MarketTab({deal, onChange}) {
   useEffect(() => {
     if (stateFips && countyFips) fetchBls(stateFips, countyFips);
   }, [stateFips, countyFips, fetchBls]);
+
+  // If stateFips wasn't available during fetchAll (first load), fetch state census when it arrives
+  const stateFipsForEffect = deal?.assumptions?.stateFips;
+  useEffect(() => {
+    if (!stateFipsForEffect || !censusData || stateCensusData) return; // already have it or nothing to do
+    const censusBase = `https://api.census.gov/data/2023/acs/acs5?get=${CENSUS_VARS}`;
+    fetch(`${censusBase}&for=state:${stateFipsForEffect}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(raw => { if (raw) setStateCensusData(parseCensusObj(raw)); })
+      .catch(() => {});
+  }, [stateFipsForEffect, censusData, stateCensusData]);
 
   // Census derived
   const income    = censusData ? +censusData['B19013_001E'] : null;
@@ -522,6 +599,8 @@ function MarketTab({deal, onChange}) {
   const floodZone = deal?.assumptions?.floodZone;
   const fzInfo    = floodZoneInfo(floodZone);
   const fmtK = v => v >= 1000000 ? `$${(v/1000000).toFixed(2)}M` : v >= 1000 ? `$${(v/1000).toFixed(0)}K` : FMT_USD(v);
+  const natMetrics   = deriveCensusMetrics(nationalCensusData);
+  const stateMetrics = deriveCensusMetrics(stateCensusData);
 
   if (!zip) return (
     <div style={{padding:'40px 20px',textAlign:'center',color:'var(--muted)'}}>
@@ -641,16 +720,36 @@ function MarketTab({deal, onChange}) {
           <Section>
             <SectionHeader title="👥 Neighborhood Demographics" subtitle="US Census ACS 5-Year 2023"/>
             {population  > 0   && <StatRow label="Population"              value={population.toLocaleString()}/>}
-            {medianAge   > 0   && <StatRow label="Median Age"              value={`${medianAge} yrs`}/>}
-            {income      > 0   && <StatRow label="Median Household Income" value={FMT_USD(income)} accent/>}
-            {renterPct !== null && <StatRow label="Renter Occupied"        value={`${renterPct.toFixed(1)}%`} sub="of occupied units"/>}
-            {vacancyPct !== null&& <StatRow label="Vacancy Rate"           value={`${vacancyPct.toFixed(1)}%`} sub="all housing units"/>}
+            {medianAge   > 0   && <BenchmarkRow label="Median Age"         value={`${medianAge} yrs`}
+                                   natVal={natMetrics?.medianAge}   stateVal={stateMetrics?.medianAge}
+                                   format={v=>`${v.toFixed(0)} yrs`}/>}
+            {income      > 0   && <BenchmarkRow label="Median Household Income" value={FMT_USD(income)} accent
+                                   natVal={natMetrics?.income}      stateVal={stateMetrics?.income}
+                                   format={v=>FMT_USD(Math.round(v))}/>}
+            {renterPct !== null && <BenchmarkRow label="Renter Occupied"   value={`${renterPct.toFixed(1)}%`}
+                                   natVal={natMetrics?.renterPct}   stateVal={stateMetrics?.renterPct}
+                                   format={v=>`${v.toFixed(1)}%`}/>}
+            {vacancyPct !== null&& <BenchmarkRow label="Vacancy Rate"      value={`${vacancyPct.toFixed(1)}%`}
+                                   natVal={natMetrics?.vacancyPct}  stateVal={stateMetrics?.vacancyPct}
+                                   format={v=>`${v.toFixed(1)}%`}/>}
             {totalUnits  > 0   && <StatRow label="Total Housing Units"     value={totalUnits.toLocaleString()}/>}
-            {unemploymentRate !== null && unemploymentRate >= 0 && <StatRow label="Unemployment Rate" value={`${unemploymentRate.toFixed(1)}%`} sub="Civilian labor force"/>}
-            {povertyRate !== null && povertyRate >= 0 && <StatRow label="Poverty Rate" value={`${povertyRate.toFixed(1)}%`} sub="Population below poverty line"/>}
-            {medianGrossRent > 0 && <StatRow label="Median Gross Rent" value={FMT_USD(medianGrossRent)} sub="Actual rent paid (incl. utilities)" accent/>}
-            {medianHomeValue > 0 && <StatRow label="Median Home Value" value={fmtK(medianHomeValue)} sub="Owner-occupied"/>}
-            {collegePlusPct !== null && <StatRow label="College-Educated" value={`${collegePlusPct.toFixed(0)}%`} sub="Bachelor's degree or higher (25+)"/>}
+            {unemploymentRate !== null && unemploymentRate >= 0 &&
+                                   <BenchmarkRow label="Unemployment Rate" value={`${unemploymentRate.toFixed(1)}%`}
+                                   natVal={natMetrics?.unempRate}   stateVal={stateMetrics?.unempRate}
+                                   format={v=>`${v.toFixed(1)}%`}/>}
+            {povertyRate !== null && povertyRate >= 0 &&
+                                   <BenchmarkRow label="Poverty Rate"      value={`${povertyRate.toFixed(1)}%`}
+                                   natVal={natMetrics?.povertyRate} stateVal={stateMetrics?.povertyRate}
+                                   format={v=>`${v.toFixed(1)}%`}/>}
+            {medianGrossRent > 0 && <BenchmarkRow label="Median Gross Rent" value={FMT_USD(medianGrossRent)} accent
+                                   natVal={natMetrics?.medianGrossRent}   stateVal={stateMetrics?.medianGrossRent}
+                                   format={v=>FMT_USD(Math.round(v))}/>}
+            {medianHomeValue > 0 && <BenchmarkRow label="Median Home Value" value={fmtK(medianHomeValue)}
+                                   natVal={natMetrics?.medianHomeValue}   stateVal={stateMetrics?.medianHomeValue}
+                                   format={v=>fmtK(v)}/>}
+            {collegePlusPct !== null && <BenchmarkRow label="College-Educated" value={`${collegePlusPct.toFixed(0)}%`}
+                                   natVal={natMetrics?.collegePlusPct}    stateVal={stateMetrics?.collegePlusPct}
+                                   format={v=>`${v.toFixed(0)}%`}/>}
           </Section>
         )}
 
