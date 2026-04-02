@@ -77,27 +77,27 @@ export function floodZoneInfo(zone) {
   if (!zone) return null;
   const z = zone.toUpperCase();
   if (z === 'X' || z === 'X500') return {
-    risk: 'low', label: `Zone ${zone}`, color: '#10b981', bg: '#10b98115',
+    risk: 'low', label: `Zone ${zone}`, color: 'var(--green)', bg: 'rgba(16,185,129,0.08)',
     desc: 'Minimal flood risk — outside 500-year floodplain',
     flagSeverity: null,
   };
   if (z.startsWith('V')) return {
-    risk: 'critical', label: `Zone ${zone}`, color: '#ef4444', bg: '#ef444415',
+    risk: 'critical', label: `Zone ${zone}`, color: 'var(--red)', bg: 'rgba(239,68,68,0.08)',
     desc: 'Coastal high-risk — mandatory flood insurance likely required',
     flagSeverity: 'critical',
   };
   if (z.startsWith('A')) return {
-    risk: 'high', label: `Zone ${zone}`, color: '#f59e0b', bg: '#f59e0b15',
+    risk: 'high', label: `Zone ${zone}`, color: 'var(--refi-amber)', bg: 'rgba(245,158,11,0.08)',
     desc: 'High-risk flood zone — flood insurance typically required by lenders',
     flagSeverity: 'warning',
   };
   if (z === 'D') return {
-    risk: 'unknown', label: `Zone ${zone}`, color: '#6366f1', bg: '#6366f115',
+    risk: 'unknown', label: `Zone ${zone}`, color: 'var(--rentcast-indigo)', bg: 'rgba(99,102,241,0.08)',
     desc: 'Undetermined flood risk — possible but not assessed by FEMA',
     flagSeverity: null,
   };
   return {
-    risk: 'moderate', label: `Zone ${zone}`, color: '#f59e0b', bg: '#f59e0b15',
+    risk: 'moderate', label: `Zone ${zone}`, color: 'var(--refi-amber)', bg: 'rgba(245,158,11,0.08)',
     desc: 'Moderate-to-low flood risk',
     flagSeverity: null,
   };
