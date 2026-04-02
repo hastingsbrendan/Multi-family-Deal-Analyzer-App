@@ -8,8 +8,47 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 const CENSUS_VARS = 'B19013_001E,B25003_001E,B25003_002E,B25003_003E,B25002_001E,B25002_003E,B01002_001E,B01003_001E,B25064_001E,B25070_001E,B25070_007E,B25070_008E,B25070_009E,B25070_010E,B25070_011E,B25077_001E,B25035_001E,B25024_001E,B25024_002E,B25024_003E,B25024_004E,B25024_005E,B25024_006E,B25024_007E,B25024_008E,B25024_009E,B23025_002E,B23025_005E,B17001_001E,B17001_002E,B15003_001E,B15003_022E,B15003_023E,B15003_024E,B15003_025E';
 const FRED_MORTGAGE_SERIES = 'MORTGAGE30US';
 // Additional FRED series fetched alongside mortgage rate
-const FRED_BATCH = 'MORTGAGE30US,DGS10,DFEDTARU,CUUR0000SEHA,CSUSHPINSA';
+const FRED_BATCH = 'MORTGAGE30US,DGS10,DFEDTARU,CUUR0000SEHA,CSUSHPINSA,UNRATE';
 const SPREAD_HIST_AVG = 1.7; // historical mortgage-Treasury spread average
+
+// BLS LAUS series — constructed from county FIPS
+// Format: LAUCA + state(2) + county(3) + 0000000000 + 03 (unemployment rate)
+function buildLausSeriesId(stateFips, countyFips3) {
+  return `LAUCA${stateFips}${countyFips3}0000000000003`;
+}
+// Parse BLS timeseries response → [{date, value}] newest-last
+function parseBlsObs(seriesData) {
+  if (!seriesData?.data) return [];
+  return seriesData.data
+    .filter(d => d.value !== '-')
+    .map(d => ({ date: `${d.year}-${d.period.replace('M','')}`, value: +d.value }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// QCEW supersector employment series
+// Format: ENU + state(2) + county(3) + 1 (employment) + 0 (all sizes) + supersector(2)
+const QCEW_SUPERSECTORS = [
+  { code: '10', label: 'Natural Resources & Mining' },
+  { code: '20', label: 'Construction' },
+  { code: '30', label: 'Manufacturing' },
+  { code: '40', label: 'Trade, Transport & Utilities' },
+  { code: '50', label: 'Information' },
+  { code: '55', label: 'Financial Activities' },
+  { code: '60', label: 'Professional & Business Services' },
+  { code: '65', label: 'Education & Health Services' },
+  { code: '70', label: 'Leisure & Hospitality' },
+  { code: '80', label: 'Other Services' },
+  { code: '90', label: 'Government' },
+];
+
+function buildQcewSeriesId(stateFips, countyFips3, supersectorCode) {
+  return `ENU${stateFips}${countyFips3}10${supersectorCode}`;
+}
+
+function buildTotalQcewSeriesId(stateFips, countyFips3) {
+  // Total covered employment (all ownership, all industries)
+  return `ENU${stateFips}${countyFips3}10`;
+}
 
 function floodZoneInfo(zone){
   if(!zone)return null;
@@ -234,9 +273,14 @@ function MarketTab({deal, onChange}) {
   const [marketFetchedAt, setMarketFetchedAt] = useState(_hit ? (_cached.fetchedAt || null) : null);
   const [apiPaused, setApiPaused]     = useState(false);
   const [saleFilter, setSaleFilter]   = useState('mf');
-  const [fredAllData, setFredAllData] = useState(null); // { mortgage, treasury10, fedTarget, rentCPI, hpi }
+  const [fredAllData, setFredAllData] = useState(null); // { mortgage, treasury10, fedTarget, rentCPI, hpi, unrate }
   const [fredLoading, setFredLoading] = useState(false);
   const [fredError, setFredError] = useState(null);
+  const [blsData, setBlsData]     = useState(null);
+  const [blsLoading, setBlsLoading] = useState(false);
+  const [blsError, setBlsError]   = useState(null);
+  const [qcewData, setQcewData]   = useState(null);
+  const [qcewLoading, setQcewLoading] = useState(false);
   // Ref so fetchAll can write back to deal without a stale closure
   const dealRef = useRef(deal);
   useEffect(() => { dealRef.current = deal; }, [deal]);
@@ -260,12 +304,68 @@ function MarketTab({deal, onChange}) {
         fedTarget: parseFredObs(r['DFEDTARU']     || []),
         rentCPI:   parseFredObs(r['CUUR0000SEHA'] || []),
         hpi:       parseFredObs(r['CSUSHPINSA']   || []),
+        unrate:    parseFredObs(r['UNRATE']        || []),
       });
     } catch (e) {
       setFredError('Unable to load market rate data.');
       Sentry.captureException(e, { tags: { origin: 'MarketTab.fetchFred' } });
     }
     finally { setFredLoading(false); }
+  }, []);
+
+  const fetchBls = useCallback(async (stateFips, countyFips) => {
+    if (!stateFips || !countyFips) return;
+    const countyFips3 = countyFips.slice(-3); // last 3 digits
+    const seriesId = buildLausSeriesId(stateFips, countyFips3);
+    setBlsLoading(true);
+    setBlsError(null);
+    try {
+      const currentYear = new Date().getFullYear();
+      const url = `/api/bls?series_id=${seriesId}&startyear=${currentYear - 2}&endyear=${currentYear}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`BLS proxy ${res.status}`);
+      const json = await res.json();
+      if (json.status === 'REQUEST_FAILED') throw new Error('BLS series not found');
+      const series = json.Results?.series?.[0];
+      if (series) {
+        setBlsData({ seriesId, obs: parseBlsObs(series) });
+      }
+
+      // Also fetch QCEW industry mix — best-effort, non-blocking
+      const qcewSeriesIds = QCEW_SUPERSECTORS.map(s => buildQcewSeriesId(stateFips, countyFips3, s.code));
+      const totalSeriesId = buildTotalQcewSeriesId(stateFips, countyFips3);
+      const allQcewIds = [totalSeriesId, ...qcewSeriesIds].join(',');
+      setQcewLoading(true);
+      fetch(`/api/bls?series_id=${allQcewIds}&startyear=${currentYear - 1}&endyear=${currentYear}`)
+        .then(r => r.json())
+        .then(qjson => {
+          if (qjson.status === 'REQUEST_FAILED') return;
+          const seriesMap = {};
+          (qjson.Results?.series || []).forEach(s => {
+            // Get most recent annual value
+            const annual = s.data?.find(d => d.period === 'A01');
+            if (annual && annual.value !== '-') {
+              seriesMap[s.seriesID] = +annual.value;
+            }
+          });
+          const totalEmp = seriesMap[totalSeriesId] || 0;
+          if (totalEmp > 0) {
+            const sectors = QCEW_SUPERSECTORS.map(s => {
+              const sid = buildQcewSeriesId(stateFips, countyFips3, s.code);
+              const emp = seriesMap[sid] || 0;
+              return { ...s, emp, pct: totalEmp > 0 ? (emp / totalEmp) * 100 : 0 };
+            }).filter(s => s.emp > 0).sort((a, b) => b.emp - a.emp);
+            setQcewData({ totalEmp, sectors });
+          }
+        })
+        .catch(() => {}) // QCEW is best-effort
+        .finally(() => setQcewLoading(false));
+    } catch (e) {
+      setBlsError('Local unemployment data unavailable.');
+      Sentry.captureException(e, { tags: { origin: 'MarketTab.fetchBls' } });
+    } finally {
+      setBlsLoading(false);
+    }
   }, []);
 
   const fetchAll = useCallback(async (zipCode) => {
@@ -305,8 +405,16 @@ function MarketTab({deal, onChange}) {
     finally { setLoading(false); }
   }, [onChange]);
 
+  const countyFips = deal?.assumptions?.countyFips;
+  const stateFips  = deal?.assumptions?.stateFips;
+  const countyName = deal?.assumptions?.countyName;
+  const msaName    = deal?.assumptions?.msaName;
+
   useEffect(() => { if (zip && zip !== lastZip && !loading) fetchAll(zip); }, [zip, lastZip, loading, fetchAll]);
   useEffect(() => { fetchFred(); }, [fetchFred]);
+  useEffect(() => {
+    if (stateFips && countyFips) fetchBls(stateFips, countyFips);
+  }, [stateFips, countyFips, fetchBls]);
 
   // Census derived
   const income    = censusData ? +censusData['B19013_001E'] : null;
@@ -391,6 +499,25 @@ function MarketTab({deal, onChange}) {
   const fredChartData = mortgage.slice(-26).map(d => ({ date: d.date.slice(0,7), rate: d.value }));
   const dealRate    = deal?.assumptions?.interestRate ? +deal.assumptions.interestRate : null;
   const lastUpdated = latest(mortgage)?.date || null;
+
+  // BLS LAUS derived
+  const localUnempObs    = blsData?.obs || [];
+  const localUnempLatest = localUnempObs.length ? localUnempObs[localUnempObs.length - 1] : null;
+  const localUnempRate   = localUnempLatest?.value ?? null;
+  const localUnempMonth  = localUnempLatest?.date  ?? null;
+  const nationalUnempObs = fredAllData?.unrate || [];
+  const nationalUnempRate = nationalUnempObs.length ? nationalUnempObs[nationalUnempObs.length - 1]?.value : null;
+  const unempDelta        = localUnempRate != null && nationalUnempRate != null
+    ? +(localUnempRate - nationalUnempRate).toFixed(1) : null;
+  const unempChartData   = localUnempObs.slice(-24).map(d => ({
+    date: d.date,
+    local: d.value,
+    national: (() => {
+      // Match national obs by date prefix (yyyy-mm)
+      const match = nationalUnempObs.find(n => n.date.startsWith(d.date.slice(0,7)));
+      return match ? match.value : null;
+    })(),
+  }));
 
   const floodZone = deal?.assumptions?.floodZone;
   const fzInfo    = floodZoneInfo(floodZone);
@@ -639,6 +766,148 @@ function MarketTab({deal, onChange}) {
           <SectionHeader title="📈 Sale Price Trend (12 months)" subtitle={(saleFilter==='mf' && saleTrendMF.length > 2) ? `ZIP ${zip} · Multi-family only · Rentcast` : `ZIP ${zip} · All property types · Rentcast`}/>
           <ResponsiveContainer width="100%" height={200}><LineChart data={(saleFilter==='mf' && saleTrendMF.length > 2) ? saleTrendMF : saleTrend} margin={{top:4,right:16,left:0,bottom:4}}><CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/><XAxis dataKey="month" tick={{fontSize:10,fill:'var(--muted)'}} tickFormatter={v=>v.slice(5)}/><YAxis tick={{fontSize:10,fill:'var(--muted)'}} tickFormatter={v=>`$${(v/1000).toFixed(0)}k`} width={52}/><Tooltip content={<ChartTooltip formatter={v=>`$${(v/1000).toFixed(0)}k`}/>}/><Line type="monotone" dataKey="avg" stroke="var(--accent)" strokeWidth={2} dot={false} name="Avg Price"/><Line type="monotone" dataKey="median" stroke="var(--accent2)" strokeWidth={2} dot={false} name="Median Price" strokeDasharray="4 2"/></LineChart></ResponsiveContainer>
           <div style={{display:'flex',gap:16,justifyContent:'center',marginTop:8}}><div style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'var(--muted)'}}><div style={{width:24,height:2,background:'var(--accent)',borderRadius:2}}/> Avg Price</div><div style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'var(--muted)'}}><div style={{width:24,height:2,background:'var(--accent2)',borderRadius:2}}/> Median Price</div></div>
+        </Section>
+      )}
+
+      {/* ── LOCAL LABOR MARKET ──────────────────────────────────────────────────────── */}
+      {(blsLoading || blsData || blsError) && (
+        <Section style={{marginTop:16}}>
+          <SectionHeader
+            title="👷 Local Labor Market"
+            subtitle={
+              msaName ? `${msaName} · BLS LAUS` :
+              countyName ? `${countyName} · BLS LAUS` :
+              'Bureau of Labor Statistics — Local Area Unemployment Statistics'
+            }
+          />
+
+          {blsLoading && <div style={{fontSize:12,color:'var(--muted)',padding:'8px 0'}}>Loading labor market data…</div>}
+          {blsError && !blsData && <div style={{fontSize:12,color:'var(--red)',padding:'8px 0'}}>⚠ {blsError}</div>}
+
+          {!blsLoading && localUnempRate != null && (() => {
+            const unempColor = localUnempRate <= 4 ? 'var(--green)' : localUnempRate <= 6 ? 'var(--accent2)' : 'var(--red)';
+            const unempLabel = localUnempRate <= 4 ? 'Healthy labor market' : localUnempRate <= 6 ? 'Moderate unemployment' : 'Elevated unemployment';
+            return (
+              <>
+                {/* KPI row */}
+                <div style={{display:'flex',gap:12,flexWrap:'wrap',marginBottom:16}}>
+                  <MetricCard
+                    label="Local Unemployment"
+                    value={`${localUnempRate.toFixed(1)}%`}
+                    sub={localUnempMonth ? `As of ${localUnempMonth}` : 'Latest available'}
+                    highlight
+                  />
+                  {nationalUnempRate != null && (
+                    <MetricCard
+                      label="National Rate"
+                      value={`${nationalUnempRate.toFixed(1)}%`}
+                      sub="US average · FRED"
+                    />
+                  )}
+                  {unempDelta != null && (
+                    <MetricCard
+                      label="vs. National"
+                      value={`${unempDelta > 0 ? '+' : ''}${unempDelta}%`}
+                      sub={unempDelta > 0.5 ? 'Above national avg' : unempDelta < -0.5 ? 'Below national avg' : 'Near national avg'}
+                    />
+                  )}
+                </div>
+
+                {/* Risk signal */}
+                <div style={{padding:'10px 14px',borderRadius:10,background:'var(--bg2)',border:`1px solid var(--border)`,marginBottom: unempChartData.length > 3 ? 16 : 0}}>
+                  <div style={{fontSize:12,fontWeight:700,color:unempColor,marginBottom:3}}>{unempLabel}</div>
+                  <div style={{fontSize:11,color:'var(--muted)',lineHeight:1.55}}>
+                    {localUnempRate <= 4
+                      ? 'Low unemployment signals strong rental demand — workers can afford rent and tenant turnover risk is lower.'
+                      : localUnempRate <= 6
+                      ? 'Moderate unemployment — monitor local economic conditions. Factor conservative vacancy assumptions.'
+                      : 'Elevated unemployment increases vacancy risk and tenant default risk. Stress-test cash flow at higher vacancy rates.'}
+                    {unempDelta != null && unempDelta > 1
+                      ? ` Local rate is ${unempDelta}% above the national average — above-trend risk.`
+                      : unempDelta != null && unempDelta < -1
+                      ? ` Local rate is ${Math.abs(unempDelta)}% below the national average — favorable indicator.`
+                      : ''}
+                  </div>
+                </div>
+
+                {/* 24-month trend chart */}
+                {unempChartData.length > 3 && (
+                  <div style={{marginTop:4}}>
+                    <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:10}}>24-Month Trend</div>
+                    <ResponsiveContainer width="100%" height={160}>
+                      <LineChart data={unempChartData} margin={{top:4,right:16,left:0,bottom:4}}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
+                        <XAxis dataKey="date" tick={{fontSize:10,fill:'var(--muted)'}} tickFormatter={v=>v.slice(0,7)}/>
+                        <YAxis tick={{fontSize:10,fill:'var(--muted)'}} tickFormatter={v=>`${v}%`} width={36} domain={['auto','auto']}/>
+                        <Tooltip content={<ChartTooltip formatter={v=>`${v?.toFixed(1)}%`}/>}/>
+                        <Line type="monotone" dataKey="local" stroke="var(--accent)" strokeWidth={2} dot={false} name="Local"/>
+                        {unempChartData.some(d=>d.national!=null) && <Line type="monotone" dataKey="national" stroke="var(--muted)" strokeWidth={1.5} dot={false} name="National" strokeDasharray="4 2"/>}
+                      </LineChart>
+                    </ResponsiveContainer>
+                    <div style={{display:'flex',gap:16,justifyContent:'center',marginTop:8}}>
+                      <div style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'var(--muted)'}}><div style={{width:24,height:2,background:'var(--accent)',borderRadius:2}}/> Local</div>
+                      <div style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'var(--muted)'}}><div style={{width:24,height:2,background:'var(--muted)',borderRadius:2}}/> National</div>
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()}
+        </Section>
+      )}
+
+      {/* ── INDUSTRY EMPLOYMENT MIX ─────────────────────────────────────── */}
+      {(qcewLoading || qcewData) && (
+        <Section style={{marginTop:16}}>
+          <SectionHeader
+            title="🏭 Industry Employment Mix"
+            subtitle={`${countyName || 'County'} · QCEW · Bureau of Labor Statistics`}
+          />
+          {qcewLoading && !qcewData && <div style={{fontSize:12,color:'var(--muted)',padding:'8px 0'}}>Loading employment data…</div>}
+          {qcewData && (() => {
+            const top = qcewData.sectors.slice(0, 6);
+            const topPct = top.reduce((sum, s) => sum + s.pct, 0);
+            // Diversification: Herfindahl-like — lower = more diversified
+            const hhi = qcewData.sectors.reduce((sum, s) => sum + (s.pct / 100) ** 2, 0);
+            const diversified = hhi < 0.15;
+            const concentrated = hhi > 0.25;
+            const divColor = diversified ? 'var(--green)' : concentrated ? 'var(--red)' : 'var(--accent2)';
+            const divLabel = diversified ? 'Diversified economy' : concentrated ? 'Concentrated economy' : 'Moderately diversified';
+            // Color palette for sectors (cycle through)
+            const sectorColors = ['var(--accent)', 'var(--refi-amber)', 'var(--rentcast-indigo)', 'var(--va-purple)', 'var(--green)', 'var(--muted)'];
+            return (
+              <>
+                <div style={{padding:'10px 14px',borderRadius:10,background:'var(--bg2)',border:'1px solid var(--border)',marginBottom:16}}>
+                  <div style={{fontSize:12,fontWeight:700,color:divColor,marginBottom:3}}>{divLabel}</div>
+                  <div style={{fontSize:11,color:'var(--muted)',lineHeight:1.55}}>
+                    {diversified
+                      ? 'Well-diversified economic base reduces vacancy risk — job losses in one sector are offset by others.'
+                      : concentrated
+                      ? 'Economy is concentrated in few sectors — monitor those industries closely as they drive local rental demand.'
+                      : 'Moderate diversification. Review the dominant sectors below for cyclical risk exposure.'}
+                  </div>
+                </div>
+
+                <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:10}}>
+                  Top Sectors · {qcewData.totalEmp.toLocaleString()} total jobs
+                </div>
+                {top.map((s, i) => (
+                  <div key={s.code} style={{marginBottom:10}}>
+                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:3}}>
+                      <span style={{fontSize:12,color:'var(--text)',fontWeight:600}}>{s.label}</span>
+                      <span style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>{s.pct.toFixed(1)}% <span style={{fontSize:10,color:'var(--muted)',fontWeight:400}}>({s.emp.toLocaleString()} jobs)</span></span>
+                    </div>
+                    <div style={{height:6,borderRadius:3,background:'var(--border)',overflow:'hidden'}}>
+                      <div style={{width:`${Math.min(s.pct,100)}%`,height:'100%',background:sectorColors[i % sectorColors.length],borderRadius:3,transition:'width 0.4s ease'}}/>
+                    </div>
+                  </div>
+                ))}
+                {qcewData.sectors.length > 6 && (
+                  <div style={{fontSize:10,color:'var(--muted)',marginTop:6}}>+{qcewData.sectors.length - 6} more sectors · top 6 shown · {topPct.toFixed(0)}% of total employment</div>
+                )}
+              </>
+            );
+          })()}
         </Section>
       )}
 
