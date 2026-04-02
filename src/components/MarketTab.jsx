@@ -5,7 +5,7 @@ import { useIsMobile } from '../lib/hooks';
 import MetricCard from './ui/MetricCard';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts';
 
-const CENSUS_VARS = 'B19013_001E,B25003_001E,B25003_002E,B25003_003E,B25002_001E,B25002_003E,B01002_001E,B01003_001E';
+const CENSUS_VARS = 'B19013_001E,B25003_001E,B25003_002E,B25003_003E,B25002_001E,B25002_003E,B01002_001E,B01003_001E,B25064_001E,B25070_001E,B25070_007E,B25070_008E,B25070_009E,B25070_010E,B25070_011E,B25077_001E,B25035_001E,B25024_001E,B25024_002E,B25024_003E,B25024_004E,B25024_005E,B25024_006E,B25024_007E,B25024_008E,B25024_009E,B23025_002E,B23025_005E,B17001_001E,B17001_002E,B15003_001E,B15003_022E,B15003_023E,B15003_024E,B15003_025E';
 const FRED_MORTGAGE_SERIES = 'MORTGAGE30US';
 // Additional FRED series fetched alongside mortgage rate
 const FRED_BATCH = 'MORTGAGE30US,DGS10,DFEDTARU,CUUR0000SEHA,CSUSHPINSA';
@@ -319,6 +319,56 @@ function MarketTab({deal, onChange}) {
   const renterPct = totalOcc && renterOcc ? (renterOcc / totalOcc) * 100 : null;
   const vacancyPct= totalUnits && vacantUnits ? (vacantUnits / totalUnits) * 100 : null;
 
+  // New ACS derived values
+  const medianGrossRent  = censusData ? +censusData['B25064_001E'] : null;
+  const medianHomeValue  = censusData ? +censusData['B25077_001E'] : null;
+  const medianYearBuilt  = censusData ? +censusData['B25035_001E'] : null;
+
+  // Rent burden
+  const rentBurdenTotal  = censusData ? +censusData['B25070_001E'] : null;
+  const rentBurdened     = censusData ? (
+    +censusData['B25070_007E'] + +censusData['B25070_008E'] +
+    +censusData['B25070_009E'] + +censusData['B25070_010E'] + +censusData['B25070_011E']
+  ) : null;
+  const rentSeverelyBurdened = censusData ? +censusData['B25070_011E'] : null;
+  const rentBurdenedPct  = rentBurdenTotal > 0 ? (rentBurdened / rentBurdenTotal) * 100 : null;
+  const severelyBurdenedPct = rentBurdenTotal > 0 ? (rentSeverelyBurdened / rentBurdenTotal) * 100 : null;
+
+  // Unemployment
+  const laborForce       = censusData ? +censusData['B23025_002E'] : null;
+  const unemployed       = censusData ? +censusData['B23025_005E'] : null;
+  const unemploymentRate = laborForce > 0 ? (unemployed / laborForce) * 100 : null;
+
+  // Poverty
+  const povertyTotal     = censusData ? +censusData['B17001_001E'] : null;
+  const belowPoverty     = censusData ? +censusData['B17001_002E'] : null;
+  const povertyRate      = povertyTotal > 0 ? (belowPoverty / povertyTotal) * 100 : null;
+
+  // Education (% with bachelor's or higher, age 25+)
+  const eduTotal         = censusData ? +censusData['B15003_001E'] : null;
+  const eduCollegePlus   = censusData ? (
+    +censusData['B15003_022E'] + +censusData['B15003_023E'] +
+    +censusData['B15003_024E'] + +censusData['B15003_025E']
+  ) : null;
+  const collegePlusPct   = eduTotal > 0 ? (eduCollegePlus / eduTotal) * 100 : null;
+
+  // Housing stock composition
+  const structTotal      = censusData ? +censusData['B25024_001E'] : null;
+  const struct1detached  = censusData ? +censusData['B25024_002E'] : null;
+  const struct1attached  = censusData ? +censusData['B25024_003E'] : null;
+  const struct2          = censusData ? +censusData['B25024_004E'] : null;
+  const struct34         = censusData ? +censusData['B25024_005E'] : null;
+  const struct59         = censusData ? +censusData['B25024_006E'] : null;
+  const struct1019       = censusData ? +censusData['B25024_007E'] : null;
+  const struct2049       = censusData ? +censusData['B25024_008E'] : null;
+  const struct50plus     = censusData ? +censusData['B25024_009E'] : null;
+
+  // Group into investor-relevant categories
+  const pctSFR   = structTotal > 0 ? ((struct1detached + struct1attached) / structTotal) * 100 : null;
+  const pctSmMF  = structTotal > 0 ? ((struct2 + struct34) / structTotal) * 100 : null;           // 2–4 unit (RentHack's target)
+  const pctMedMF = structTotal > 0 ? ((struct59 + struct1019) / structTotal) * 100 : null;         // 5–19 unit
+  const pctLgMF  = structTotal > 0 ? ((struct2049 + struct50plus) / structTotal) * 100 : null;     // 20+ unit
+
   // Rentcast derived
   const rd = marketData?.rentalData;
   const sd = marketData?.saleData;
@@ -469,6 +519,82 @@ function MarketTab({deal, onChange}) {
             {renterPct !== null && <StatRow label="Renter Occupied"        value={`${renterPct.toFixed(1)}%`} sub="of occupied units"/>}
             {vacancyPct !== null&& <StatRow label="Vacancy Rate"           value={`${vacancyPct.toFixed(1)}%`} sub="all housing units"/>}
             {totalUnits  > 0   && <StatRow label="Total Housing Units"     value={totalUnits.toLocaleString()}/>}
+            {unemploymentRate !== null && unemploymentRate >= 0 && <StatRow label="Unemployment Rate" value={`${unemploymentRate.toFixed(1)}%`} sub="Civilian labor force"/>}
+            {povertyRate !== null && povertyRate >= 0 && <StatRow label="Poverty Rate" value={`${povertyRate.toFixed(1)}%`} sub="Population below poverty line"/>}
+            {medianGrossRent > 0 && <StatRow label="Median Gross Rent" value={FMT_USD(medianGrossRent)} sub="Actual rent paid (incl. utilities)" accent/>}
+            {medianHomeValue > 0 && <StatRow label="Median Home Value" value={fmtK(medianHomeValue)} sub="Owner-occupied"/>}
+            {collegePlusPct !== null && <StatRow label="College-Educated" value={`${collegePlusPct.toFixed(0)}%`} sub="Bachelor's degree or higher (25+)"/>}
+          </Section>
+        )}
+
+        {/* HOUSING STOCK */}
+        {censusData && structTotal > 0 && (
+          <Section>
+            <SectionHeader title="🏗️ Housing Stock" subtitle="US Census ACS 5-Year 2023"/>
+
+            {/* Year built + capex risk */}
+            {medianYearBuilt > 0 && (() => {
+              const age = new Date().getFullYear() - medianYearBuilt;
+              const riskColor = age > 60 ? 'var(--red)' : age > 40 ? 'var(--accent2)' : 'var(--green)';
+              const riskLabel = age > 60 ? 'High capex risk' : age > 40 ? 'Moderate capex risk' : 'Lower capex risk';
+              return (
+                <div style={{marginBottom:16,padding:'12px 14px',borderRadius:10,background:'var(--bg2)',border:'1px solid var(--border)'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <div>
+                      <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.06em'}}>Median Year Built</div>
+                      <div style={{fontSize:22,fontWeight:900,fontFamily:"'Fraunces',serif",color:'var(--text)',letterSpacing:'-0.5px',marginTop:4}}>{medianYearBuilt}</div>
+                      <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>~{age} years old on average</div>
+                    </div>
+                    <div style={{textAlign:'right'}}>
+                      <div style={{fontSize:12,fontWeight:700,color:riskColor}}>{riskLabel}</div>
+                      <div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>Older stock = higher capex & maintenance</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Rent burden */}
+            {rentBurdenedPct !== null && (
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8}}>Rent Burden</div>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:8,lineHeight:1.5}}>
+                  <strong style={{color: rentBurdenedPct > 50 ? 'var(--red)' : rentBurdenedPct > 35 ? 'var(--accent2)' : 'var(--text)'}}>{rentBurdenedPct.toFixed(0)}%</strong> of renters spend &gt;30% of income on rent
+                  {severelyBurdenedPct !== null && <> · <strong style={{color: severelyBurdenedPct > 25 ? 'var(--red)' : 'var(--text)'}}>{severelyBurdenedPct.toFixed(0)}%</strong> spend &gt;50% (severely burdened)</>}
+                </div>
+                {/* Simple visual bar */}
+                <div style={{height:8,borderRadius:4,background:'var(--border)',overflow:'hidden',display:'flex'}}>
+                  <div style={{width:`${Math.min(rentBurdenedPct,100)}%`,background: rentBurdenedPct > 50 ? 'var(--red)' : rentBurdenedPct > 35 ? 'var(--accent2)' : 'var(--green)',borderRadius:4,transition:'width 0.4s ease'}}/>
+                </div>
+                <div style={{fontSize:10,color:'var(--muted)',marginTop:4}}>High burden (&gt;50%) signals strong rental demand but affordability stress</div>
+              </div>
+            )}
+
+            {/* Structure type breakdown */}
+            {pctSFR !== null && (
+              <div>
+                <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8}}>Units by Structure Type</div>
+                {[
+                  { label:'Single-Family', pct: pctSFR, color:'var(--accent)' },
+                  { label:'2–4 Unit (Small MF)', pct: pctSmMF, color:'var(--refi-amber)' },
+                  { label:'5–19 Unit (Mid MF)', pct: pctMedMF, color:'var(--rentcast-indigo)' },
+                  { label:'20+ Unit (Large MF)', pct: pctLgMF, color:'var(--muted)' },
+                ].map(({label, pct, color}) => pct > 0 ? (
+                  <div key={label} style={{marginBottom:8}}>
+                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:3}}>
+                      <span style={{fontSize:11,color:'var(--muted)',fontWeight:600}}>{label}</span>
+                      <span style={{fontSize:11,fontWeight:800,color:'var(--text)'}}>{pct.toFixed(1)}%</span>
+                    </div>
+                    <div style={{height:6,borderRadius:3,background:'var(--border)',overflow:'hidden'}}>
+                      <div style={{width:`${Math.min(pct,100)}%`,height:'100%',background:color,borderRadius:3,transition:'width 0.4s ease'}}/>
+                    </div>
+                  </div>
+                ) : null)}
+                <div style={{fontSize:10,color:'var(--muted)',marginTop:6}}>
+                  {pctSmMF !== null && pctSmMF > 0 && <>2–4 unit properties make up <strong>{pctSmMF.toFixed(1)}%</strong> of housing stock · {pctSmMF < 10 ? 'Low MF concentration' : pctSmMF < 25 ? 'Moderate MF market' : 'Strong MF market'}</>}
+                </div>
+              </div>
+            )}
           </Section>
         )}
 
