@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import * as Sentry from '@sentry/react';
 import { FMT_USD, sbClient } from '../lib/constants';
+import { getCountyAndMsaForAddress } from '../lib/floodZone';
 import { useIsMobile } from '../lib/hooks';
 import MetricCard from './ui/MetricCard';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts';
@@ -481,6 +482,30 @@ function MarketTab({deal, onChange}) {
   useEffect(() => {
     if (stateFips && countyFips) fetchBls(stateFips, countyFips);
   }, [stateFips, countyFips, fetchBls]);
+
+  // Self-healing: if deal has an address but no countyFips (pre-dates BLS feature),
+  // run the county lookup now and cache the result so BLS sections populate
+  const dealAddress = deal?.address;
+  useEffect(() => {
+    if (!dealAddress || countyFips) return; // already resolved or no address
+    sbClient.auth.getSession().then(({ data: { session } }) => {
+      const token = session?.access_token;
+      getCountyAndMsaForAddress(dealAddress, token)
+        .then(result => {
+          if (!result || !onChange) return;
+          const d = JSON.parse(JSON.stringify(dealRef.current));
+          d.assumptions = d.assumptions || {};
+          d.assumptions.countyFips = result.countyFips;
+          d.assumptions.countyName = result.countyName;
+          d.assumptions.stateFips  = result.stateFips;
+          d.assumptions.msaCode    = result.msaCode;
+          d.assumptions.msaName    = result.msaName;
+          onChange(d);
+        })
+        .catch(e => Sentry.captureException(e, { tags: { origin: 'MarketTab.selfHealCounty' } }));
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dealAddress]); // only re-run if address changes — countyFips intentionally omitted
 
   // If stateFips wasn't available during fetchAll (first load), fetch state census when it arrives
   const stateFipsForEffect = deal?.assumptions?.stateFips;
