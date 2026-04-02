@@ -71,6 +71,67 @@ export async function getFloodZoneForAddress(address, token) {
 }
 
 /**
+ * Reverse-geocode lat/lng to county FIPS and MSA code using the Census Geocoder.
+ * Free, no API key, no proxy needed.
+ * @param {number} lat
+ * @param {number} lng
+ * Returns { countyFips, countyName, stateFips, msaCode, msaName } or null.
+ */
+export async function getCountyAndMsa(lat, lng) {
+  if (lat == null || lng == null) return null;
+  try {
+    const params = new URLSearchParams({
+      x: String(lng),
+      y: String(lat),
+      benchmark: 'Public_AR_Census2020',
+      vintage: 'Census2020_Census2020',
+      layers: 'Counties,Metropolitan Statistical Areas',
+      format: 'json',
+    });
+    const res = await fetch(
+      `https://geocoding.geo.census.gov/geocoder/geographies/coordinates?${params}`
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const geographies = data?.result?.geographies;
+    if (!geographies) return null;
+
+    // County
+    const counties = geographies['Counties'] || [];
+    const county = counties[0];
+    if (!county) return null;
+    const stateFips  = county.STATE;
+    const countyFips = county.STATE + county.COUNTY;
+    const countyName = county.NAME || county.BASENAME || null;
+
+    // MSA — try Metro first, fall back to Micro
+    const msaFeatures =
+      geographies['Metropolitan Statistical Areas'] ||
+      geographies['Micropolitan Statistical Areas'] ||
+      [];
+    const msa = msaFeatures[0] || null;
+    const msaCode = msa ? (msa.CBSA || null) : null;
+    const msaName = msa ? (msa.NAME || msa.BASENAME || null) : null;
+
+    return { countyFips, countyName, stateFips, msaCode, msaName };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Convenience pipeline: address → lat/lng → county/MSA.
+ * @param {string} address
+ * @param {string} [token] — Supabase access_token for geocode proxy auth
+ * Returns { countyFips, countyName, stateFips, msaCode, msaName } or null.
+ */
+export async function getCountyAndMsaForAddress(address, token) {
+  const coords = await geocodeAddress(address, token);
+  if (!coords) return null;
+  return getCountyAndMsa(coords.lat, coords.lng);
+}
+
+/**
  * Human-readable flood zone metadata.
  */
 export function floodZoneInfo(zone) {

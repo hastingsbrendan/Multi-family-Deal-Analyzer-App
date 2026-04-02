@@ -4,7 +4,7 @@ import { FMT_USD, FMT_PCT, mapsUrl, sbClient, SB_BUCKET } from '../lib/constants
 import { resolveExpenses } from '../lib/calc';
 import { useIsMobile } from '../lib/hooks';
 import InputRow, { iSty, btnSm, srcSty, fmtInputDisplay, parseInputValue, Tip } from './ui/InputRow';
-import { getFloodZoneForAddress, floodZoneInfo } from '../lib/floodZone';
+import { getFloodZoneForAddress, floodZoneInfo, getCountyAndMsaForAddress } from '../lib/floodZone';
 import Section from './ui/Section';
 import { getStateOptions } from '../lib/taxEngine';
 
@@ -268,18 +268,28 @@ function PropertyLookupPanel({deal, onChange}) {
     setInput('');
     setOpen(false);
 
-    // Async: fetch FEMA flood zone and update deal
-    const addrForFlood = d.address || preview.parsedAddr;
-    if (addrForFlood) {
+    // Async: fetch FEMA flood zone + county/MSA lookup in parallel
+    const addrForAsync = d.address || preview.parsedAddr;
+    if (addrForAsync) {
       sbClient.auth.getSession().then(({ data: { session } }) => {
-        const floodToken = session?.access_token;
-        getFloodZoneForAddress(addrForFlood, floodToken).then(zone => {
-          if (zone) {
+        const token = session?.access_token;
+        Promise.all([
+          getFloodZoneForAddress(addrForAsync, token).catch(() => null),
+          getCountyAndMsaForAddress(addrForAsync, token).catch(() => null),
+        ]).then(([zone, countyMsa]) => {
+          if (zone || countyMsa) {
             const upd2 = JSON.parse(JSON.stringify(d));
-            upd2.assumptions.floodZone = zone;
+            if (zone) upd2.assumptions.floodZone = zone;
+            if (countyMsa) {
+              upd2.assumptions.countyFips  = countyMsa.countyFips;
+              upd2.assumptions.countyName  = countyMsa.countyName;
+              upd2.assumptions.stateFips   = countyMsa.stateFips;
+              upd2.assumptions.msaCode     = countyMsa.msaCode;
+              upd2.assumptions.msaName     = countyMsa.msaName;
+            }
             onChange(upd2);
           }
-        }).catch(e => Sentry.captureException(e, { tags: { origin: 'AssumptionsTab.floodZone' } }));
+        }).catch(e => Sentry.captureException(e, { tags: { origin: 'AssumptionsTab.asyncLookup' } }));
       });
     }
   };
