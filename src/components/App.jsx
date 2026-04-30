@@ -98,8 +98,9 @@ function App() {
     };
   }, [profileMenuOpen]);
 
-  const { addDeal: _addDeal, updateDeal, deleteDeal, reorderDeals } = useDeals({ prefs, setDeals, markDealDirty });
+  const { addDeal: _addDeal, addSampleDeal: _addSampleDeal, updateDeal, deleteDeal, reorderDeals } = useDeals({ prefs, setDeals, markDealDirty });
   const addDeal = useCallback(() => _addDeal(setActiveDealId), [_addDeal, setActiveDealId]);
+  const addSampleDeal = useCallback(() => _addSampleDeal(setActiveDealId), [_addSampleDeal, setActiveDealId]);
 
   const theme = dark ? "dark" : "light";
   const showDisclaimer = user && !user.user_metadata?.disclaimer_ack_at;
@@ -480,6 +481,7 @@ function App() {
               deals={activeGroup ? groupDeals : deals}
               onSelect={id=>setActiveDealId(id)}
               onAdd={activeGroup ? addGroupDeal : addDeal}
+              onAddSample={activeGroup ? null : addSampleDeal}
               onDelete={activeGroup ? deleteGroupDeal : deleteDeal}
               onExport={()=>import('../lib/export').then(m=>m.exportPortfolioXLSX(activeGroup ? groupDeals : deals, user))}
               onReorder={activeGroup ? reorderGroupDeals : reorderDeals}

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import { iSty } from './ui/InputRow';
+import Tip from './ui/Tip';
 import { FMT_USD, FMT_PCT, FMT_X, mapsUrl } from '../lib/constants';
 import { calcExitScenarios } from '../lib/calc';
+import { GLOSSARY } from '../lib/glossary';
 import PhotoGallery from './PhotoGallery';
 import DSCRBadge from './ui/DSCRBadge';
 import { useIsMobile } from '../lib/hooks';
@@ -73,13 +75,15 @@ function DealSummaryTab({deal, result, onUpdate}) {
     </div>
   );
 
-  const SLbl = ({children}) => (
-    <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--muted)",marginBottom:10,fontFamily:"system-ui"}}>{children}</div>
+  const SLbl = ({children, tip}) => (
+    <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--muted)",marginBottom:10,fontFamily:"system-ui",display:"flex",alignItems:"center"}}>
+      {children}{tip&&<Tip text={tip}/>}
+    </div>
   );
 
-  const KV = ({label,value,color,bold,last}) => (
+  const KV = ({label,value,color,bold,last,tip}) => (
     <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:last?"none":"1px solid var(--border)",fontFamily:"system-ui"}}>
-      <span style={{fontSize:11,color:"var(--muted)"}}>{label}</span>
+      <span style={{fontSize:11,color:"var(--muted)",display:"inline-flex",alignItems:"center"}}>{label}{tip&&<Tip text={tip}/>}</span>
       <span style={{fontSize:12,fontWeight:bold?800:700,color:color||"var(--text)"}}>{value}</span>
     </div>
   );
@@ -186,15 +190,15 @@ function DealSummaryTab({deal, result, onUpdate}) {
         );
       };
       const returnItems = [
-        {label:`IRR (${holdYears}-Year)`,val:FMT_PCT(result.irr),good:result.irr>0.12,note:"Target: >12%"},
-        {label:"Cap Rate Yr 1",val:FMT_PCT(result.capRate),good:result.capRate>0.05,note:"Target: >5%"},
+        {label:`IRR (${holdYears}-Year)`,val:FMT_PCT(result.irr),good:result.irr>0.12,note:"Target: >12%",tip:GLOSSARY.irr},
+        {label:"Cap Rate Yr 1",val:FMT_PCT(result.capRate),good:result.capRate>0.05,note:"Target: >5%",tip:GLOSSARY.capRate},
       ];
       return(
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 2fr",gap:10,marginBottom:10,alignItems:"stretch"}}>
           {/* Col 1: Hero card (compact) + IRR + Cap Rate side-by-side below */}
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
             <Panel accent>
-              <SLbl>Avg. Monthly Equity Growth · {holdYears}-Year Hold</SLbl>
+              <SLbl tip="Total monthly equity gained across the hold period — sum of appreciation, principal paydown, cash flow, and tax benefits, divided by months held.">Avg. Monthly Equity Growth · {holdYears}-Year Hold</SLbl>
               <div style={{fontSize:36,fontWeight:900,letterSpacing:"-2px",color:avgMonthlyEquity>=0?"var(--accent)":"var(--red)",lineHeight:1,marginBottom:6}}>
                 {avgMonthlyEquity>=0?"+":"-"}{FMT_USD(Math.abs(avgMonthlyEquity))}<span style={{fontSize:13,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
               </div>
@@ -214,9 +218,9 @@ function DealSummaryTab({deal, result, onUpdate}) {
             </Panel>
             {/* IRR + Cap Rate side-by-side below hero */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-              {returnItems.map(({label,val,good,note})=>(
+              {returnItems.map(({label,val,good,note,tip})=>(
                 <Panel key={label}>
-                  <div style={{fontSize:10,color:"var(--muted)",fontFamily:"system-ui",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>{label}</div>
+                  <div style={{fontSize:10,color:"var(--muted)",fontFamily:"system-ui",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4,display:"flex",alignItems:"center"}}>{label}{tip&&<Tip text={tip}/>}</div>
                   <div style={{fontSize:22,fontWeight:900,color:good?"var(--accent)":"var(--accent2)",lineHeight:1}}>{val}</div>
                   <div style={{fontSize:10,color:"var(--muted)",fontFamily:"system-ui",marginTop:4}}>{note}</div>
                 </Panel>
@@ -373,7 +377,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
 
             {/* Cash Flow hero */}
             <Panel accent>
-              <SLbl>{result.ooEnabled?"Avg Monthly Cash Flow · You in Unit "+(( result.ooUnit||0)+1):"Avg Monthly Cash Flow · "+_holdLen+"-Yr Hold"}</SLbl>
+              <SLbl tip={GLOSSARY.cashFlow}>{result.ooEnabled?"Avg Monthly Cash Flow · You in Unit "+(( result.ooUnit||0)+1):"Avg Monthly Cash Flow · "+_holdLen+"-Yr Hold"}</SLbl>
               <div style={{fontSize:44,fontWeight:900,letterSpacing:"-2px",color:avgMonthlyCF>=0?"var(--green)":"var(--accent2)",lineHeight:1,marginBottom:10}}>
                 {avgMonthlyCF>=0?"+":"-"}{FMT_USD(Math.abs(avgMonthlyCF))}<span style={{fontSize:14,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
               </div>
@@ -381,7 +385,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
               {result.ooEnabled&&altRent>0&&(
                 <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,padding:"9px 12px"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,gap:8,flexWrap:"wrap"}}>
-                    <div style={{fontSize:10,fontFamily:"system-ui",fontWeight:800,letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--muted)"}}>Avg Monthly Incremental Cash Flow</div>
+                    <div style={{fontSize:10,fontFamily:"system-ui",fontWeight:800,letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--muted)",display:"flex",alignItems:"center"}}>Avg Monthly Incremental Cash Flow<Tip text={GLOSSARY.incrementalCashFlow}/></div>
                     <div style={{background:"var(--table-head)",border:"1px solid var(--border)",borderRadius:100,padding:"3px 10px",fontSize:11,color:"var(--muted)",fontFamily:"system-ui",whiteSpace:"nowrap"}}>
                       Alt Rent&nbsp;&nbsp;{FMT_USD(altRent)}/mo
                     </div>
@@ -395,7 +399,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
 
             {/* Effective Mortgage */}
             <Panel style={{borderTop:"2px solid var(--accent)"}}>
-              <SLbl>Effective Mortgage</SLbl>
+              <SLbl tip={GLOSSARY.effectiveMortgage}>Effective Mortgage</SLbl>
               <div style={{fontSize:11,color:"var(--muted)",fontFamily:"system-ui",marginBottom:8}}>PITI − Tenant rents</div>
               <div style={{fontSize:28,fontWeight:900,letterSpacing:"-1px",color:emPos?"#dc2626":"var(--green)",lineHeight:1,marginBottom:10}}>
                 {emPos?"+":"-"}{FMT_USD(Math.abs(effectiveMortgage))}<span style={{fontSize:13,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
@@ -509,7 +513,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
           {/* Tax stack */}
           <div style={{marginTop:6,marginBottom:2,fontSize:9,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:"var(--muted)",fontFamily:"system-ui"}}>Tax on Sale</div>
           <KV label="Total Gain" value={FMT_USD(result.totalGainOnSale)}/>
-          <KV label="§1250 Recapture (25%)" value={FMT_USD(-result.recaptureTax)} color="var(--red)"/>
+          <KV label="§1250 Recapture (25%)" value={FMT_USD(-result.recaptureTax)} color="var(--red)" tip={GLOSSARY.sec1250Recapture}/>
           <KV label="LTCG (15%)" value={FMT_USD(-result.ltcgTax)} color="var(--red)"/>
           {/* PAL carryforward benefit — deferred tax asset, not cash */}
           {result.taxAdvEnabled&&result.palTaxBenefit>0&&(
@@ -568,10 +572,10 @@ function DealSummaryTab({deal, result, onUpdate}) {
             <KV key={i} label={"Unit "+(i+1)+(result.ooEnabled&&i===result.ooUnit?" 🏠":"")} value={FMT_USD(+(u.rent||u.listedRent)||0)+"/mo"} color={result.ooEnabled&&i===result.ooUnit?"var(--muted)":"var(--text)"}/>
           ))}
           <KV label="Gross Rent" value={FMT_USD(result.grossRentYear0/12)+"/mo"}/>
-          <KV label={"Vacancy ("+((+a.vacancyRate)||0)+"%)"} value={FMT_USD(-result.grossRentYear0/12*(+a.vacancyRate||0)/100)+"/mo"} color="#dc2626"/>
-          <KV label="EGI (All Units)" value={FMT_USD(result.years[0]?.egi/12||0)+"/mo"} color="var(--accent)" bold/>
+          <KV label={"Vacancy ("+((+a.vacancyRate)||0)+"%)"} value={FMT_USD(-result.grossRentYear0/12*(+a.vacancyRate||0)/100)+"/mo"} color="#dc2626" tip={GLOSSARY.vacancyRate}/>
+          <KV label="EGI (All Units)" value={FMT_USD(result.years[0]?.egi/12||0)+"/mo"} color="var(--accent)" bold tip={GLOSSARY.egi}/>
           {result.ooEnabled&&<KV label="EGI (Tenant Only)" value={FMT_USD(egiExOO)+"/mo"} color="var(--accent)" bold/>}
-          <KV label="NOI Year 1" value={FMT_USD(result.noi)+"/yr"} color="var(--accent)" last/>
+          <KV label="NOI Year 1" value={FMT_USD(result.noi)+"/yr"} color="var(--accent)" last tip={GLOSSARY.noi}/>
         </Panel>
         <Panel>
           <SLbl>Annual Expenses</SLbl>
@@ -585,7 +589,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
           return (
             <div style={{background:pass?"rgba(16,185,129,0.07)":"rgba(239,68,68,0.07)",border:`1px solid ${pass?"rgba(16,185,129,0.25)":"rgba(239,68,68,0.25)"}`,borderRadius:10,padding:"10px 12px"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--muted)",fontFamily:"system-ui"}}>FHA Self-Sufficiency</div>
+                <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--muted)",fontFamily:"system-ui",display:"flex",alignItems:"center"}}>FHA Self-Sufficiency<Tip text={GLOSSARY.fhaSelfSufficiency}/></div>
                 <div style={{fontSize:11,fontWeight:900,color:pass?"var(--green)":"var(--red)",background:pass?"rgba(16,185,129,0.15)":"rgba(239,68,68,0.15)",padding:"2px 10px",borderRadius:100,fontFamily:"system-ui"}}>
                   {pass?"PASS":"FAIL"}
                 </div>

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import Tip from './Tip';
 
-const iSty={width:"100%",background:"var(--input-bg)",border:"1.5px solid var(--border)",borderRadius:10,padding:"9px 12px",color:"var(--text)",fontSize:14,WebkitAppearance:"none",appearance:"none"};
-const srcSty={...iSty,color:"var(--muted)",fontSize:12,borderRadius:10};
-const btnSm={background:"var(--accent)",color:"#fff",border:"none",borderRadius:100,width:30,height:30,cursor:"pointer",fontSize:15,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0};
+const iSty={width:"100%",background:"var(--input-bg)",border:"1.5px solid var(--border)",borderRadius:"var(--r-md)",padding:"9px 12px",color:"var(--text)",fontSize:"var(--text-base)",WebkitAppearance:"none",appearance:"none"};
+const srcSty={...iSty,color:"var(--muted)",fontSize:"var(--text-sm)"};
+const btnSm={background:"var(--accent)",color:"#fff",border:"none",borderRadius:"var(--r-pill)",width:30,height:30,cursor:"pointer",fontSize:"var(--text-md)",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0};
 
 // Format a number with commas for display; suppress zero (show blank instead)
 
@@ -17,31 +18,6 @@ function fmtInputDisplay(value) {
 // Strip commas before passing back to state
 function parseInputValue(str) {
   return str.replace(/,/g,"");
-}
-
-// Tip — inline tooltip icon with hover/tap popover. Import and use anywhere.
-// Usage: <Tip text="Plain-English explanation of this field." />
-function Tip({text}) {
-  const [open, setOpen] = React.useState(false);
-  return (
-    <span style={{position:'relative',display:'inline-flex',alignItems:'center',marginLeft:4,flexShrink:0}}
-      onMouseEnter={()=>setOpen(true)} onMouseLeave={()=>setOpen(false)}
-      onClick={e=>{e.stopPropagation();setOpen(v=>!v);}}>
-      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style={{color:'var(--muted)',display:'block',cursor:'help'}}>
-        <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5"/>
-        <text x="8" y="12" textAnchor="middle" fontSize="10" fill="currentColor" fontWeight="700">?</text>
-      </svg>
-      {open&&(
-        <span style={{position:'absolute',bottom:'calc(100% + 6px)',left:'50%',transform:'translateX(-50%)',
-          background:'var(--card)',border:'1px solid var(--border)',borderRadius:8,
-          padding:'8px 11px',width:230,zIndex:9999,
-          boxShadow:'0 4px 16px rgba(0,0,0,0.18)',pointerEvents:'none',
-          fontSize:11,color:'var(--text)',lineHeight:1.55,fontWeight:400,whiteSpace:'normal',display:'block'}}>
-          {text}
-        </span>
-      )}
-    </span>
-  );
 }
 
 function InputRow({label,value,onChange,type="number",prefix,suffix,tip}){

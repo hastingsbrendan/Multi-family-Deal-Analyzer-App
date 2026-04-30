@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import InputRow, { iSty, Tip } from './ui/InputRow';
+import InputRow, { iSty } from './ui/InputRow';
+import Tip from './ui/Tip';
+import EmptyState from './ui/EmptyState';
 import { FMT_PCT, FMT_USD, FMT_X, STATUS_COLORS, STATUS_OPTIONS } from '../lib/constants';
 import { useIsMobile } from '../lib/hooks';
 import { calcDeal } from '../lib/calc';
@@ -127,7 +129,7 @@ function ViewToggle({ view, setView }) {
 }
 
 // ─── PortfolioPage ────────────────────────────────────────────────────────────
-function PortfolioPage({ deals, onSelect, onAdd, onDelete, onExport, onReorder, dark, setDark, filterState, onTour, activeGroup, onExitGroup, onShareDeal, onOpenGroups }) {
+function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport, onReorder, dark, setDark, filterState, onTour, activeGroup, onExitGroup, onShareDeal, onOpenGroups }) {
   const [filter, setFilter] = filterState;
   const [viewMode, setViewMode] = useState('cards');
   const [dragIdx, setDragIdx] = useState(null);
@@ -210,12 +212,20 @@ function PortfolioPage({ deals, onSelect, onAdd, onDelete, onExport, onReorder, 
     </div>
   );
 
-  const emptyState = (
+  const emptyState = (deals || []).length === 0 ? (
+    <div data-tour="portfolio-list" style={{ padding: isMobile ? '40px 0' : '60px 0' }}>
+      <EmptyState
+        icon="🏘"
+        title="No deals yet"
+        body="Add your first 2–4 unit property to start analyzing — or kick the tires on a fully-loaded sample duplex."
+        primary={{ label: isMobile ? '+ Add Deal' : '+ New Deal', onClick: onAdd }}
+        secondary={onAddSample ? { label: 'Try a sample deal →', onClick: onAddSample } : null}
+        dashed
+      />
+    </div>
+  ) : (
     <div data-tour="portfolio-list" style={{ textAlign: 'center', padding: isMobile ? '60px 20px' : '80px 20px', color: 'var(--muted)' }}>
-      {(deals || []).length === 0
-        ? <><div style={{ fontSize: 48, marginBottom: isMobile ? 12 : 16 }}>🏘</div><div style={{ fontSize: isMobile ? 14 : 16 }}>No deals yet. Tap <strong style={{ color: 'var(--text)' }}>+ {isMobile ? 'Add' : 'New Deal'}</strong> to get started.</div></>
-        : 'No deals match this filter.'
-      }
+      No deals match this filter.
     </div>
   );
 

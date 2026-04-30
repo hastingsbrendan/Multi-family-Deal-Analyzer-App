@@ -1,9 +1,18 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { iSty } from './ui/InputRow';
+import Tip from './ui/Tip';
 import { FMT_PCT, FMT_USD } from '../lib/constants';
 import { DEFAULT_PREFS } from '../lib/calc';
+import { GLOSSARY } from '../lib/glossary';
 import { useIsMobile } from '../lib/hooks';
 import { floodZoneInfo } from '../lib/floodZone';
+
+// Per-flag plain-English tooltips, keyed by the flag's `key`
+const FLAG_TIPS = {
+  dscr:     GLOSSARY.dscrLenderView,
+  caprate:  GLOSSARY.capRate,
+  expratio: GLOSSARY.expenseRatio,
+};
 
 function RedFlagsTab({deal,result,onChange,prefs=DEFAULT_PREFS}){
   const [exp,setExp]=useState({});
@@ -52,7 +61,7 @@ function RedFlagsTab({deal,result,onChange,prefs=DEFAULT_PREFS}){
     {trg.map(flag=>(<div key={flag.key} style={{...cSty,border:`1px solid ${SC[flag.severity]}55`,background:SB[flag.severity]}}>
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
         <span style={{fontSize:10,fontWeight:800,padding:"2px 8px",borderRadius:10,background:SC[flag.severity],color:"#fff",letterSpacing:"0.05em"}}>{flag.severity.toUpperCase()}</span>
-        <span style={{fontSize:13,fontWeight:700,color:"var(--text)"}}>{flag.label}</span>
+        <span style={{fontSize:13,fontWeight:700,color:"var(--text)",display:"inline-flex",alignItems:"center"}}>{flag.label}{FLAG_TIPS[flag.key]&&<Tip text={FLAG_TIPS[flag.key]}/>}</span>
       </div>
       <div style={{fontSize:12,color:"var(--muted)",marginBottom:8}}>{flag.detail}</div>
       <div style={{display:"flex",gap:20,fontSize:11,marginBottom:10}}>
@@ -64,7 +73,16 @@ function RedFlagsTab({deal,result,onChange,prefs=DEFAULT_PREFS}){
       </button>
       {exp[flag.key]&&(<textarea value={mit[flag.key]||""} onChange={e=>upd(d=>{d.redFlags.mitigations[flag.key]=e.target.value;})} rows={3} placeholder="Describe how you plan to address this risk…" style={{...iSty,resize:"vertical",marginTop:8}}/>)}
     </div>))}
-    {clr.length>0&&(<div style={{fontSize:11,color:"var(--muted)",marginBottom:16,paddingLeft:2}}>✓ {clr.map(f=>f.label).join(" · ")}</div>)}
+    {clr.length>0&&(
+      <div style={{fontSize:11,color:"var(--muted)",marginBottom:16,paddingLeft:2,display:"flex",flexWrap:"wrap",gap:4,alignItems:"center"}}>
+        ✓
+        {clr.map((f,i)=>(
+          <span key={f.key} style={{display:"inline-flex",alignItems:"center"}}>
+            {f.label}{FLAG_TIPS[f.key]&&<Tip text={FLAG_TIPS[f.key]}/>}{i<clr.length-1&&<span>&nbsp;·&nbsp;</span>}
+          </span>
+        ))}
+      </div>
+    )}
     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10,marginTop:8}}>
       <div style={{fontSize:11,fontWeight:700,color:"var(--muted)",letterSpacing:"0.08em"}}>MANUAL FLAGS</div>
       <button onClick={()=>upd(d=>d.redFlags.manual.push({id:Date.now(),label:"",detail:"",mitigation:""}))} style={{background:"var(--accent)",color:"#fff",border:"none",borderRadius:100,padding:"5px 12px",fontSize:11,fontWeight:700,cursor:"pointer"}}>+ Add Flag</button>

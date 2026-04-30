@@ -1,8 +1,28 @@
 import React, { useState, useRef } from 'react';
 import { iSty } from './ui/InputRow';
+import Tip from './ui/Tip';
 import { FMT_USD, FMT_PCT } from '../lib/constants';
+import { GLOSSARY } from '../lib/glossary';
 import { useIsMobile } from '../lib/hooks';
 import CFSectionHeader from './ui/CFSectionHeader';
+
+// Map Cash-Flow row labels (or label prefixes) to a glossary tip key.
+// The R helper looks up by exact label first, then by prefix-match.
+const ROW_TIPS = {
+  'Gross Rent':           "Total annual rent from all units assuming 100% occupancy and Yr-1 rent.",
+  'Vacancy Loss (tenant units)': GLOSSARY.vacancyRate,
+  'EGI':                  GLOSSARY.egi,
+  'NOI':                  GLOSSARY.noi,
+  'Cash Flow':            GLOSSARY.cashFlow,
+  'Incremental Cash Flow':GLOSSARY.incrementalCashFlow,
+  'After-Tax Cash Flow':  "Cash Flow minus your federal tax owed (or plus your tax savings if rental shows a loss).",
+  'Total Equity':         "Property value minus remaining loan balance — your accumulated stake in the property.",
+  '= Taxable Income (Gross)':  "NOI plus owner-expense add-back, minus mortgage interest and depreciation. Your starting point for federal tax.",
+  '= Eff. Taxable Income':"Taxable income after applying any prior-year suspended losses (PAL carryforward).",
+  '= Taxable RE Income':  "NOI minus mortgage interest minus depreciation. Your federal tax basis for this rental.",
+  '− QBI Deduction (20%)':GLOSSARY.qbi,
+  'PAL Carryforward Balance': GLOSSARY.palCarryforward,
+};
 
 // Style factories moved outside component — they never depend on props/state
 // so there's no need to recreate them on every render.
@@ -32,7 +52,18 @@ function CashFlowTab({result,deal}){
   const [showCFDetail,setShowCFDetail]=useState(false);
   const [showIncrementalTip,setShowIncrementalTip]=useState(false);
   const Yr=({children,bold,color})=>result.years.map(y=>(<td key={y.yr} style={tdR(bold,color)}>{children(y)}</td>));
-  const R=({label,children,bold,color,indent,labelColor})=>(<tr><td style={tdL(bold,indent,labelColor)}>{label}</td>{children}</tr>);
+  const R=({label,children,bold,color,indent,labelColor,tip})=>{
+    // Auto-look-up tip from ROW_TIPS by exact label match if not explicitly passed.
+    const t = tip ?? (typeof label === 'string' ? ROW_TIPS[label] : null);
+    return (
+      <tr>
+        <td style={tdL(bold,indent,labelColor)}>
+          <span style={{display:'inline-flex',alignItems:'center'}}>{label}{t&&<Tip text={t}/>}</span>
+        </td>
+        {children}
+      </tr>
+    );
+  };
   const oo=result.ooEnabled;
   const altRent=result.ooAltRentMonthly||0;
   const hasCF=result.taxAdvEnabled&&result.years.some(y=>y.cumulativeCarryforward>0||y.suspendedLossThisYr>0);
@@ -43,17 +74,17 @@ function CashFlowTab({result,deal}){
       <div style={{display:"flex",flexWrap:"wrap",gap:10,marginBottom:16,padding:"12px 14px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:12}}>
         <div style={{fontSize:11,fontWeight:800,letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--accent)",width:"100%",marginBottom:4}}>Year 1 Snapshot</div>
         {[
-          {label:"Monthly Cash Flow", value: result.years[0].monthlyCashFlow, fmt:"usd", sign:true},
-          {label:"NOI", value: result.noi, fmt:"usd"},
-          {label:"DSCR", value: result.dscr, fmt:"x"},
-          {label:"CoC Return", value: result.cocReturn, fmt:"pct"},
-        ].map(({label, value, fmt, sign}) => {
+          {label:"Monthly Cash Flow", value: result.years[0].monthlyCashFlow, fmt:"usd", sign:true, tip: GLOSSARY.cashFlow},
+          {label:"NOI", value: result.noi, fmt:"usd", tip: GLOSSARY.noi},
+          {label:"DSCR", value: result.dscr, fmt:"x", tip: GLOSSARY.dscr},
+          {label:"CoC Return", value: result.cocReturn, fmt:"pct", tip: GLOSSARY.cocReturn},
+        ].map(({label, value, fmt, sign, tip}) => {
           const isGood = fmt==="usd"&&sign ? value>=0 : fmt==="x" ? value>=1.25 : fmt==="pct" ? value>=0.06 : true;
           const color = (fmt==="usd"&&sign) || fmt==="x" || fmt==="pct" ? (isGood?"var(--green)":"var(--red)") : "var(--text)";
           const display = fmt==="usd" ? FMT_USD(Math.abs(value||0)) : fmt==="pct" ? FMT_PCT(value) : fmt==="x" ? (value!=null?(+value).toFixed(2)+"x":"—") : "—";
           return (
             <div key={label} style={{flex:"1 1 120px",minWidth:100}}>
-              <div style={{fontSize:10,color:"var(--muted)",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3}}>{label}</div>
+              <div style={{fontSize:10,color:"var(--muted)",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3,display:"flex",alignItems:"center"}}>{label}{tip&&<Tip text={tip}/>}</div>
               <div style={{fontSize:18,fontWeight:900,color,lineHeight:1}}>
                 {fmt==="usd"&&sign&&value!=null?(value>=0?"+":"-"):""}
                 {display}
