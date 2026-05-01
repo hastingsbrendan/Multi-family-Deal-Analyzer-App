@@ -122,6 +122,9 @@ async function sbWrite(deals) {
 async function sbWriteDeal(deal) {
   const { data: { user } } = await sbClient.auth.getUser();
   if (!user) throw new Error("Not authenticated");
+  // Validate before persisting — catches drift between in-memory shape and what
+  // we'd round-trip through the cloud. Logs to Sentry but does not block the write.
+  validateDealShape(deal, 'sbWriteDeal');
   const now = new Date().toISOString();
   const row = {
     user_id: user.id,

@@ -13,6 +13,7 @@ import { useSubscription } from '../contexts/SubscriptionContext';
 import { FeedbackModal } from './FeedbackModal';
 import UndoToast from './ui/UndoToast';
 import Pill from './ui/Pill';
+import Spinner from './ui/Spinner';
 import DisclaimerModal from './DisclaimerModal';
 
 // Core views — always needed on first load
@@ -205,12 +206,8 @@ function App() {
 
   if (deals === null) {
     return (
-      <div data-theme={theme} style={{minHeight:"100vh",background:"var(--bg)",display:"flex",alignItems:"center",justifyContent:"center"}}>
-        <div style={{textAlign:"center",color:"var(--muted)"}}>
-          <div style={{fontSize:32,marginBottom:12}}>☁️</div>
-          <div style={{fontSize:15,fontWeight:700,color:"var(--text)",marginBottom:4}}>Loading…</div>
-          <div style={{fontSize:12}}>Restoring your session</div>
-        </div>
+      <div data-theme={theme}>
+        <Spinner fullPage label="Restoring your session…"/>
       </div>
     );
   }
@@ -223,8 +220,8 @@ function App() {
 
   // Auth gate
   if (authLoading) return (
-    <div data-theme="dark" style={{minHeight:"100vh",background:"var(--bg)",display:"flex",alignItems:"center",justifyContent:"center"}}>
-      <div style={{color:"var(--accent)",fontSize:15,fontWeight:700}}>Loading…</div>
+    <div data-theme="dark">
+      <Spinner fullPage/>
     </div>
   );
   if (!user) {
@@ -286,7 +283,7 @@ function App() {
               if (pushFields && pushFields.size > 0 && deals?.length > 0) {
                 const has = (k) => pushFields.has(k);
                 const updated = deals.map(d => {
-                  const a = JSON.parse(JSON.stringify(d.assumptions));
+                  const a = structuredClone(d.assumptions);
                   const cc = { ...(a.closingCosts||{}) };
                   if (has('downPaymentPct'))   a.downPaymentPct   = newPrefs.downPaymentPct;
                   if (has('interestRate'))     a.interestRate     = newPrefs.interestRate;
@@ -493,7 +490,7 @@ function App() {
           </div>
         )}
         {!activeDeal
-          ?(!deals ? <div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:"var(--muted)",fontSize:14}}>Loading…</div></div> : <PortfolioPage
+          ?(!deals ? <Spinner fullPage/> : <PortfolioPage
               deals={activeGroup ? groupDeals : deals}
               onSelect={id=>setActiveDealId(id)}
               onAdd={activeGroup ? addGroupDeal : addDeal}

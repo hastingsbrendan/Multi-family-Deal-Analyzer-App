@@ -49,7 +49,7 @@ function ExpenseInputRow({lbl, modeToggle, isItemPct, rawVal, onChange, mobile, 
 function AssumptionsTab({deal,onChange}){
   const a=deal.assumptions;
   const isMobile=useIsMobile();
-  const upd=(path,val)=>{const d=JSON.parse(JSON.stringify(deal));const parts=path.split(".");let obj=d.assumptions;for(let i=0;i<parts.length-1;i++){if(obj[parts[i]]==null||typeof obj[parts[i]]!=="object")obj[parts[i]]={};obj=obj[parts[i]];}obj[parts[parts.length-1]]=val;onChange(d);};
+  const upd=(path,val)=>{const d=structuredClone(deal);const parts=path.split(".");let obj=d.assumptions;for(let i=0;i<parts.length-1;i++){if(obj[parts[i]]==null||typeof obj[parts[i]]!=="object")obj[parts[i]]={};obj=obj[parts[i]];}obj[parts[parts.length-1]]=val;onChange(d);};
   // Auto-populate state from deal.address whenever address changes and state is not yet set.
   // Matches the 2-letter state code from formatted addresses like "123 Main St, Chicago, IL 60601".
   useEffect(() => {
@@ -79,7 +79,7 @@ function AssumptionsTab({deal,onChange}){
         const ptMode = (a.expenseModes?.propertyTax) || "value";
         const isPtPct = ptMode === "pct";
         const togglePtMode = () => {
-          const d = JSON.parse(JSON.stringify(deal));
+          const d = structuredClone(deal);
           if (!d.assumptions.expenseModes) d.assumptions.expenseModes = {};
           d.assumptions.expenseModes.propertyTax = isPtPct ? "value" : "pct";
           onChange(d);
@@ -140,7 +140,7 @@ function AssumptionsTab({deal,onChange}){
                 <span style={{color:"var(--muted)",fontSize:13}}>$</span>
                 <FmtInt
                   value={a.expenses?.propertyTax||0}
-                  onChange={v=>{const d=JSON.parse(JSON.stringify(deal));d.assumptions.expenses=d.assumptions.expenses||{};d.assumptions.expenses.propertyTax=v;d.assumptions.expenseModes=d.assumptions.expenseModes||{};d.assumptions.expenseModes.propertyTax="value";onChange(d);}}
+                  onChange={v=>{const d=structuredClone(deal);d.assumptions.expenses=d.assumptions.expenses||{};d.assumptions.expenses.propertyTax=v;d.assumptions.expenseModes=d.assumptions.expenseModes||{};d.assumptions.expenseModes.propertyTax="value";onChange(d);}}
                   placeholder="e.g. 23,707"
                   style={{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit",flex:1}}/>
               </div>
@@ -152,7 +152,7 @@ function AssumptionsTab({deal,onChange}){
               {a.rentcastData?.annualTax && !ptAnnual &&
                 <div style={{fontSize:11,color:"var(--muted)",marginTop:3}}>
                   Rentcast: ${(+a.rentcastData.annualTax).toLocaleString()}/yr
-                  <button onClick={()=>{const d=JSON.parse(JSON.stringify(deal));d.assumptions.expenses=d.assumptions.expenses||{};d.assumptions.expenses.propertyTax=Math.round(a.rentcastData.annualTax);d.assumptions.expenseModes=d.assumptions.expenseModes||{};d.assumptions.expenseModes.propertyTax="value";onChange(d);}}
+                  <button onClick={()=>{const d=structuredClone(deal);d.assumptions.expenses=d.assumptions.expenses||{};d.assumptions.expenses.propertyTax=Math.round(a.rentcastData.annualTax);d.assumptions.expenseModes=d.assumptions.expenseModes||{};d.assumptions.expenseModes.propertyTax="value";onChange(d);}}
                     style={{marginLeft:6,fontSize:11,color:"var(--accent)",background:"none",border:"none",cursor:"pointer",padding:0,fontFamily:"inherit"}}>
                     Use this
                   </button>
@@ -178,10 +178,10 @@ function AssumptionsTab({deal,onChange}){
                 <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Showing Date & Time</div>
                 <div style={{display:"flex",gap:8}}>
                   <input type="date" value={deal.showingDate||""}
-                    onChange={e=>{const d=JSON.parse(JSON.stringify(deal));d.showingDate=e.target.value;onChange(d);}}
+                    onChange={e=>{const d=structuredClone(deal);d.showingDate=e.target.value;onChange(d);}}
                     style={{...{flex:1,padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"},colorScheme:"light dark"}}/>
                   <input type="time" value={deal.showingTime||""}
-                    onChange={e=>{const d=JSON.parse(JSON.stringify(deal));d.showingTime=e.target.value;onChange(d);}}
+                    onChange={e=>{const d=structuredClone(deal);d.showingTime=e.target.value;onChange(d);}}
                     style={{...{width:100,padding:"7px 10px",borderRadius:7,fontSize:14,border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"},colorScheme:"light dark"}}/>
                 </div>
               </div>
@@ -344,7 +344,7 @@ function AssumptionsTab({deal,onChange}){
                         placeholder="25"
                         onChange={e=>{
                           const pct = +e.target.value;
-                          const d=JSON.parse(JSON.stringify(deal));
+                          const d=structuredClone(deal);
                           d.assumptions.downPaymentPct=pct;
                           if(pp>0) d.assumptions.downPaymentDollar=Math.round(pp*pct/100);
                           onChange(d);
@@ -362,7 +362,7 @@ function AssumptionsTab({deal,onChange}){
                         placeholder={pp>0?Math.round(pp*0.25):""}
                         onChange={e=>{
                           const dollar = +e.target.value;
-                          const d=JSON.parse(JSON.stringify(deal));
+                          const d=structuredClone(deal);
                           d.assumptions.downPaymentDollar=dollar;
                           if(pp>0) d.assumptions.downPaymentPct=Math.round(dollar/pp*1000)/10;
                           onChange(d);
@@ -448,7 +448,7 @@ function AssumptionsTab({deal,onChange}){
                   placeholder="0"
                   onFocus={e=>{const v=+u.listedRent||0;e.target.value=v?String(v):"";}}
                   onBlur={e=>{const v=+e.target.value.replace(/,/g,"")||0;e.target.value=v?v.toLocaleString():"";}}
-                  onChange={e=>{const d=JSON.parse(JSON.stringify(deal));d.assumptions.units[i]={...d.assumptions.units[i],listedRent:+e.target.value.replace(/,/g,"")};onChange(d);}}
+                  onChange={e=>{const d=structuredClone(deal);d.assumptions.units[i]={...d.assumptions.units[i],listedRent:+e.target.value.replace(/,/g,"")};onChange(d);}}
                   style={{...iSty,flex:1}}/>
                 <span style={{fontSize:11,color:"var(--muted)"}}>/mo</span>
               </div>
@@ -462,7 +462,7 @@ function AssumptionsTab({deal,onChange}){
                   placeholder={effRent ? (+effRent).toLocaleString() : "0"}
                   onFocus={e=>{const v=+u.rent||0;e.target.value=v?String(v):"";}}
                   onBlur={e=>{const v=+e.target.value.replace(/,/g,"")||0;e.target.value=v?v.toLocaleString():"";}}
-                  onChange={e=>{const d=JSON.parse(JSON.stringify(deal));d.assumptions.units[i]={...d.assumptions.units[i],rent:+e.target.value.replace(/,/g,"")};onChange(d);}}
+                  onChange={e=>{const d=structuredClone(deal);d.assumptions.units[i]={...d.assumptions.units[i],rent:+e.target.value.replace(/,/g,"")};onChange(d);}}
                   style={{...iSty,flex:1,borderColor:"var(--accent)"}}/>
                 <span style={{fontSize:11,color:"var(--muted)"}}>/mo</span>
               </div>
@@ -525,7 +525,7 @@ function AssumptionsTab({deal,onChange}){
           );
         }
         const modes=a.expenseModes||{}, isItemPct=modes[vk]==="pct";
-        const toggleMode=()=>{const d=JSON.parse(JSON.stringify(deal));if(!d.assumptions.expenseModes)d.assumptions.expenseModes={};d.assumptions.expenseModes[vk]=isItemPct?"value":"pct";onChange(d);};
+        const toggleMode=()=>{const d=structuredClone(deal);if(!d.assumptions.expenseModes)d.assumptions.expenseModes={};d.assumptions.expenseModes[vk]=isItemPct?"value":"pct";onChange(d);};
         const modeToggle=(<div style={{display:"flex",background:"var(--input-bg)",borderRadius:4,border:"1px solid var(--border)",overflow:"hidden",flexShrink:0}}>{[["value","$"],["pct","%"]].map(([k,l2])=>(<button key={k} onClick={toggleMode} style={{padding:"3px 9px",fontSize:12,fontWeight:700,border:"none",cursor:"pointer",background:(modes[vk]||"value")===k?"var(--accent)":"transparent",color:(modes[vk]||"value")===k?"#fff":"var(--muted)"}}>{l2}</button>))}</div>);
         const expKey=isItemPct?pk:vk;
         const expRawVal=isItemPct?a.expenses[pk]:a.expenses[vk];

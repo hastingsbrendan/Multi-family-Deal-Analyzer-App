@@ -33,7 +33,7 @@ const DEFAULT_SCENARIOS = {
 
 // Apply scenario overrides to a deal to produce a modified copy for calc
 function applyScenario(deal, overrides) {
-  const m = JSON.parse(JSON.stringify(deal));
+  const m = structuredClone(deal);
   const a = m.assumptions;
   if (overrides.rentDelta)         a.units = a.units.map(u => ({ ...u, rent: +u.rent * (1 + overrides.rentDelta/100) }));
   if (overrides.vacancyDelta)      a.vacancyRate = Math.max(0, +a.vacancyRate + overrides.vacancyDelta);
@@ -104,7 +104,7 @@ function SensitivityTab({ deal }) {
 
   // ── Build slider-modified deal ─────────────────────────────────────────────
   const sliderDeal = useMemo(() => {
-    const m = JSON.parse(JSON.stringify(deal));
+    const m = structuredClone(deal);
     const a = m.assumptions;
     Object.entries(sliderOverrides).forEach(([key, val]) => {
       if (key === 'purchasePrice') a.purchasePrice = val;
@@ -168,7 +168,7 @@ function SensitivityTab({ deal }) {
     let hi = getSliderMax(SLIDER_DEFS[1]);
     for (let i = 0; i < 30; i++) {
       const mid = (lo + hi) / 2;
-      const m = JSON.parse(JSON.stringify(deal));
+      const m = structuredClone(deal);
       m.assumptions.units = m.assumptions.units.map(u => ({ ...u, rent: mid }));
       const r = calcDeal(m);
       if (r.monthlyCF > 0) hi = mid; else lo = mid;

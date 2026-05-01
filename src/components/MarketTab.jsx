@@ -147,7 +147,7 @@ function MarketTab({deal, onChange}) {
       setLastZip(zipCode);
       // Persist to deal so data survives tab switches without re-fetching
       if (onChange) {
-        const d = JSON.parse(JSON.stringify(dealRef.current));
+        const d = structuredClone(dealRef.current);
         d.assumptions = d.assumptions || {};
         d.assumptions.marketData = { zipCode, fetchedAt, data };
         onChange(d);
@@ -200,7 +200,7 @@ function MarketTab({deal, onChange}) {
       getCountyAndMsaForAddress(dealAddress, token)
         .then(result => {
           if (!result || !onChange) return;
-          const d = JSON.parse(JSON.stringify(dealRef.current));
+          const d = structuredClone(dealRef.current);
           d.assumptions = d.assumptions || {};
           d.assumptions.countyFips = result.countyFips;
           d.assumptions.countyName = result.countyName;

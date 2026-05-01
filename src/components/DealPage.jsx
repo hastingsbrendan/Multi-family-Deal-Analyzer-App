@@ -9,6 +9,7 @@ import { useFeatureCheck } from './FeatureGate';
 import { trackTabViewed, trackFeatureUsed } from '../lib/analytics';
 import ErrorBoundary from './ErrorBoundary';
 import Button from './ui/Button';
+import Spinner from './ui/Spinner';
 
 // Lazy-load tab components — only downloaded when the user navigates to that tab
 // lazyWithRetry auto hard-reloads on stale-chunk errors after a new deployment
@@ -47,9 +48,7 @@ const TAB_NEXT = {
   6: { id: 0, hint: 'Back to your deal summary' },
 };
 
-const TabFallback = () => (
-  <div style={{padding:40,textAlign:'center',color:'var(--muted)',fontSize:13}}>Loading…</div>
-);
+const TabFallback = () => <Spinner/>;
 
 function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, groupRole, activeGroup, currentUser, prefs, forceTab}) {
   // Land new/empty deals on Assumptions (tab 1) instead of Deal Summary (0).

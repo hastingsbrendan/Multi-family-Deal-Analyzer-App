@@ -45,7 +45,7 @@ function RedFlagsTab({deal,result,onChange,prefs=DEFAULT_PREFS}){
   ];
   const manual=deal.redFlags?.manual||[];
   const mit=deal.redFlags?.mitigations||{};
-  const upd=(fn)=>{const d=JSON.parse(JSON.stringify(deal));if(!d.redFlags)d.redFlags={manual:[],mitigations:{}};if(!d.redFlags.mitigations)d.redFlags.mitigations={};fn(d);onChange(d);};
+  const upd=(fn)=>{const d=structuredClone(deal);if(!d.redFlags)d.redFlags={manual:[],mitigations:{}};if(!d.redFlags.mitigations)d.redFlags.mitigations={};fn(d);onChange(d);};
   const SC={critical:"var(--red)",warning:"var(--refi-amber)"};
   const SB={critical:"rgba(239,68,68,0.094)",warning:"rgba(245,158,11,0.094)"};
   const iSty={background:"var(--input-bg)",border:"1px solid var(--border)",borderRadius:100,padding:"7px 10px",fontSize:13,color:"var(--text)",width:"100%",fontFamily:"inherit"};

@@ -41,7 +41,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
   // Memoize alt scenario (turn OO off for what-if comparison)
   const altResult = React.useMemo(() => {
     if (!deal?.assumptions?.ownerOccupied) return null;
-    const altDeal = JSON.parse(JSON.stringify(deal));
+    const altDeal = structuredClone(deal);
     altDeal.assumptions.ownerOccupied = false;
     altDeal.assumptions.ownerOccupancyYears = 0;
     altDeal.assumptions.alternativeRent = 0;

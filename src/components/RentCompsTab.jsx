@@ -16,8 +16,8 @@ function RentCompsTab({deal,onChange}){
   const inPlaceAvg=inPlaceRents.reduce((s,v)=>s+v,0)/numUnits;
   const compAvgs=comps.map(c=>{const rents=Array.from({length:numUnits},(_,i)=>+(c.units[i]?.rent)||0).filter(r=>r>0);return rents.length?rents.reduce((s,v)=>s+v,0)/rents.length:0;});
   const overallAvg=compAvgs.filter(v=>v>0).length?compAvgs.filter(v=>v>0).reduce((s,v)=>s+v,0)/compAvgs.filter(v=>v>0).length:0;
-  const updComp=(ci,field,val)=>{const d=JSON.parse(JSON.stringify(deal));d.comps[ci][field]=val;onChange(d);};
-  const updUnit=(ci,ui,field,val)=>{const d=JSON.parse(JSON.stringify(deal));if(!d.comps[ci].units[ui])d.comps[ci].units[ui]={rent:0};d.comps[ci].units[ui][field]=val;onChange(d);};
+  const updComp=(ci,field,val)=>{const d=structuredClone(deal);d.comps[ci][field]=val;onChange(d);};
+  const updUnit=(ci,ui,field,val)=>{const d=structuredClone(deal);if(!d.comps[ci].units[ui])d.comps[ci].units[ui]={rent:0};d.comps[ci].units[ui][field]=val;onChange(d);};
   if(isMobile){return(<div style={{padding:"16px 0"}}>
     <div style={{display:"flex",gap:10,marginBottom:20,flexWrap:"wrap"}}>
       <MetricCard label="In-Place Avg/Unit" value={FMT_USD(inPlaceAvg)} sub="per month"/>
