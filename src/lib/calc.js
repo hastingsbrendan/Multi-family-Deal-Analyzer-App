@@ -407,7 +407,7 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     recaptureTax,ltcgTax,palTaxBenefit,netTaxOnSale,capitalGainsTax,netProceeds,
     irr,equityMultiple,breakEvenOccupancy}=exit;
   let irrWithoutVA=irr,irrWithVA=irr;
-  if(vaEnabled){const d2=JSON.parse(JSON.stringify(deal));d2.assumptions.valueAdd={...(a.valueAdd||{}),enabled:false};irrWithoutVA=calcDeal(d2,{_isRecursive:true}).irr;irrWithVA=irr;}
+  if(vaEnabled){const d2=structuredClone(deal);d2.assumptions.valueAdd={...(a.valueAdd||{}),enabled:false};irrWithoutVA=calcDeal(d2,{_isRecursive:true}).irr;irrWithVA=irr;}
   // ── FHA Self-Sufficiency Test (BACK-062) ─────────────────────────────────────
   // Applies to 3–4 unit properties only. HUD rule: 75% of gross rents from ALL
   // units (including owner unit) must >= PITI. Ref: HUD Handbook 4000.1 §II.A.4.b.iv
@@ -434,7 +434,7 @@ function calcExitScenarios(deal) {
   // Include user's hold period, dedupe, sort
   const yearsToRun = [...new Set([...standardYears, userHold])].filter(y => y >= 1 && y <= 30).sort((a,b)=>a-b);
   return yearsToRun.map(yr => {
-    const d = JSON.parse(JSON.stringify(deal));
+    const d = structuredClone(deal);
     d.assumptions.holdPeriod = yr;
     const r = calcDeal(d, { _isRecursive: true });
     return {
@@ -454,7 +454,7 @@ function calcSensitivity(deal) {
   const deltas=[{label:"Rent",unit:"±10%",key:"rent",range:[-0.1,0.1]},{label:"Vacancy",unit:"±5pp",key:"vacancy",range:[-5,5]},{label:"Purchase Price",unit:"±10%",key:"price",range:[-0.1,0.1]},{label:"Interest Rate",unit:"±1%",key:"rate",range:[-1,1]},{label:"Appreciation",unit:"±1%",key:"appr",range:[-1,1]}];
   return deltas.map(d=>{
     const [low,high]=d.range.map(delta=>{
-      const m=JSON.parse(JSON.stringify(deal));
+      const m=structuredClone(deal);
       if(d.key==="rent")m.assumptions.units=m.assumptions.units.map(u=>({...u,rent:+u.rent*(1+delta)}));
       if(d.key==="vacancy")m.assumptions.vacancyRate=+m.assumptions.vacancyRate+delta;
       if(d.key==="price")m.assumptions.purchasePrice=+m.assumptions.purchasePrice*(1+delta);

@@ -122,6 +122,9 @@ async function sbWrite(deals) {
 async function sbWriteDeal(deal) {
   const { data: { user } } = await sbClient.auth.getUser();
   if (!user) throw new Error("Not authenticated");
+  // Validate before persisting — catches drift between in-memory shape and what
+  // we'd round-trip through the cloud. Logs to Sentry but does not block the write.
+  validateDealShape(deal, 'sbWriteDeal');
   const now = new Date().toISOString();
   const row = {
     user_id: user.id,
@@ -207,6 +210,14 @@ async function sbDeletePhoto(url) {
 // ─── CONSTANTS & HELPERS ──────────────────────────────────────────────────────
 const STATUS_OPTIONS = ["Analyzing","Under Contract","Owned","Pass"];
 const STATUS_COLORS  = { Analyzing:"#f59e0b", "Under Contract":"#3b82f6", Owned:"#10b981", Pass:"#ef4444" };
+// Background CSS var per status — used by status pills/badges so theme switching
+// adjusts the alpha tint correctly. Replaces inline STATUS_COLORS[s]+'22' alpha hex.
+const STATUS_BG_VARS = {
+  Analyzing:        'var(--status-analyzing-bg)',
+  'Under Contract': 'var(--status-under-contract-bg)',
+  Owned:            'var(--status-owned-bg)',
+  Pass:             'var(--status-pass-bg)',
+};
 const FMT_USD = (v) => v == null || isNaN(v) ? "—" : v < 0 ? "($" + Math.round(Math.abs(v)).toLocaleString() + ")" : "$" + Math.round(v).toLocaleString();
 const FMT_PCT = (v) => v == null || isNaN(v) ? "—" : (v * 100).toFixed(2) + "%";
 const FMT_X   = (v) => v == null || isNaN(v) ? "—" : v.toFixed(2) + "x";
@@ -219,4 +230,4 @@ const mapsUrl = (addr) => addr ? `https://maps.google.com/?q=${encodeURIComponen
 // RENTCAST_KEY and the Geocoding REST API key are now server-side only (Cloudflare env vars).
 const GMAPS_KEY = import.meta.env.VITE_GMAPS_KEY;
 
-export { IS_PROD, STORAGE_KEY, GMAPS_KEY, SB_URL, SB_ANON_KEY, SB_BUCKET, sbClient, loadLocal, saveLocal, validateDealShape, sbRead, sbWrite, sbWriteDeal, sbDeleteDeal, sbWritePrefs, sbUploadPhoto, sbDeletePhoto, authSignInWithGoogle, authSignUp, authSignIn, authSignOut, authResetPassword, authUpdatePassword, authUpdateProfile, authGetSession, STATUS_OPTIONS, STATUS_COLORS, FMT_USD, FMT_PCT, FMT_X, mapsUrl };
+export { IS_PROD, STORAGE_KEY, GMAPS_KEY, SB_URL, SB_ANON_KEY, SB_BUCKET, sbClient, loadLocal, saveLocal, validateDealShape, sbRead, sbWrite, sbWriteDeal, sbDeleteDeal, sbWritePrefs, sbUploadPhoto, sbDeletePhoto, authSignInWithGoogle, authSignUp, authSignIn, authSignOut, authResetPassword, authUpdatePassword, authUpdateProfile, authGetSession, STATUS_OPTIONS, STATUS_COLORS, STATUS_BG_VARS, FMT_USD, FMT_PCT, FMT_X, mapsUrl };

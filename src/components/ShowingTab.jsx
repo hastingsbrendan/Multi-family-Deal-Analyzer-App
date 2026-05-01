@@ -17,7 +17,7 @@ function ShowingTab({deal,onChange}){
   const REHAB_HINTS={Flooring:'2K–8K typical',Kitchen:'5K–25K typical',Bathrooms:'3K–12K typical',Paint:'1K–4K typical',Appliances:'1K–5K typical',Electrical:'1K–8K typical',Plumbing:'1K–6K typical',HVAC:'3K–12K typical',Roof:'5K–20K typical',Windows:'3K–15K typical',Other:'custom amount',Siding:'3K–15K typical',Foundation:'2K–20K typical',Landscaping:'1K–5K typical','Driveway/Parking':'2K–8K typical','Windows/Doors':'3K–12K typical'};
   const DEF_EXT=[{cat:"Roof",cost:0,phase:"1"},{cat:"Siding",cost:0,phase:"1"},{cat:"Foundation",cost:0,phase:"1"},{cat:"Landscaping",cost:0,phase:"1"},{cat:"Driveway/Parking",cost:0,phase:"1"},{cat:"Windows/Doors",cost:0,phase:"1"},{cat:"Other",cost:0,phase:"1",customLabel:""}];
   const upd=(fn)=>{
-    const d=JSON.parse(JSON.stringify(deal));
+    const d=structuredClone(deal);
     if(!d.showing)d.showing={};
     if(!d.showing.units||!Array.isArray(d.showing.units))d.showing.units=Array(4).fill(null).map(()=>({condition:"",notes:"",rehabMode:"lump",rehabLump:0,rehabPhase:"1",lineItems:[]}));
     if(!d.showing.exterior)d.showing.exterior={condition:"",notes:"",rehabMode:"lump",rehabLump:0,rehabPhase:"1",lineItems:[]};

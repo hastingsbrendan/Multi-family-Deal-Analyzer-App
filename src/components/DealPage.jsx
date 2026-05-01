@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { useIsMobile, lazyWithRetry } from '../lib/hooks';
-import { FMT_USD, FMT_PCT, STATUS_OPTIONS, STATUS_COLORS, IS_PROD } from '../lib/constants';
+import { FMT_USD, FMT_PCT, STATUS_OPTIONS, STATUS_COLORS, STATUS_BG_VARS, IS_PROD } from '../lib/constants';
 import { calcDeal, DEFAULT_PREFS } from '../lib/calc';
 import AddressAutocomplete from './AddressAutocomplete';
 import CommentsPanel from './CommentsPanel';
@@ -9,6 +9,7 @@ import { useFeatureCheck } from './FeatureGate';
 import { trackTabViewed, trackFeatureUsed } from '../lib/analytics';
 import ErrorBoundary from './ErrorBoundary';
 import Button from './ui/Button';
+import Spinner from './ui/Spinner';
 
 // Lazy-load tab components — only downloaded when the user navigates to that tab
 // lazyWithRetry auto hard-reloads on stale-chunk errors after a new deployment
@@ -47,9 +48,7 @@ const TAB_NEXT = {
   6: { id: 0, hint: 'Back to your deal summary' },
 };
 
-const TabFallback = () => (
-  <div style={{padding:40,textAlign:'center',color:'var(--muted)',fontSize:13}}>Loading…</div>
-);
+const TabFallback = () => <Spinner/>;
 
 function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, groupRole, activeGroup, currentUser, prefs, forceTab}) {
   // Land new/empty deals on Assumptions (tab 1) instead of Deal Summary (0).
@@ -88,7 +87,7 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,gap:8}}>
       <Button variant="secondary" size="sm" onClick={onBack} style={{color:"var(--accent)",borderColor:"var(--border)",padding:"6px 12px",fontSize:13}}>← Portfolio</Button>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
-        <select value={deal.status} onChange={e=>onUpdate({...deal,status:e.target.value})} style={{background:STATUS_COLORS[deal.status]+"22",border:`1px solid ${STATUS_COLORS[deal.status]}55`,borderRadius:6,padding:"6px 10px",color:STATUS_COLORS[deal.status],fontWeight:700,fontSize:13,cursor:"pointer"}}>
+        <select value={deal.status} onChange={e=>onUpdate({...deal,status:e.target.value})} style={{background:STATUS_BG_VARS[deal.status],border:`1px solid ${STATUS_COLORS[deal.status]}55`,borderRadius:6,padding:"6px 10px",color:STATUS_COLORS[deal.status],fontWeight:700,fontSize:13,cursor:"pointer"}}>
           {STATUS_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
         </select>
 

@@ -89,7 +89,7 @@ export default function PropertyLookupPanel({deal, onChange}) {
   const applyPreview = () => {
     if (!preview) return;
     const { prop, rent } = preview;
-    const d = JSON.parse(JSON.stringify(deal));
+    const d = structuredClone(deal);
     const a = d.assumptions;
 
     // Address
@@ -194,7 +194,7 @@ export default function PropertyLookupPanel({deal, onChange}) {
           getCountyAndMsaForAddress(addrForAsync, token).catch(() => null),
         ]).then(([zone, countyMsa]) => {
           if (zone || countyMsa) {
-            const upd2 = JSON.parse(JSON.stringify(d));
+            const upd2 = structuredClone(d);
             if (zone) upd2.assumptions.floodZone = zone;
             if (countyMsa) {
               upd2.assumptions.countyFips  = countyMsa.countyFips;

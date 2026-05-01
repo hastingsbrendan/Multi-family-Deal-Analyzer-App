@@ -15,6 +15,7 @@ import {
 import { SectionHeader, StatRow, BenchmarkRow, MktSection as Section, MktEmptyState as EmptyState, ChartTooltip, RateCompare } from './MarketTab/MarketUIHelpers';
 import RateContextPanel from './MarketTab/RateContextPanel';
 import AssumptionsCheckPanel from './MarketTab/AssumptionsCheckPanel';
+import Button from './ui/Button';
 
 function MarketTab({deal, onChange}) {
   const isMobile = useIsMobile();
@@ -147,7 +148,7 @@ function MarketTab({deal, onChange}) {
       setLastZip(zipCode);
       // Persist to deal so data survives tab switches without re-fetching
       if (onChange) {
-        const d = JSON.parse(JSON.stringify(dealRef.current));
+        const d = structuredClone(dealRef.current);
         d.assumptions = d.assumptions || {};
         d.assumptions.marketData = { zipCode, fetchedAt, data };
         onChange(d);
@@ -200,7 +201,7 @@ function MarketTab({deal, onChange}) {
       getCountyAndMsaForAddress(dealAddress, token)
         .then(result => {
           if (!result || !onChange) return;
-          const d = JSON.parse(JSON.stringify(dealRef.current));
+          const d = structuredClone(dealRef.current);
           d.assumptions = d.assumptions || {};
           d.assumptions.countyFips = result.countyFips;
           d.assumptions.countyName = result.countyName;
@@ -342,10 +343,10 @@ function MarketTab({deal, onChange}) {
     </div>
   );
   if (loading) return (<div style={{padding:'16px 0'}}><div style={{textAlign:'center',padding:48,color:'var(--muted)'}}><div style={{fontSize:28,marginBottom:12}}>⏳</div><div style={{fontSize:13,fontWeight:700,color:'var(--text)'}}>Loading market data…</div><div style={{fontSize:12,marginTop:4}}>Fetching Rentcast + Census data for ZIP {zip}</div></div></div>);
-  if (error) return (<div style={{padding:'16px 0'}}><EmptyState icon="⚠️" title="Could not load market data" sub={error}/><div style={{textAlign:'center',marginTop:12}}><button onClick={()=>fetchAll(zip)} style={{background:'var(--accent)',color:'#fff',border:'none',borderRadius:100,padding:'8px 20px',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Retry</button></div></div>);
+  if (error) return (<div style={{padding:'16px 0'}}><EmptyState icon="⚠️" title="Could not load market data" sub={error}/><div style={{textAlign:'center',marginTop:12}}><Button variant="primary" onClick={()=>fetchAll(zip)}>Retry</Button></div></div>);
   if (!marketData && !censusData) {
     if (apiPaused) return (<div style={{padding:'16px 0'}}><EmptyState icon="⏸️" title="Market data temporarily unavailable" sub="Rentcast API is paused. No cached data available for this ZIP yet — check back soon."/></div>);
-    return (<div style={{padding:'16px 0'}}><EmptyState icon="📊" title="Market data not loaded" sub={`ZIP ${zip} detected. Click below to fetch market data.`}/><div style={{textAlign:'center',marginTop:12}}><button onClick={()=>fetchAll(zip)} style={{background:'var(--accent)',color:'#fff',border:'none',borderRadius:100,padding:'8px 20px',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Load Market Data</button></div></div>);
+    return (<div style={{padding:'16px 0'}}><EmptyState icon="📊" title="Market data not loaded" sub={`ZIP ${zip} detected. Click below to fetch market data.`}/><div style={{textAlign:'center',marginTop:12}}><Button variant="primary" onClick={()=>fetchAll(zip)}>Load Market Data</Button></div></div>);
   }
 
   const gridStyle = isMobile ? {display:'flex',flexDirection:'column',gap:14} : {display:'grid',gridTemplateColumns:'1fr 1fr',gap:16};

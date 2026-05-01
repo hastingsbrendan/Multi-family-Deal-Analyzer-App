@@ -17,6 +17,7 @@ div[style*="overflowX"]::-webkit-scrollbar{height:3px;}
 button{cursor:pointer;}
 @keyframes slideIn{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
 @keyframes fadeOut{from{opacity:1}to{opacity:0}}
+@keyframes rh-spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 
 /* ── Design Tokens (theme-agnostic — type, spacing, radius, shadow, motion) ── */
 :root {
@@ -83,6 +84,17 @@ button{cursor:pointer;}
   --oo-violet:  #7c3aed;
   --refi-amber: #f59e0b;
   --rentcast-indigo: #6366f1;
+
+  /* Semantic warning pair (amber) — used for ⚠️ "things to watch" callouts */
+  --warn-bg:    rgba(245,158,11,0.10);
+  --warn-text:  #B45309;
+
+  /* Status pill backgrounds — used in PortfolioPage filter bar + DealCard
+     status badge. Kept as light-alpha tints of the matching STATUS_COLORS. */
+  --status-analyzing-bg:       rgba(245,158,11,0.13);
+  --status-under-contract-bg:  rgba(59,130,246,0.13);
+  --status-owned-bg:           rgba(16,185,129,0.13);
+  --status-pass-bg:            rgba(239,68,68,0.13);
 }
 /* ── Dark Theme ── */
 [data-theme="dark"] {
@@ -110,4 +122,14 @@ button{cursor:pointer;}
   --oo-violet:  #7c3aed;
   --refi-amber: #f59e0b;
   --rentcast-indigo: #6366f1;
+
+  /* Semantic warning pair (amber) — slightly brighter for dark mode */
+  --warn-bg:    rgba(245,158,11,0.15);
+  --warn-text:  #fbbf24;
+
+  /* Status pill backgrounds — dark mode keeps the same alpha tints. */
+  --status-analyzing-bg:       rgba(245,158,11,0.18);
+  --status-under-contract-bg:  rgba(59,130,246,0.18);
+  --status-owned-bg:           rgba(16,185,129,0.18);
+  --status-pass-bg:            rgba(239,68,68,0.18);
 }
