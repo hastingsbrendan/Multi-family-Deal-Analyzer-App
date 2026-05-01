@@ -20,9 +20,7 @@ import DealPage from './DealPage';
 
 // Secondary pages — lazy loaded, only downloaded when user navigates there
 // lazyWithRetry auto hard-reloads on stale-chunk errors after a new deployment
-const ProfilePage     = lazyWithRetry(() => import('./ProfilePage'));
 const SettingsPage    = lazyWithRetry(() => import('./SettingsPage'));
-const AppSettingsPage = lazyWithRetry(() => import('./AppSettingsPage'));
 const GroupsPage      = lazyWithRetry(() => import('./GroupsPage'));
 const ShareDealModal  = lazyWithRetry(() => import('./ShareDealModal'));
 const GuidedTour      = lazyWithRetry(() => import('./GuidedTour'));
@@ -44,9 +42,7 @@ function App() {
   });
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [showProfile, setShowProfile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showAppSettings, setShowAppSettings] = useState(false);
   const [tourStep, setTourStep] = useState(null); // null = inactive, number = active step
   const tourDealRef = useRef(null); // track sample deal created for tour
   const profileMenuRef = useRef(null);
@@ -73,9 +69,7 @@ function App() {
   useEffect(() => {
     if (!user) {
       setActiveDealId(null);
-      setShowProfile(false);
       setShowSettings(false);
-      setShowAppSettings(false);
       setShowGroups(false);
       setActiveGroup(null);
       setGroupDeals([]);
@@ -99,8 +93,9 @@ function App() {
     };
   }, [profileMenuOpen]);
 
-  const { addDeal: _addDeal, updateDeal, deleteDeal, reorderDeals } = useDeals({ prefs, setDeals, markDealDirty });
+  const { addDeal: _addDeal, addSampleDeal: _addSampleDeal, updateDeal, deleteDeal, reorderDeals } = useDeals({ prefs, setDeals, markDealDirty });
   const addDeal = useCallback(() => _addDeal(setActiveDealId), [_addDeal, setActiveDealId]);
+  const addSampleDeal = useCallback(() => _addSampleDeal(setActiveDealId), [_addSampleDeal, setActiveDealId]);
 
   const theme = dark ? "dark" : "light";
   const showDisclaimer = user && !user.user_metadata?.disclaimer_ack_at;
@@ -234,15 +229,6 @@ function App() {
     window.location.replace('/landing.html');
     return null;
   }
-  if (showProfile) return (
-    <div data-theme={theme} style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
-      <div style={{padding:"0 16px"}}>
-        <Suspense fallback={null}>
-          <ProfilePage user={user} onBack={()=>setShowProfile(false)} onSignOut={handleSignOut} dark={dark} setDark={setDark}/>
-        </Suspense>
-      </div>
-    </div>
-  );
   if (showGroups) return (
     <div data-theme={theme} style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
       <Suspense fallback={null}>
@@ -255,61 +241,53 @@ function App() {
       </Suspense>
     </div>
   );
-  if (showAppSettings) return (
-    <div data-theme={theme} style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
-      <div style={{padding:"0 16px"}}>
-        <Suspense fallback={null}>
-          <AppSettingsPage
-            user={user}
-            dark={dark}
-            setDark={setDark}
-            onBack={()=>setShowAppSettings(false)}
-            onEditProfile={()=>{setShowAppSettings(false); setShowProfile(true);}}
-            onSignOut={handleSignOut}
-            deals={deals}
-          />
-        </Suspense>
-      </div>
-    </div>
-  );
   if (showSettings) return (
     <div data-theme={theme} style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
       <div style={{padding:"0 16px"}}>
         <Suspense fallback={null}>
-      <SettingsPage prefs={prefs} onSave={(newPrefs, pushFields)=>{
-          setPrefs(newPrefs);
-          sbWritePrefs(newPrefs).catch(()=>{});
-          if (pushFields && pushFields.size > 0 && deals?.length > 0) {
-            const has = (k) => pushFields.has(k);
-            const updated = deals.map(d => {
-              const a = JSON.parse(JSON.stringify(d.assumptions));
-              const cc = { ...(a.closingCosts||{}) };
-              if (has('downPaymentPct'))   a.downPaymentPct   = newPrefs.downPaymentPct;
-              if (has('interestRate'))     a.interestRate     = newPrefs.interestRate;
-              if (has('amortYears'))       a.amortYears       = newPrefs.amortYears;
-              if (has('vacancyRate'))      a.vacancyRate      = newPrefs.vacancyRate;
-              if (has('rentGrowth'))       a.rentGrowth       = newPrefs.rentGrowth;
-              if (has('expenseGrowth'))    a.expenseGrowth    = newPrefs.expenseGrowth;
-              if (has('appreciationRate')) a.appreciationRate = newPrefs.appreciationRate;
-              if (has('taxBracket'))       a.taxBracket       = newPrefs.taxBracket;
-              if (has('propertyTaxPct'))   a.propertyTaxPct   = newPrefs.propertyTaxPct;
-              if (has('insurancePct'))     a.insurancePct     = newPrefs.insurancePct;
-              if (has('maintenancePct'))   a.maintenancePct   = newPrefs.maintenancePct;
-              if (has('capexPct'))         a.capexPct         = newPrefs.capexPct;
-              if (has('propertyMgmtPct'))  a.propertyMgmtPct  = newPrefs.propertyMgmtPct;
-              if (has('cc_title'))        cc.title        = newPrefs.closingCosts?.title;
-              if (has('cc_transferTax'))  cc.transferTax  = newPrefs.closingCosts?.transferTax;
-              if (has('cc_inspection'))   cc.inspection   = newPrefs.closingCosts?.inspection;
-              if (has('cc_attorney'))     cc.attorney     = newPrefs.closingCosts?.attorney;
-              if (has('cc_lenderFees'))   cc.lenderFees   = newPrefs.closingCosts?.lenderFees;
-              a.closingCosts = cc;
-              return { ...d, assumptions: a };
-            });
-            setDeals(updated);
-          }
-          setShowSettings(false);
-        }} onBack={()=>setShowSettings(false)} deals={deals} dark={dark} setDark={setDark}/>
-      </Suspense>
+          <SettingsPage
+            user={user}
+            prefs={prefs}
+            dark={dark}
+            setDark={setDark}
+            deals={deals}
+            onBack={()=>setShowSettings(false)}
+            onSignOut={handleSignOut}
+            onOpenGroups={()=>{ setShowSettings(false); setShowGroups(true); }}
+            onSave={(newPrefs, pushFields)=>{
+              setPrefs(newPrefs);
+              sbWritePrefs(newPrefs).catch(()=>{});
+              if (pushFields && pushFields.size > 0 && deals?.length > 0) {
+                const has = (k) => pushFields.has(k);
+                const updated = deals.map(d => {
+                  const a = JSON.parse(JSON.stringify(d.assumptions));
+                  const cc = { ...(a.closingCosts||{}) };
+                  if (has('downPaymentPct'))   a.downPaymentPct   = newPrefs.downPaymentPct;
+                  if (has('interestRate'))     a.interestRate     = newPrefs.interestRate;
+                  if (has('amortYears'))       a.amortYears       = newPrefs.amortYears;
+                  if (has('vacancyRate'))      a.vacancyRate      = newPrefs.vacancyRate;
+                  if (has('rentGrowth'))       a.rentGrowth       = newPrefs.rentGrowth;
+                  if (has('expenseGrowth'))    a.expenseGrowth    = newPrefs.expenseGrowth;
+                  if (has('appreciationRate')) a.appreciationRate = newPrefs.appreciationRate;
+                  if (has('taxBracket'))       a.taxBracket       = newPrefs.taxBracket;
+                  if (has('propertyTaxPct'))   a.propertyTaxPct   = newPrefs.propertyTaxPct;
+                  if (has('insurancePct'))     a.insurancePct     = newPrefs.insurancePct;
+                  if (has('maintenancePct'))   a.maintenancePct   = newPrefs.maintenancePct;
+                  if (has('capexPct'))         a.capexPct         = newPrefs.capexPct;
+                  if (has('propertyMgmtPct'))  a.propertyMgmtPct  = newPrefs.propertyMgmtPct;
+                  if (has('cc_title'))        cc.title        = newPrefs.closingCosts?.title;
+                  if (has('cc_transferTax'))  cc.transferTax  = newPrefs.closingCosts?.transferTax;
+                  if (has('cc_inspection'))   cc.inspection   = newPrefs.closingCosts?.inspection;
+                  if (has('cc_attorney'))     cc.attorney     = newPrefs.closingCosts?.attorney;
+                  if (has('cc_lenderFees'))   cc.lenderFees   = newPrefs.closingCosts?.lenderFees;
+                  a.closingCosts = cc;
+                  return { ...d, assumptions: a };
+                });
+                setDeals(updated);
+              }
+            }}
+          />
+        </Suspense>
       </div>
     </div>
   );
@@ -417,26 +395,7 @@ function App() {
                         style={{display:"block",width:"100%",textAlign:"left",padding:"10px 14px",
                           background:"none",border:"none",color:"var(--text)",fontSize:13,
                           cursor:"pointer",fontFamily:"inherit"}}>
-                        📐 Default Deal Settings
-                      </button>
-                      <button onClick={()=>{setShowAppSettings(true);setProfileMenuOpen(false);}}
-                        style={{display:"block",width:"100%",textAlign:"left",padding:"10px 14px",
-                          background:"none",border:"none",color:"var(--text)",fontSize:13,
-                          cursor:"pointer",fontFamily:"inherit"}}>
                         ⚙️ Settings
-                      </button>
-                      <div style={{height:1,background:"var(--border)",margin:"4px 0"}}/>
-                      <button onClick={()=>{setShowGroups(true);setProfileMenuOpen(false);}}
-                        style={{display:"block",width:"100%",textAlign:"left",padding:"10px 14px",
-                          background:"none",border:"none",color:"var(--text)",fontSize:13,
-                          cursor:"pointer",fontFamily:"inherit"}}>
-                        👥 Deal Groups
-                      </button>
-                      <button onClick={()=>{setShowProfile(true);setProfileMenuOpen(false);}}
-                        style={{display:"block",width:"100%",textAlign:"left",padding:"10px 14px",
-                          background:"none",border:"none",color:"var(--text)",fontSize:13,
-                          cursor:"pointer",fontFamily:"inherit"}}>
-                        👤 My Profile
                       </button>
                       <button onClick={handleSignOut}
                         style={{display:"block",width:"100%",textAlign:"left",padding:"10px 14px",
@@ -481,6 +440,7 @@ function App() {
               deals={activeGroup ? groupDeals : deals}
               onSelect={id=>setActiveDealId(id)}
               onAdd={activeGroup ? addGroupDeal : addDeal}
+              onAddSample={activeGroup ? null : addSampleDeal}
               onDelete={activeGroup ? deleteGroupDeal : deleteDeal}
               onExport={()=>import('../lib/export').then(m=>m.exportPortfolioXLSX(activeGroup ? groupDeals : deals, user))}
               onReorder={activeGroup ? reorderGroupDeals : reorderDeals}

@@ -51,7 +51,18 @@ const TabFallback = () => (
 );
 
 function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, groupRole, activeGroup, currentUser, prefs, forceTab}) {
-  const [tab, setTab] = useState(0);
+  // Land new/empty deals on Assumptions (tab 1) instead of Deal Summary (0).
+  // Empty = no purchase price OR all unit rents are zero. Existing deals keep
+  // the prior behavior (open on Summary).
+  const isEmptyDeal = (() => {
+    const a = deal?.assumptions;
+    if (!a) return true;
+    if (!+a.purchasePrice) return true;
+    const numUnits = a.numUnits || 2;
+    const anyRent = (a.units || []).slice(0, numUnits).some(u => +(u?.rent||u?.listedRent) > 0);
+    return !anyRent;
+  })();
+  const [tab, setTab] = useState(isEmptyDeal ? 1 : 0);
   useEffect(() => { if (forceTab != null) setTab(forceTab); }, [forceTab]);
 
   // Track initial tab view and subsequent tab switches

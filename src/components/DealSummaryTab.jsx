@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import { iSty } from './ui/InputRow';
+import Tip from './ui/Tip';
 import { FMT_USD, FMT_PCT, FMT_X, mapsUrl } from '../lib/constants';
 import { calcExitScenarios } from '../lib/calc';
+import { GLOSSARY } from '../lib/glossary';
 import PhotoGallery from './PhotoGallery';
 import DSCRBadge from './ui/DSCRBadge';
 import { useIsMobile } from '../lib/hooks';
@@ -68,18 +70,20 @@ function DealSummaryTab({deal, result, onUpdate}) {
   ].filter(([,v])=>v>0);
 
   const SubHdr = ({children}) => (
-    <div style={{fontSize:11,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--accent)",marginBottom:8,marginTop:4,borderLeft:"3px solid var(--accent)",paddingLeft:8,fontFamily:"system-ui"}}>
+    <div style={{fontSize:11,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--accent)",marginBottom:8,marginTop:4,borderLeft:"3px solid var(--accent)",paddingLeft:8}}>
       {children}
     </div>
   );
 
-  const SLbl = ({children}) => (
-    <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--muted)",marginBottom:10,fontFamily:"system-ui"}}>{children}</div>
+  const SLbl = ({children, tip}) => (
+    <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--muted)",marginBottom:10,display:"flex",alignItems:"center"}}>
+      {children}{tip&&<Tip text={tip}/>}
+    </div>
   );
 
-  const KV = ({label,value,color,bold,last}) => (
-    <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:last?"none":"1px solid var(--border)",fontFamily:"system-ui"}}>
-      <span style={{fontSize:11,color:"var(--muted)"}}>{label}</span>
+  const KV = ({label,value,color,bold,last,tip}) => (
+    <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:last?"none":"1px solid var(--border)"}}>
+      <span style={{fontSize:11,color:"var(--muted)",display:"inline-flex",alignItems:"center"}}>{label}{tip&&<Tip text={tip}/>}</span>
       <span style={{fontSize:12,fontWeight:bold?800:700,color:color||"var(--text)"}}>{value}</span>
     </div>
   );
@@ -95,12 +99,12 @@ function DealSummaryTab({deal, result, onUpdate}) {
     {/* ── HEADER INFO BAR ── */}
     <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:"10px 14px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
       <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-        <span style={{fontSize:11,fontWeight:700,background:"rgba(13,148,136,0.1)",color:"var(--accent)",borderRadius:6,padding:"3px 9px",fontFamily:"system-ui"}}>{numUnits} units</span>
-        {sqft!=="—"&&<span style={{fontSize:11,fontWeight:700,background:"rgba(13,148,136,0.1)",color:"var(--accent)",borderRadius:6,padding:"3px 9px",fontFamily:"system-ui"}}>{typeof sqft==="number"?sqft.toLocaleString():sqft} sqft</span>}
-        {result.ooEnabled&&<span style={{fontSize:11,fontWeight:700,background:"rgba(124,58,237,0.1)",color:"var(--oo-violet)",borderRadius:6,padding:"3px 9px",fontFamily:"system-ui"}}>Owner-Occupied Yr 1–{result.ooYears}</span>}
+        <span style={{fontSize:11,fontWeight:700,background:"rgba(13,148,136,0.1)",color:"var(--accent)",borderRadius:6,padding:"3px 9px"}}>{numUnits} units</span>
+        {sqft!=="—"&&<span style={{fontSize:11,fontWeight:700,background:"rgba(13,148,136,0.1)",color:"var(--accent)",borderRadius:6,padding:"3px 9px"}}>{typeof sqft==="number"?sqft.toLocaleString():sqft} sqft</span>}
+        {result.ooEnabled&&<span style={{fontSize:11,fontWeight:700,background:"rgba(124,58,237,0.1)",color:"var(--oo-violet)",borderRadius:6,padding:"3px 9px"}}>Owner-Occupied Yr 1–{result.ooYears}</span>}
       </div>
       <div style={{display:"flex",gap:14,alignItems:"center",flexWrap:"wrap"}}>
-        {deal.showingDate&&<span style={{fontSize:11,color:"var(--muted)",fontFamily:"system-ui"}}>📅 Showing: <strong style={{color:"var(--text)"}}>{new Date(deal.showingDate+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}{deal.showingTime?" @ "+deal.showingTime:""}</strong></span>}
+        {deal.showingDate&&<span style={{fontSize:11,color:"var(--muted)"}}>📅 Showing: <strong style={{color:"var(--text)"}}>{new Date(deal.showingDate+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}{deal.showingTime?" @ "+deal.showingTime:""}</strong></span>}
       </div>
     </div>
 
@@ -171,7 +175,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
         const total = payload.reduce((s,p)=>s+(p.value||0),0);
         return(
           <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:10,padding:"10px 14px",fontSize:12,minWidth:170,boxShadow:"0 4px 16px rgba(0,0,0,0.12)"}}>
-            <div style={{fontWeight:800,color:"var(--text)",marginBottom:6,fontFamily:"system-ui"}}>{label}</div>
+            <div style={{fontWeight:800,color:"var(--text)",marginBottom:6}}>{label}</div>
             {[...payload].reverse().map(p=>(
               <div key={p.name} style={{display:"flex",justifyContent:"space-between",gap:16,color:p.color,marginBottom:2}}>
                 <span style={{color:"var(--muted)",fontWeight:500}}>{p.name}</span>
@@ -186,16 +190,16 @@ function DealSummaryTab({deal, result, onUpdate}) {
         );
       };
       const returnItems = [
-        {label:`IRR (${holdYears}-Year)`,val:FMT_PCT(result.irr),good:result.irr>0.12,note:"Target: >12%"},
-        {label:"Cap Rate Yr 1",val:FMT_PCT(result.capRate),good:result.capRate>0.05,note:"Target: >5%"},
+        {label:`IRR (${holdYears}-Year)`,val:FMT_PCT(result.irr),good:result.irr>0.12,note:"Target: >12%",tip:GLOSSARY.irr},
+        {label:"Cap Rate Yr 1",val:FMT_PCT(result.capRate),good:result.capRate>0.05,note:"Target: >5%",tip:GLOSSARY.capRate},
       ];
       return(
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 2fr",gap:10,marginBottom:10,alignItems:"stretch"}}>
           {/* Col 1: Hero card (compact) + IRR + Cap Rate side-by-side below */}
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
             <Panel accent>
-              <SLbl>Avg. Monthly Equity Growth · {holdYears}-Year Hold</SLbl>
-              <div style={{fontSize:36,fontWeight:900,letterSpacing:"-2px",color:avgMonthlyEquity>=0?"var(--accent)":"var(--red)",lineHeight:1,marginBottom:6}}>
+              <SLbl tip="Total monthly equity gained across the hold period — sum of appreciation, principal paydown, cash flow, and tax benefits, divided by months held.">Avg. Monthly Equity Growth · {holdYears}-Year Hold</SLbl>
+              <div style={{fontSize:36,fontWeight:900,letterSpacing:"-2px",color:avgMonthlyEquity>=0?"var(--accent)":"var(--red)",lineHeight:1,marginBottom:6,fontFamily:"'Fraunces',serif"}}>
                 {avgMonthlyEquity>=0?"+":"-"}{FMT_USD(Math.abs(avgMonthlyEquity))}<span style={{fontSize:13,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
               </div>
               <div style={{borderTop:"1px solid var(--border)",paddingTop:8,display:"flex",flexDirection:"column",gap:4}}>
@@ -205,7 +209,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
                   [result.ooEnabled&&(result.ooAltRentMonthly||0)>0?"Avg. Monthly Incremental CF":"Avg. Monthly Cash Flow", avgMonthlyCashFlow, avgMonthlyCashFlow>=0?"var(--green)":"var(--red)"],
                   ["Avg. Monthly Tax Benefit",       avgMonthlyTaxBenefit,   avgMonthlyTaxBenefit>=0?"var(--green)":"var(--red)"],
                 ].map(([l,v,col])=>(
-                  <div key={l} style={{display:"flex",justifyContent:"space-between",fontFamily:"system-ui",fontSize:11.5}}>
+                  <div key={l} style={{display:"flex",justifyContent:"space-between",fontSize:11.5}}>
                     <span style={{color:"var(--muted)"}}>{l}</span>
                     <span style={{fontWeight:700,color:col}}>{v>=0?"+":""}{FMT_USD(v)}/mo</span>
                   </div>
@@ -214,11 +218,11 @@ function DealSummaryTab({deal, result, onUpdate}) {
             </Panel>
             {/* IRR + Cap Rate side-by-side below hero */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-              {returnItems.map(({label,val,good,note})=>(
+              {returnItems.map(({label,val,good,note,tip})=>(
                 <Panel key={label}>
-                  <div style={{fontSize:10,color:"var(--muted)",fontFamily:"system-ui",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>{label}</div>
-                  <div style={{fontSize:22,fontWeight:900,color:good?"var(--accent)":"var(--accent2)",lineHeight:1}}>{val}</div>
-                  <div style={{fontSize:10,color:"var(--muted)",fontFamily:"system-ui",marginTop:4}}>{note}</div>
+                  <div style={{fontSize:10,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4,display:"flex",alignItems:"center"}}>{label}{tip&&<Tip text={tip}/>}</div>
+                  <div style={{fontSize:22,fontWeight:900,color:good?"var(--accent)":"var(--accent2)",lineHeight:1,fontFamily:"'Fraunces',serif"}}>{val}</div>
+                  <div style={{fontSize:10,color:"var(--muted)",marginTop:4}}>{note}</div>
                 </Panel>
               ))}
             </div>
@@ -262,7 +266,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
 
     {/* Value Add band — only when VA enabled */}
     {result.vaEnabled&&(<div style={{background:"rgba(167,139,250,0.08)",border:"1px solid rgba(167,139,250,0.35)",borderRadius:12,padding:14,marginBottom:10}}>
-      <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.1em",color:"var(--va-purple)",marginBottom:10,textTransform:"uppercase",fontFamily:"system-ui"}}>🔨 Value Add Impact</div>
+      <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.1em",color:"var(--va-purple)",marginBottom:10,textTransform:"uppercase"}}>🔨 Value Add Impact</div>
       <div style={{display:"flex",gap:16,flexWrap:"wrap",fontSize:13}}>
         <div><div style={{color:"var(--muted)",fontSize:11,marginBottom:2}}>TOTAL REMODEL COST</div><div style={{fontWeight:800,color:"var(--text)",fontSize:15}}>{FMT_USD(result.vaReModelCost)}</div><div style={{fontSize:11,color:"var(--muted)"}}>50/50 over Yr 1–2</div></div>
         <div><div style={{color:"var(--muted)",fontSize:11,marginBottom:2}}>ANNUAL RENT LIFT</div><div style={{fontWeight:800,color:"var(--va-purple)",fontSize:15}}>{FMT_USD(result.vaRentBump)}/yr</div><div style={{fontSize:11,color:"var(--muted)"}}>From Year {result.vaCompletionYr}</div></div>
@@ -338,7 +342,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
             </ResponsiveContainer>
             {/* Center label */}
             <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center",pointerEvents:"none"}}>
-              <div style={{fontSize:14,fontWeight:900,color:"var(--text)",lineHeight:1,fontFamily:"system-ui"}}>{FMT_USD(total)}</div>
+              <div style={{fontSize:14,fontWeight:900,color:"var(--text)",lineHeight:1}}>{FMT_USD(total)}</div>
               <div style={{fontSize:9,color:"var(--muted)",marginTop:1}}>{centerSub}</div>
             </div>
           </div>
@@ -349,7 +353,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
       const wfTotal = grossRentMo;
       const WFBar = ({label, value, color, pct, isResult}) => (
         <div style={{marginBottom:6}}>
-          <div style={{display:"flex",justifyContent:"space-between",marginBottom:3,fontFamily:"system-ui",fontSize:11}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:3,fontSize:11}}>
             <span style={{color:isResult?"var(--text)":"var(--muted)",fontWeight:isResult?700:500}}>{label}</span>
             <span style={{fontWeight:700,color:isResult?(value>=0?"var(--green)":"var(--red)"):color}}>
               {isResult?(value>=0?"+":"")+FMT_USD(value)+"/mo" : FMT_USD(Math.abs(value))+"/mo"}
@@ -373,20 +377,20 @@ function DealSummaryTab({deal, result, onUpdate}) {
 
             {/* Cash Flow hero */}
             <Panel accent>
-              <SLbl>{result.ooEnabled?"Avg Monthly Cash Flow · You in Unit "+(( result.ooUnit||0)+1):"Avg Monthly Cash Flow · "+_holdLen+"-Yr Hold"}</SLbl>
-              <div style={{fontSize:44,fontWeight:900,letterSpacing:"-2px",color:avgMonthlyCF>=0?"var(--green)":"var(--accent2)",lineHeight:1,marginBottom:10}}>
+              <SLbl tip={GLOSSARY.cashFlow}>{result.ooEnabled?"Avg Monthly Cash Flow · You in Unit "+(( result.ooUnit||0)+1):"Avg Monthly Cash Flow · "+_holdLen+"-Yr Hold"}</SLbl>
+              <div style={{fontSize:44,fontWeight:900,letterSpacing:"-2px",color:avgMonthlyCF>=0?"var(--green)":"var(--accent2)",lineHeight:1,marginBottom:10,fontFamily:"'Fraunces',serif"}}>
                 {avgMonthlyCF>=0?"+":"-"}{FMT_USD(Math.abs(avgMonthlyCF))}<span style={{fontSize:14,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
               </div>
               {/* Avg incremental CF sub-metric — OO only */}
               {result.ooEnabled&&altRent>0&&(
                 <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,padding:"9px 12px"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,gap:8,flexWrap:"wrap"}}>
-                    <div style={{fontSize:10,fontFamily:"system-ui",fontWeight:800,letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--muted)"}}>Avg Monthly Incremental Cash Flow</div>
-                    <div style={{background:"var(--table-head)",border:"1px solid var(--border)",borderRadius:100,padding:"3px 10px",fontSize:11,color:"var(--muted)",fontFamily:"system-ui",whiteSpace:"nowrap"}}>
+                    <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--muted)",display:"flex",alignItems:"center"}}>Avg Monthly Incremental Cash Flow<Tip text={GLOSSARY.incrementalCashFlow}/></div>
+                    <div style={{background:"var(--table-head)",border:"1px solid var(--border)",borderRadius:100,padding:"3px 10px",fontSize:11,color:"var(--muted)",whiteSpace:"nowrap"}}>
                       Alt Rent&nbsp;&nbsp;{FMT_USD(altRent)}/mo
                     </div>
                   </div>
-                  <div style={{fontSize:22,fontWeight:900,letterSpacing:"-0.5px",color:avgMonthlyIncremental>=0?"var(--green)":"var(--accent2)",fontFamily:"system-ui"}}>
+                  <div style={{fontSize:22,fontWeight:900,letterSpacing:"-0.5px",color:avgMonthlyIncremental>=0?"var(--green)":"var(--accent2)",fontFamily:"'Fraunces',serif"}}>
                     {avgMonthlyIncremental>=0?"+":"-"}{FMT_USD(Math.abs(avgMonthlyIncremental))}<span style={{fontSize:12,color:"var(--muted)",fontWeight:400}}>/mo</span>
                   </div>
                 </div>
@@ -395,16 +399,16 @@ function DealSummaryTab({deal, result, onUpdate}) {
 
             {/* Effective Mortgage */}
             <Panel style={{borderTop:"2px solid var(--accent)"}}>
-              <SLbl>Effective Mortgage</SLbl>
-              <div style={{fontSize:11,color:"var(--muted)",fontFamily:"system-ui",marginBottom:8}}>PITI − Tenant rents</div>
-              <div style={{fontSize:28,fontWeight:900,letterSpacing:"-1px",color:emPos?"#dc2626":"var(--green)",lineHeight:1,marginBottom:10}}>
+              <SLbl tip={GLOSSARY.effectiveMortgage}>Effective Mortgage</SLbl>
+              <div style={{fontSize:11,color:"var(--muted)",marginBottom:8}}>PITI − Tenant rents</div>
+              <div style={{fontSize:28,fontWeight:900,letterSpacing:"-1px",color:emPos?"#dc2626":"var(--green)",lineHeight:1,marginBottom:10,fontFamily:"'Fraunces',serif"}}>
                 {emPos?"+":"-"}{FMT_USD(Math.abs(effectiveMortgage))}<span style={{fontSize:13,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
               </div>
-              <div style={{fontSize:10,fontWeight:700,fontFamily:"system-ui",color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Rent covers PITI</div>
+              <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Rent covers PITI</div>
               <div style={{height:5,background:"var(--bg2)",borderRadius:99,border:"1px solid var(--border)",overflow:"hidden",marginBottom:4}}>
                 <div style={{height:"100%",width:Math.min(100,Math.round((egiExOO/Math.max(piti,1))*100))+"%",background:"linear-gradient(90deg,var(--accent),#34d399)",borderRadius:99}}/>
               </div>
-              <div style={{display:"flex",justifyContent:"space-between",fontFamily:"system-ui",fontSize:10,color:"var(--muted)"}}>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"var(--muted)"}}>
                 <span>PITI <strong style={{color:"var(--text)"}}>{FMT_USD(piti)}</strong></span>
                 <span style={{fontWeight:800,color:"var(--accent)"}}>{Math.round(Math.min(100,(egiExOO/Math.max(piti,1))*100))}%</span>
                 <span>EGI <strong style={{color:"var(--accent)"}}>{FMT_USD(egiExOO)}</strong></span>
@@ -436,14 +440,14 @@ function DealSummaryTab({deal, result, onUpdate}) {
                     <div key={s.name} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--border)"}}>
                       <div style={{display:"flex",alignItems:"center",gap:6}}>
                         <div style={{width:8,height:8,borderRadius:2,background:s.color,flexShrink:0}}/>
-                        <span style={{fontSize:11,color:"var(--muted)",fontFamily:"system-ui"}}>{s.name}</span>
+                        <span style={{fontSize:11,color:"var(--muted)"}}>{s.name}</span>
                       </div>
-                      <span style={{fontSize:12,fontWeight:700,color:"var(--text)",fontFamily:"system-ui"}}>{FMT_USD(s.value)}</span>
+                      <span style={{fontSize:12,fontWeight:700,color:"var(--text)"}}>{FMT_USD(s.value)}</span>
                     </div>
                   ))}
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0"}}>
-                    <span style={{fontSize:11,fontWeight:700,color:"var(--text)",fontFamily:"system-ui"}}>Total</span>
-                    <span style={{fontSize:13,fontWeight:900,color:"var(--text)",fontFamily:"system-ui"}}>{FMT_USD(pitiSlices.reduce((s,x)=>s+x.value,0))}</span>
+                    <span style={{fontSize:11,fontWeight:700,color:"var(--text)"}}>Total</span>
+                    <span style={{fontSize:13,fontWeight:900,color:"var(--text)"}}>{FMT_USD(pitiSlices.reduce((s,x)=>s+x.value,0))}</span>
                   </div>
                 </div>
               </div>
@@ -460,19 +464,19 @@ function DealSummaryTab({deal, result, onUpdate}) {
                       <div key={s.name} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--border)"}}>
                         <div style={{display:"flex",alignItems:"center",gap:6}}>
                           <div style={{width:8,height:8,borderRadius:2,background:s.color,flexShrink:0}}/>
-                          <span style={{fontSize:11,color:"var(--muted)",fontFamily:"system-ui"}}>{s.name}</span>
+                          <span style={{fontSize:11,color:"var(--muted)"}}>{s.name}</span>
                         </div>
-                        <span style={{fontSize:12,fontWeight:700,color:"var(--text)",fontFamily:"system-ui"}}>{FMT_USD(s.value)}</span>
+                        <span style={{fontSize:12,fontWeight:700,color:"var(--text)"}}>{FMT_USD(s.value)}</span>
                       </div>
                     ))}
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0"}}>
-                      <span style={{fontSize:11,fontWeight:700,color:"var(--text)",fontFamily:"system-ui"}}>Total</span>
-                      <span style={{fontSize:13,fontWeight:900,color:"var(--text)",fontFamily:"system-ui"}}>{FMT_USD(opexSlices.reduce((s,x)=>s+x.value,0))}</span>
+                      <span style={{fontSize:11,fontWeight:700,color:"var(--text)"}}>Total</span>
+                      <span style={{fontSize:13,fontWeight:900,color:"var(--text)"}}>{FMT_USD(opexSlices.reduce((s,x)=>s+x.value,0))}</span>
                     </div>
                   </div>
                 </div>
               ):(
-                <div style={{fontSize:11,color:"var(--muted)",fontFamily:"system-ui",padding:"12px 0"}}>No operating expenses configured in Assumptions.</div>
+                <div style={{fontSize:11,color:"var(--muted)",padding:"12px 0"}}>No operating expenses configured in Assumptions.</div>
               )}
             </Panel>
           </div>
@@ -507,18 +511,18 @@ function DealSummaryTab({deal, result, onUpdate}) {
           <KV label="− Loan Payoff" value={FMT_USD(-result.exitLoanBalance)} color="var(--red)"/>
           <KV label="= Gross Proceeds" value={FMT_USD(result.exitValue-result.exitLoanBalance)} bold/>
           {/* Tax stack */}
-          <div style={{marginTop:6,marginBottom:2,fontSize:9,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:"var(--muted)",fontFamily:"system-ui"}}>Tax on Sale</div>
+          <div style={{marginTop:6,marginBottom:2,fontSize:9,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:"var(--muted)"}}>Tax on Sale</div>
           <KV label="Total Gain" value={FMT_USD(result.totalGainOnSale)}/>
-          <KV label="§1250 Recapture (25%)" value={FMT_USD(-result.recaptureTax)} color="var(--red)"/>
+          <KV label="§1250 Recapture (25%)" value={FMT_USD(-result.recaptureTax)} color="var(--red)" tip={GLOSSARY.sec1250Recapture}/>
           <KV label="LTCG (15%)" value={FMT_USD(-result.ltcgTax)} color="var(--red)"/>
           {/* PAL carryforward benefit — deferred tax asset, not cash */}
           {result.taxAdvEnabled&&result.palTaxBenefit>0&&(
             <div style={{background:"rgba(245,158,11,0.07)",border:"1px solid rgba(245,158,11,0.25)",borderRadius:6,padding:"5px 8px",margin:"4px 0"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
-                <span style={{fontSize:10,color:"var(--refi-amber)",fontFamily:"system-ui",fontWeight:700}}>Suspended Loss Tax Benefit</span>
-                <span style={{fontSize:11,color:"var(--refi-amber)",fontWeight:700,fontFamily:"system-ui"}}>+{FMT_USD(result.palTaxBenefit)}</span>
+                <span style={{fontSize:10,color:"var(--refi-amber)",fontWeight:700}}>Suspended Loss Tax Benefit</span>
+                <span style={{fontSize:11,color:"var(--refi-amber)",fontWeight:700}}>+{FMT_USD(result.palTaxBenefit)}</span>
               </div>
-              <div style={{fontSize:9,color:"var(--muted)",fontFamily:"system-ui",marginTop:2,lineHeight:1.4}}>
+              <div style={{fontSize:9,color:"var(--muted)",marginTop:2,lineHeight:1.4}}>
                 Deferred tax asset — reduces tax owed at sale, not additional cash proceeds. Releases {FMT_USD(result.finalPalCarryforward)} of accumulated suspended losses at your {Math.round((result.taxAdvEnabled&&deal?.assumptions?.taxBracket)||22)}% bracket.
               </div>
             </div>
@@ -527,11 +531,11 @@ function DealSummaryTab({deal, result, onUpdate}) {
           <div style={{height:1,background:"var(--border)",margin:"6px 0"}}/>
           <KV label="Net Proceeds" value={FMT_USD(result.netProceeds)} color="var(--accent)" bold last/>
           {!result.taxAdvEnabled&&result.finalPalCarryforward>0&&(
-            <div style={{fontSize:9,color:"var(--muted)",fontStyle:"italic",fontFamily:"system-ui",marginTop:4,lineHeight:1.4}}>
+            <div style={{fontSize:9,color:"var(--muted)",fontStyle:"italic",marginTop:4,lineHeight:1.4}}>
               Enable Advanced Tax Modeling to see §1250 recapture and suspended loss tax benefit.
             </div>
           )}
-          <div style={{fontSize:9,color:"var(--muted)",fontStyle:"italic",fontFamily:"system-ui",marginTop:4,lineHeight:1.4}}>
+          <div style={{fontSize:9,color:"var(--muted)",fontStyle:"italic",marginTop:4,lineHeight:1.4}}>
             A 1031 exchange defers all taxes shown above — suspended losses are not released.
           </div>
         </Panel>
@@ -549,11 +553,11 @@ function DealSummaryTab({deal, result, onUpdate}) {
           ["Total Cash In", FMT_USD(result.totalCash)],
         ].map(([l,v],i)=><KV key={l} label={l} value={v}/>)}
         <div style={{marginTop:10,borderTop:"1px solid var(--border)",paddingTop:8}}>
-          <div style={{fontSize:10,fontWeight:800,fontFamily:"system-ui",color:"var(--muted)",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:6}}>PITI Breakdown</div>
+          <div style={{fontSize:10,fontWeight:800,color:"var(--muted)",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:6}}>PITI Breakdown</div>
           <KV label="P&I" value={FMT_USD(pAndI)+"/mo"}/>
           <KV label="Property Tax" value={FMT_USD(taxMo)+"/mo"}/>
           <KV label="Insurance" value={FMT_USD(insMo)+"/mo"}/>
-          <div style={{display:"flex",justifyContent:"space-between",padding:"7px 0",fontFamily:"system-ui"}}>
+          <div style={{display:"flex",justifyContent:"space-between",padding:"7px 0"}}>
             <span style={{fontSize:12,fontWeight:800,color:"var(--text)"}}>PITI Total</span>
             <span style={{fontSize:14,fontWeight:900,color:"var(--text)"}}>{FMT_USD(piti)}/mo</span>
           </div>
@@ -568,15 +572,15 @@ function DealSummaryTab({deal, result, onUpdate}) {
             <KV key={i} label={"Unit "+(i+1)+(result.ooEnabled&&i===result.ooUnit?" 🏠":"")} value={FMT_USD(+(u.rent||u.listedRent)||0)+"/mo"} color={result.ooEnabled&&i===result.ooUnit?"var(--muted)":"var(--text)"}/>
           ))}
           <KV label="Gross Rent" value={FMT_USD(result.grossRentYear0/12)+"/mo"}/>
-          <KV label={"Vacancy ("+((+a.vacancyRate)||0)+"%)"} value={FMT_USD(-result.grossRentYear0/12*(+a.vacancyRate||0)/100)+"/mo"} color="#dc2626"/>
-          <KV label="EGI (All Units)" value={FMT_USD(result.years[0]?.egi/12||0)+"/mo"} color="var(--accent)" bold/>
+          <KV label={"Vacancy ("+((+a.vacancyRate)||0)+"%)"} value={FMT_USD(-result.grossRentYear0/12*(+a.vacancyRate||0)/100)+"/mo"} color="#dc2626" tip={GLOSSARY.vacancyRate}/>
+          <KV label="EGI (All Units)" value={FMT_USD(result.years[0]?.egi/12||0)+"/mo"} color="var(--accent)" bold tip={GLOSSARY.egi}/>
           {result.ooEnabled&&<KV label="EGI (Tenant Only)" value={FMT_USD(egiExOO)+"/mo"} color="var(--accent)" bold/>}
-          <KV label="NOI Year 1" value={FMT_USD(result.noi)+"/yr"} color="var(--accent)" last/>
+          <KV label="NOI Year 1" value={FMT_USD(result.noi)+"/yr"} color="var(--accent)" last tip={GLOSSARY.noi}/>
         </Panel>
         <Panel>
           <SLbl>Annual Expenses</SLbl>
           {expRows.map(([l,v],i)=><KV key={l} label={l} value={FMT_USD(v)+"/yr"} last={i===expRows.length-1}/>)}
-          {expRows.length===0&&<div style={{fontSize:12,color:"var(--muted)",fontFamily:"system-ui"}}>No expenses configured.</div>}
+          {expRows.length===0&&<div style={{fontSize:12,color:"var(--muted)"}}>No expenses configured.</div>}
         </Panel>
         {/* ── FHA Self-Sufficiency — compact, 3–4 unit only ── */}
         {result.fhaSelfSufficiency?.applies && (() => {
@@ -585,20 +589,20 @@ function DealSummaryTab({deal, result, onUpdate}) {
           return (
             <div style={{background:pass?"rgba(16,185,129,0.07)":"rgba(239,68,68,0.07)",border:`1px solid ${pass?"rgba(16,185,129,0.25)":"rgba(239,68,68,0.25)"}`,borderRadius:10,padding:"10px 12px"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--muted)",fontFamily:"system-ui"}}>FHA Self-Sufficiency</div>
-                <div style={{fontSize:11,fontWeight:900,color:pass?"var(--green)":"var(--red)",background:pass?"rgba(16,185,129,0.15)":"rgba(239,68,68,0.15)",padding:"2px 10px",borderRadius:100,fontFamily:"system-ui"}}>
+                <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--muted)",display:"flex",alignItems:"center"}}>FHA Self-Sufficiency<Tip text={GLOSSARY.fhaSelfSufficiency}/></div>
+                <div style={{fontSize:11,fontWeight:900,color:pass?"var(--green)":"var(--red)",background:pass?"rgba(16,185,129,0.15)":"rgba(239,68,68,0.15)",padding:"2px 10px",borderRadius:100}}>
                   {pass?"PASS":"FAIL"}
                 </div>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
                 {[["75% of Rents",FMT_USD(fha.threshold75Pct/12)+"/mo"],["Your PITI",FMT_USD(fha.pitiAnnual/12)+"/mo"]].map(([l,v])=>(
                   <div key={l}>
-                    <div style={{fontSize:10,color:"var(--muted)",fontFamily:"system-ui",marginBottom:2}}>{l}</div>
-                    <div style={{fontSize:13,fontWeight:700,fontFamily:"system-ui",color:"var(--text)"}}>{v}</div>
+                    <div style={{fontSize:10,color:"var(--muted)",marginBottom:2}}>{l}</div>
+                    <div style={{fontSize:13,fontWeight:700,color:"var(--text)"}}>{v}</div>
                   </div>
                 ))}
               </div>
-              {!pass&&<div style={{fontSize:10,color:"var(--red)",fontFamily:"system-ui",marginTop:6}}>Short by {FMT_USD(Math.abs(fha.delta)/12)}/mo · 3–4 unit FHA requirement</div>}
+              {!pass&&<div style={{fontSize:10,color:"var(--red)",marginTop:6}}>Short by {FMT_USD(Math.abs(fha.delta)/12)}/mo · 3–4 unit FHA requirement</div>}
             </div>
           );
         })()}
@@ -625,12 +629,12 @@ function DealSummaryTab({deal, result, onUpdate}) {
     {/* ── PHOTOS + NOTES side by side, double height ── */}
     <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:10}}>
       <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:14,minHeight:220}}>
-        <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--muted)",marginBottom:10,fontFamily:"system-ui"}}>Photos</div>
+        <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--muted)",marginBottom:10}}>Photos</div>
         <PhotoGallery deal={deal} onUpdate={onUpdate}/>
       </div>
       <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:14,minHeight:220}}>
-        <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--muted)",marginBottom:10,fontFamily:"system-ui"}}>Notes</div>
-        <textarea value={deal.notes||""} onChange={e=>onUpdate({...deal,notes:e.target.value})} placeholder="Add qualitative notes about this property, showing observations, negotiation strategy..." style={{width:"100%",height:170,background:"var(--input-bg)",border:"1px solid var(--border)",borderRadius:8,padding:"10px 12px",color:"var(--text)",fontSize:13,resize:"none",fontFamily:"system-ui",lineHeight:1.5,boxSizing:"border-box"}}/>
+        <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--muted)",marginBottom:10}}>Notes</div>
+        <textarea value={deal.notes||""} onChange={e=>onUpdate({...deal,notes:e.target.value})} placeholder="Add qualitative notes about this property, showing observations, negotiation strategy..." style={{width:"100%",height:170,background:"var(--input-bg)",border:"1px solid var(--border)",borderRadius:8,padding:"10px 12px",color:"var(--text)",fontSize:13,resize:"none",lineHeight:1.5,boxSizing:"border-box"}}/>
       </div>
     </div>
 
@@ -646,7 +650,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
             <span style={{fontSize:11,color:"var(--muted)"}}>Yr {holdYrs} selected</span>
           </div>
           <div style={{overflowX:"auto"}}>
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,fontFamily:"system-ui"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
               <thead>
                 <tr style={{borderBottom:"1px solid var(--border)"}}>
                   {["Exit Year","IRR","Equity Multiple","Net Proceeds","CoC Yr 1"].map(h=>(

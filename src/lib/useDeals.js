@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { newDeal } from './calc';
+import { newDeal, createSampleDeal } from './calc';
 import { sbDeleteDeal } from './constants';
 import { trackDealCreated, trackDealDeleted } from './analytics';
 
@@ -10,7 +10,7 @@ import { trackDealCreated, trackDealDeleted } from './analytics';
  * @param {object}   deps.prefs        - current user default prefs
  * @param {Function} deps.setDeals     - setter from useCloudSync
  * @param {Function} deps.markDealDirty - from useCloudSync, flags a deal for cloud sync
- * @returns {{ addDeal, updateDeal, deleteDeal, reorderDeals }}
+ * @returns {{ addDeal, addSampleDeal, updateDeal, deleteDeal, reorderDeals }}
  */
 export function useDeals({ prefs, setDeals, markDealDirty }) {
   const addDeal = useCallback((setActiveDealId) => {
@@ -22,6 +22,16 @@ export function useDeals({ prefs, setDeals, markDealDirty }) {
     // which returns the new DB uuid and back-fills _deal_id on the deal.
     // Without this, the bulk sbWrite path runs with _deal_id=undefined, which
     // causes Postgres to INSERT a fresh row on every write (NULLs never conflict).
+    markDealDirty(d.id);
+  }, [prefs, setDeals, markDealDirty]);
+
+  // Adds a fully-prefilled Chicago duplex sample so first-touch users see a
+  // working analysis instead of a blank form.
+  const addSampleDeal = useCallback((setActiveDealId) => {
+    const d = createSampleDeal(prefs);
+    setDeals(p => [...p, d]);
+    setActiveDealId(d.id);
+    trackDealCreated(d.id);
     markDealDirty(d.id);
   }, [prefs, setDeals, markDealDirty]);
 
@@ -46,5 +56,5 @@ export function useDeals({ prefs, setDeals, markDealDirty }) {
     setDeals(next);
   }, [setDeals]);
 
-  return { addDeal, updateDeal, deleteDeal, reorderDeals };
+  return { addDeal, addSampleDeal, updateDeal, deleteDeal, reorderDeals };
 }
