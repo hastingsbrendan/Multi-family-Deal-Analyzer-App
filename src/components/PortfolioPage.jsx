@@ -4,7 +4,7 @@ import Tip from './ui/Tip';
 import EmptyState from './ui/EmptyState';
 import Button from './ui/Button';
 import Pill from './ui/Pill';
-import { FMT_PCT, FMT_USD, FMT_X, STATUS_COLORS, STATUS_OPTIONS } from '../lib/constants';
+import { FMT_PCT, FMT_USD, FMT_X, STATUS_COLORS, STATUS_BG_VARS, STATUS_OPTIONS } from '../lib/constants';
 import { useIsMobile } from '../lib/hooks';
 import { calcDeal } from '../lib/calc';
 import DSCRBadge from './ui/DSCRBadge';
@@ -94,7 +94,7 @@ function ComparePanel({ deals, results, onClose, onSelect }) {
                       if (row.isLabel) {
                         return (
                           <td key={d.id} style={tdStyle}>
-                            <span style={{ background: STATUS_COLORS[d.status] + '22', color: STATUS_COLORS[d.status], borderRadius: 4, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{val}</span>
+                            <Pill bg={STATUS_BG_VARS[d.status]} color={STATUS_COLORS[d.status]} style={{borderRadius:4,padding:'2px 8px',fontSize:11}}>{val}</Pill>
                           </td>
                         );
                       }
@@ -178,7 +178,7 @@ function DealCard({ d, r, onSelect, onDelete, onShareDeal, inCompare, onToggleCo
           </div>
           <div style={{ fontSize: 11, color: 'var(--muted)' }}>{a.numUnits}-unit · {FMT_USD(+a.purchasePrice)}</div>
         </div>
-        <span style={{ background: STATUS_COLORS[d.status] + '22', color: STATUS_COLORS[d.status], borderRadius: 4, padding: '2px 8px', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{d.status}</span>
+        <Pill bg={STATUS_BG_VARS[d.status]} color={STATUS_COLORS[d.status]} style={{borderRadius:4,padding:'2px 8px',fontSize:10,flexShrink:0}}>{d.status}</Pill>
       </div>
 
       {/* Hero metric */}
@@ -488,7 +488,7 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
                       {d.address || <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>Untitled</span>}
                       {d._isSample && <Pill variant="accent" size="xs" style={{padding:'1px 5px',marginLeft:6,fontSize:9,borderRadius:3}}>Sample</Pill>}
                     </td>
-                    <td style={{ padding: '12px' }}><span style={{ background: STATUS_COLORS[d.status] + '22', color: STATUS_COLORS[d.status], borderRadius: 4, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{d.status}</span></td>
+                    <td style={{ padding: '12px' }}><Pill bg={STATUS_BG_VARS[d.status]} color={STATUS_COLORS[d.status]} style={{borderRadius:4,padding:'2px 8px',fontSize:11}}>{d.status}</Pill></td>
                     <td style={{ padding: '12px', color: 'var(--text)', fontSize: 11, whiteSpace: 'nowrap' }}>{fmtShowing(d)}</td>
                     <td style={{ padding: '12px', color: 'var(--text)' }}>{FMT_USD(+d.assumptions.purchasePrice)}</td>
                     <td style={{ padding: '12px', color: 'var(--text)' }}>{FMT_USD(r.totalCash)}</td>
