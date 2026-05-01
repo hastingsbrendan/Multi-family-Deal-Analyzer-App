@@ -9,6 +9,7 @@ import { useCloudSync } from '../lib/useCloudSync';
 import { useAuth } from '../lib/useAuth';
 import { useDeals } from '../lib/useDeals';
 import { TrialBanner } from './UpgradeModal';
+import { useSubscription } from '../contexts/SubscriptionContext';
 import { FeedbackModal } from './FeedbackModal';
 import UndoToast from './ui/UndoToast';
 import DisclaimerModal from './DisclaimerModal';
@@ -52,15 +53,31 @@ function App() {
   const [showShareModal, setShowShareModal] = useState(null); // deal to share
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [showSyncDetail, setShowSyncDetail] = useState(false);
+  const [syncToastShown, setSyncToastShown] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(null);
   const [prefs, setPrefs] = useState(DEFAULT_PREFS);
   const [activeDealId, setActiveDealId] = useState(null);
   const [portfolioFilter, setPortfolioFilter] = useState("All");
   const isOnline = useOnlineStatus();
   const isMobile = useIsMobile();
+  const { tier } = useSubscription();
 
   // useCloudSync first (no user dep at call site — user is passed as reactive value)
   const { deals, setDeals, syncStatus, syncError, lastSyncedAt, forceRefresh, setLastCloudUpdate, markDealDirty } = useCloudSync(user, isOnline);
+
+  // One-time sync toast for new users
+  useEffect(() => {
+    if (syncStatus === 'saved' && user && !syncToastShown) {
+      const key = 'rh_sync_toast_shown_' + user.id;
+      if (!localStorage.getItem(key)) {
+        localStorage.setItem(key, '1');
+        setSyncToastShown(true);
+        setTimeout(() => setSyncToastShown(false), 5000);
+      } else {
+        setSyncToastShown(false);
+      }
+    }
+  }, [syncStatus, user, syncToastShown]);
 
   // useAuth second — takes setUser/setDeals/setLastCloudUpdate, returns handleSignOut
   const { handleSignOut } = useAuth({ setUser, setAuthLoading, setDeals, setLastCloudUpdate, setPrefs });
@@ -361,6 +378,7 @@ function App() {
               style={{background:"none",border:"1px solid var(--border)",borderRadius:4,padding:"2px 7px",fontSize:11,color:"var(--muted)",cursor:syncStatus==="saving"?"not-allowed":"pointer",lineHeight:1.4,flexShrink:0}}>
               {syncStatus==="saving" ? "…" : "↻"}
             </button>
+            {tier==='pro'&&<span style={{fontSize:10,fontWeight:800,color:"var(--accent)",background:"var(--accent-soft)",borderRadius:100,padding:"2px 8px",letterSpacing:"0.05em",flexShrink:0}}>PRO</span>}
             {(()=>{
               const name = user?.user_metadata?.display_name || "";
               const parts = name.trim().split(" ").filter(Boolean);
@@ -433,6 +451,12 @@ function App() {
           }}>
             <span style={{color:"var(--text)",fontWeight:700}}>🎉 Welcome to RentHack Pro! You now have full access.</span>
             <button onClick={()=>setShowUpgradeSuccess(false)} style={{background:"none",border:"none",color:"var(--muted)",cursor:"pointer",fontSize:18,padding:"0 4px"}}>×</button>
+          </div>
+        )}
+        {syncToastShown && (
+          <div style={{background:"rgba(13,148,136,0.12)",border:"1px solid rgba(13,148,136,0.35)",borderRadius:10,padding:"10px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:12,fontSize:13}}>
+            <span style={{color:"var(--text)",fontWeight:700}}>Your work is saved automatically. Close anytime.</span>
+            <button onClick={()=>setSyncToastShown(false)} style={{background:"none",border:"none",color:"var(--muted)",cursor:"pointer",fontSize:16,padding:"0 4px"}}>×</button>
           </div>
         )}
         {!activeDeal

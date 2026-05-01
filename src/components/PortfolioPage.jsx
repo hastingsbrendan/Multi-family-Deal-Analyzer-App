@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import InputRow, { iSty } from './ui/InputRow';
 import Tip from './ui/Tip';
 import EmptyState from './ui/EmptyState';
@@ -246,10 +246,22 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const isMobile = useIsMobile();
 
+  const calcCacheRef = useRef({});
   const resultsByDealId = useMemo(() => {
-    const map = {};
-    (deals || []).forEach(d => { map[d.id] = calcDeal(d); });
-    return map;
+    const prev = calcCacheRef.current;
+    const next = {};
+    (deals || []).forEach(d => {
+      const key = d._deal_id || d.id;
+      const stamp = d.updated_at || '';
+      if (prev[key] && prev[key]._stamp === stamp) { next[key] = prev[key]; return; }
+      const r = calcDeal(d);
+      r._stamp = stamp;
+      next[key] = r;
+    });
+    calcCacheRef.current = next;
+    const byId = {};
+    (deals || []).forEach(d => { byId[d.id] = next[d._deal_id || d.id]; });
+    return byId;
   }, [deals]);
 
   const filtered = useMemo(() =>

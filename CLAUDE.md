@@ -72,9 +72,15 @@ src/
     SensitivityTab.jsx       — tab 7 (gated)
     UpgradeModal.jsx + BlurGate, FeatureGate.jsx, CommentsPanel.jsx
     GroupsPage.jsx, ErrorBoundary.jsx
-    ui/ — InputRow, Section, MetricCard, DSCRBadge, CFSectionHeader, UndoToast
+    AssumptionsTab/
+      PropertyLookupPanel.jsx — Rentcast address lookup + auto-fill
+    ui/ — InputRow, Section, MetricCard, DSCRBadge, CFSectionHeader, UndoToast,
+           Panel, KeyValue, Pill, Button, EmptyState, SectionHeader, Tip,
+           FmtInt, CollapsibleSection
   lib/
     calc.js          — calcDeal(), calcExitScenarios(), calcSensitivity(), DEFAULT_PREFS, newDeal()
+                       Internal helpers: calcIRR, buildDealConfig, calcYear, calcExit
+    glossary.js      — GLOSSARY object with tooltip definitions for financial terms
     constants.js     — sbClient, STORAGE_KEY, FMT_USD, FMT_PCT, loadLocal, saveLocal, sbRead, sbWrite, sbWriteDeal
     groups.js        — all group/comment Supabase functions (22 functions)
     loanEngine.js    — LOAN_CATALOG, runRecommendationEngine(), QUESTIONS, getQuestionFlow()
@@ -220,7 +226,7 @@ BACK-XXX sub-tasks:
 
 ## Product Backlog
 
-Last updated: March 2026 (v15). Status key: `Done (PROD)` = on main/production · `Done` = completed, may be on develop · `Backlog` = not started · `In Progress` = active · `Deferred` = intentionally postponed.
+Last updated: April 2026 (v16). Status key: `Done (PROD)` = on main/production · `Done` = completed, may be on develop · `Backlog` = not started · `In Progress` = active · `Deferred` = intentionally postponed.
 
 ### Financial Model
 | ID | Priority | Status | Effort | Feature |
@@ -244,7 +250,7 @@ Last updated: March 2026 (v15). Status key: `Done (PROD)` = on main/production �
 | BACK-021 | P1 | Done (PROD) | L | PAL carryforward + §469 suspended loss tracking |
 | BACK-062 | P1 | Done (PROD) | S | FHA Self-Sufficiency Test — Deal Summary card |
 | BACK-063 | P2 | Backlog | M | DTI Calculator — loan eligibility + PMI impact |
-| 805 | P2 | Done (develop) | M | Hold period flexibility — configurable exit year (1–30 yrs) + Exit Year Scenarios panel |
+| 805 | P2 | Done (PROD) | M | Hold period flexibility — configurable exit year (1–30 yrs) + Exit Year Scenarios panel |
 | SFR-001 | P1 | Backlog | S | SFR data layer — numUnits:1 + propertyType field |
 
 ### Analysis
@@ -253,7 +259,7 @@ Last updated: March 2026 (v15). Status key: `Done (PROD)` = on main/production �
 | 6 | P2 | Done | M | Sensitivity analysis tab |
 | 801 | P1 | Done | L | Scenario analysis — Adverse / Base / Optimal toggles |
 | 802 | P1 | Done | M | Interactive sensitivity sliders |
-| 803 | P1 | Backlog | L | Deal comparison view (side-by-side) |
+| 803 | P1 | Done (PROD) | L | Deal comparison view (side-by-side) |
 | 804 | P1 | Backlog | L | Portfolio-level dashboard |
 | 806 | P2 | Backlog | S | Additional red flag auto-checks |
 
@@ -277,11 +283,18 @@ Last updated: March 2026 (v15). Status key: `Done (PROD)` = on main/production �
 | 1002 | P1 | Done | M | GitHub CI/CD + Cloudflare Pages |
 | 1003 | P1 | Done | M | Error monitoring (Sentry) |
 | 1004 | P0 | Done | L | Database schema redesign for multi-user |
-| 1005 | P1 | Done (develop) | L | Serverless API layer — Rentcast + geocode proxy Workers |
+| 1005 | P1 | Done (PROD) | L | Serverless API layer — Rentcast + geocode proxy Workers |
 | 1006 | P2 | Backlog | M | Data backup & disaster recovery *(deferred — requires Supabase Pro + R2 cost approval. Build plan saved in backlog AC column.)* |
 | 1007 | P2 | Backlog | M | Performance monitoring & analytics (PostHog) |
 | BACK-064 | P0 | Done (PROD) | S | FRED API — CORS fix via Cloudflare Pages Function proxy |
 | BACK-065 | P2 | Done (PROD) | M | FRED API — expanded 5-series batch + Rate Context panels |
+| BACK-066 | P1 | Done (PROD) | M | Test coverage — taxEngine (32), loanEngine (19), floodZone (13) unit tests |
+| BACK-067 | P1 | Done (PROD) | L | calcDeal decomposition — 4 internal helpers (calcIRR, buildDealConfig, calcYear, calcExit) |
+| BACK-068 | P2 | Done (PROD) | M | AssumptionsTab extraction — FmtInt, CollapsibleSection, PropertyLookupPanel to own files |
+| BACK-069 | P2 | Backlog | M | MarketTab extraction — Demographics, Housing, Employment, Rate sections to own files |
+| BACK-070 | P2 | Backlog | S | DealSummaryTab — hoist SubHdr/SLbl/KV/Panel from render to ui/ |
+| BACK-071 | P2 | Backlog | S | PortfolioPage — memoize calcDeal per deal on _deal_id+updated_at |
+| BACK-072 | P2 | Backlog | S | Hardcoded hex audit pass #2 — replace ~117 remaining hex colors with CSS vars |
 
 ### Loan Type Module
 | ID | Priority | Status | Effort | Feature |
@@ -321,6 +334,15 @@ Last updated: March 2026 (v15). Status key: `Done (PROD)` = on main/production �
 | 917 | P2 | Backlog | M | Sticky Live KPI Bar — persists across tab scroll |
 | 918 | P2 | Backlog | M | Cash Flow tab — Year 1 waterfall chart |
 | 920 | P1 | Backlog | S | Quick-switch scenario toggle — House Hack vs. Fully Rented |
+| UX-019 | P1 | Done (PROD) | M | Design tokens — type, spacing, radius, shadow, transition scales in index.css |
+| UX-020 | P1 | Done (PROD) | L | ui/ primitives — Panel, KeyValue, Pill, Button, EmptyState, SectionHeader, Tip |
+| UX-021 | P1 | Done (PROD) | M | Glossary tooltips — ~30 Tip placements across Deal Summary, Cash Flow, Red Flags |
+| UX-022 | P1 | Done (PROD) | S | New deals open on Assumptions tab when empty (no rents/price) |
+| UX-023 | P1 | Done (PROD) | S | Sample deal CTA on empty portfolio page |
+| UX-024 | P1 | Done (PROD) | M | Settings consolidation — single tabbed page (Defaults, Account, Appearance, Groups) |
+| UX-025 | P2 | Done (PROD) | S | Fraunces serif on hero metrics; removed 47 system-ui overrides in DealSummaryTab |
+| UX-026 | P2 | Backlog | M | Sync visibility — one-time toast for new users after first sync |
+| UX-027 | P2 | Backlog | S | Pro pill in nav for paid users |
 
 ### Data & Integrations
 | ID | Priority | Status | Effort | Feature |
