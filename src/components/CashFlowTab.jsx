@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { iSty } from './ui/InputRow';
 import Tip from './ui/Tip';
 import { FMT_USD, FMT_PCT } from '../lib/constants';
@@ -47,11 +47,37 @@ const EXP_KEYS = [
 ];
 
 function CashFlowTab({result,deal}){
+  const isMobile = useIsMobile();
+  // UX-018: on mobile, default to a compact view that shows only Year 1 + Exit Year.
+  // Avoids forcing the user to swipe through 10 narrow columns on a 360px viewport.
+  const [showAllYears, setShowAllYears] = useState(false);
   const [showExpDetail,setShowExpDetail]=useState(false);
   const [showTaxDetail,setShowTaxDetail]=useState(false);
   const [showCFDetail,setShowCFDetail]=useState(false);
   const [showIncrementalTip,setShowIncrementalTip]=useState(false);
-  const Yr=({children,bold,color})=>result.years.map(y=>(<td key={y.yr} style={tdR(bold,color)}>{children(y)}</td>));
+  // UX-018: scroll shadow on the right edge — fades out as the user scrolls
+  // to the end of the table, signalling "more years to the right" on mobile.
+  const scrollRef = useRef(null);
+  const [showRightShadow, setShowRightShadow] = useState(true);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 4;
+      setShowRightShadow(!atEnd && el.scrollWidth > el.clientWidth);
+    };
+    onScroll();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => { el.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll); };
+  }, [result.years.length]);
+  // Visible years — on mobile when compact, show Yr1 + final-Yr only;
+  // otherwise show all hold-period years.
+  const compact = isMobile && !showAllYears;
+  const visibleYears = compact && result.years.length > 2
+    ? [result.years[0], result.years[result.years.length - 1]]
+    : result.years;
+  const Yr=({children,bold,color})=>visibleYears.map(y=>(<td key={y.yr} style={tdR(bold,color)}>{children(y)}</td>));
   const R=({label,children,bold,color,indent,labelColor,tip})=>{
     // Auto-look-up tip from ROW_TIPS by exact label match if not explicitly passed.
     const t = tip ?? (typeof label === 'string' ? ROW_TIPS[label] : null);
@@ -94,12 +120,25 @@ function CashFlowTab({result,deal}){
         })}
       </div>
     )}
-    <div style={{fontSize:11,color:"var(--muted)",marginBottom:8}}>← Swipe to see all years</div>
-    <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
+    {/* Mobile-only year toggle (UX-018) — show Yr1 + Exit by default; let user expand to all years */}
+    {isMobile && result.years.length > 2 && (
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,gap:10}}>
+        <span style={{fontSize:11,color:"var(--muted)"}}>
+          {compact ? `Showing Yr1 + Yr${result.years[result.years.length-1].yr}` : `← Swipe to see all years`}
+        </span>
+        <button onClick={()=>setShowAllYears(v=>!v)}
+          style={{background:"none",border:"1px solid var(--border)",borderRadius:100,padding:"4px 12px",fontSize:11,fontWeight:600,color:"var(--accent)",cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>
+          {compact ? `Show all ${result.years.length} years →` : "Show Yr1 + Exit only"}
+        </button>
+      </div>
+    )}
+    {!isMobile && <div style={{fontSize:11,color:"var(--muted)",marginBottom:8}}>← Swipe to see all years</div>}
+    <div style={{position:"relative"}}>
+    <div ref={scrollRef} style={{overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
       <table style={{borderCollapse:"collapse",fontSize:11}}>
         <thead>
           <tr style={{background:"var(--table-head)"}}>
-            {["",...result.years.map(y=>`Yr${y.yr}`)].map(h=>(<th key={h} style={{padding:"6px 8px",textAlign:h===""?"left":"right",color:"var(--muted)",fontWeight:700,fontSize:10,letterSpacing:"0.05em",borderBottom:"1px solid var(--border)",whiteSpace:"nowrap",position:h===""?"sticky":"static",left:0,background:"var(--table-head)",zIndex:h===""?2:0,minWidth:h===""?100:62}}>{h}</th>))}
+            {["",...visibleYears.map(y=>`Yr${y.yr}`)].map(h=>(<th key={h} style={{padding:"6px 8px",textAlign:h===""?"left":"right",color:"var(--muted)",fontWeight:700,fontSize:10,letterSpacing:"0.05em",borderBottom:"1px solid var(--border)",whiteSpace:"nowrap",position:h===""?"sticky":"static",left:0,background:"var(--table-head)",zIndex:h===""?2:0,minWidth:h===""?100:62}}>{h}</th>))}
           </tr>
         </thead>
         <tbody>
@@ -109,21 +148,21 @@ function CashFlowTab({result,deal}){
           <R label="Gross Rent"><Yr>{y=>FMT_USD(y.grossRent)}</Yr></R>
 
           {/* OO rent deduction — amber sub-row, only when OO enabled */}
-          {oo&&(<tr><td style={{...tdL(false,true,"var(--refi-amber)"),userSelect:"none"}}>↳ − Unit {(result.ooUnit||0)+1} Rent (Yr 1–{result.ooYears})</td>{result.years.map(y=>(<td key={y.yr} style={{...tdR(!!y.ooRentDeduction,null),color:y.ooRentDeduction>0?"var(--refi-amber)":"var(--muted)"}}>{y.ooRentDeduction>0?`(${FMT_USD(y.ooRentDeduction)})`:"—"}</td>))}</tr>)}
+          {oo&&(<tr><td style={{...tdL(false,true,"var(--refi-amber)"),userSelect:"none"}}>↳ − Unit {(result.ooUnit||0)+1} Rent (Yr 1–{result.ooYears})</td>{visibleYears.map(y=>(<td key={y.yr} style={{...tdR(!!y.ooRentDeduction,null),color:y.ooRentDeduction>0?"var(--refi-amber)":"var(--muted)"}}>{y.ooRentDeduction>0?`(${FMT_USD(y.ooRentDeduction)})`:"—"}</td>))}</tr>)}
 
           {/* Vacancy — applied to tenant-only rent */}
           <R label="Vacancy Loss (tenant units)" color="red"><Yr color="red">{y=>FMT_USD(y.vacancyLoss)}</Yr></R>
 
           {/* EGI */}
           <R label="EGI" bold><Yr bold>{y=>FMT_USD(y.egi)}</Yr></R>
-          {result.vaEnabled&&(<tr><td style={tdL(false,true,"var(--va-purple)")}>↳ VA Rent Lift (Yr {result.vaCompletionYr}+)</td>{result.years.map(y=>(<td key={y.yr} style={{...tdR(y.vaRentLift>0,null),color:y.vaRentLift>0?"var(--va-purple)":"var(--muted)"}}>{y.vaRentLift>0?`+${FMT_USD(y.vaRentLift)}`:"—"}</td>))}</tr>)}
+          {result.vaEnabled&&(<tr><td style={tdL(false,true,"var(--va-purple)")}>↳ VA Rent Lift (Yr {result.vaCompletionYr}+)</td>{visibleYears.map(y=>(<td key={y.yr} style={{...tdR(y.vaRentLift>0,null),color:y.vaRentLift>0?"var(--va-purple)":"var(--muted)"}}>{y.vaRentLift>0?`+${FMT_USD(y.vaRentLift)}`:"—"}</td>))}</tr>)}
 
           {/* Total Expenses — expandable */}
           <tr style={{cursor:"pointer"}} onClick={()=>setShowExpDetail(v=>!v)}>
             <td style={{...tdL(false,false),userSelect:"none"}}><span style={{color:"var(--accent)",marginRight:4,fontSize:9,display:"inline-block",transform:showExpDetail?"rotate(90deg)":"rotate(0)"}}>&#9658;</span>Total Expenses</td>
-            {result.years.map(y=><td key={y.yr} style={tdR(false,"red")}>{FMT_USD(y.expenses)}</td>)}
+            {visibleYears.map(y=><td key={y.yr} style={tdR(false,"red")}>{FMT_USD(y.expenses)}</td>)}
           </tr>
-          {showExpDetail&&EXP_KEYS.filter(([k])=>k!=="costSegFee"||result.years.some(y=>y.expBreakdown?.costSegFee>0)).map(([k,lbl])=>(<tr key={k} style={{background:"var(--row-sub)"}}><td style={{...tdL(false,true),background:"var(--row-sub)"}}>&#x21b3; {lbl}</td>{result.years.map(y=><td key={y.yr} style={{...tdR(false,null),color:k==="costSegFee"&&y.expBreakdown[k]>0?"var(--va-purple)":undefined}}>{k==="costSegFee"&&y.expBreakdown[k]===0?"—":FMT_USD(y.expBreakdown[k])}</td>)}</tr>))}
+          {showExpDetail&&EXP_KEYS.filter(([k])=>k!=="costSegFee"||result.years.some(y=>y.expBreakdown?.costSegFee>0)).map(([k,lbl])=>(<tr key={k} style={{background:"var(--row-sub)"}}><td style={{...tdL(false,true),background:"var(--row-sub)"}}>&#x21b3; {lbl}</td>{visibleYears.map(y=><td key={y.yr} style={{...tdR(false,null),color:k==="costSegFee"&&y.expBreakdown[k]>0?"var(--va-purple)":undefined}}>{k==="costSegFee"&&y.expBreakdown[k]===0?"—":FMT_USD(y.expBreakdown[k])}</td>)}</tr>))}
 
           {/* NOI */}
           <R label="NOI" bold><Yr bold>{y=>FMT_USD(y.noi)}</Yr></R>
@@ -131,24 +170,24 @@ function CashFlowTab({result,deal}){
           {/* Debt Service */}
           <tr>
             <td style={tdL(false,false)}>Debt Service</td>
-            {result.years.map(y=>(<td key={y.yr} style={tdR(false,"red")}>{y.refiEvent&&<div style={{fontSize:8,fontWeight:800,color:"var(--refi-amber)"}}>↻ Refi</div>}{FMT_USD(y.debtService)}</td>))}
+            {visibleYears.map(y=>(<td key={y.yr} style={tdR(false,"red")}>{y.refiEvent&&<div style={{fontSize:8,fontWeight:800,color:"var(--refi-amber)"}}>↻ Refi</div>}{FMT_USD(y.debtService)}</td>))}
           </tr>
-          {result.refiYear&&(<tr><td style={{...tdL(false,true),color:"var(--refi-amber)"}}>↳ Cash-Out (Yr {result.refiYear})</td>{result.years.map(y=>(<td key={y.yr} style={{...tdR(!!y.refiEvent,null),color:y.refiEvent?"var(--refi-amber)":"var(--muted)"}}>{y.refiEvent?FMT_USD(y.refiEvent.cashOut):"—"}</td>))}</tr>)}
+          {result.refiYear&&(<tr><td style={{...tdL(false,true),color:"var(--refi-amber)"}}>↳ Cash-Out (Yr {result.refiYear})</td>{visibleYears.map(y=>(<td key={y.yr} style={{...tdR(!!y.refiEvent,null),color:y.refiEvent?"var(--refi-amber)":"var(--muted)"}}>{y.refiEvent?FMT_USD(y.refiEvent.cashOut):"—"}</td>))}</tr>)}
 
           {/* Owner Utilities — below debt service, amber, only during OO years */}
-          {oo&&(<tr><td style={{...tdL(false,true,"var(--refi-amber)")}}>↳ − Owner Utilities (Yr 1–{result.ooYears})</td>{result.years.map(y=>(<td key={y.yr} style={{...tdR(!!y.ooUtilities,null),color:y.ooUtilities>0?"var(--refi-amber)":"var(--muted)"}}>{y.ooUtilities>0?`(${FMT_USD(y.ooUtilities)})`:"—"}</td>))}</tr>)}
+          {oo&&(<tr><td style={{...tdL(false,true,"var(--refi-amber)")}}>↳ − Owner Utilities (Yr 1–{result.ooYears})</td>{visibleYears.map(y=>(<td key={y.yr} style={{...tdR(!!y.ooUtilities,null),color:y.ooUtilities>0?"var(--refi-amber)":"var(--muted)"}}>{y.ooUtilities>0?`(${FMT_USD(y.ooUtilities)})`:"—"}</td>))}</tr>)}
 
           {/* Remodel outflow — above Cash Flow so it reads as a deduction leading into the total */}
-          {result.vaEnabled&&(<tr><td style={{...tdL(false,true),color:"var(--va-purple)"}}>↳ Remodel Cost (Yr1–2)</td>{result.years.map(y=>(<td key={y.yr} style={{...tdR(y.vaRemodelOutflow>0,null),color:y.vaRemodelOutflow>0?"var(--va-purple)":"var(--muted)"}}>{y.vaRemodelOutflow>0?`(${FMT_USD(y.vaRemodelOutflow)})`:"—"}</td>))}</tr>)}
+          {result.vaEnabled&&(<tr><td style={{...tdL(false,true),color:"var(--va-purple)"}}>↳ Remodel Cost (Yr1–2)</td>{visibleYears.map(y=>(<td key={y.yr} style={{...tdR(y.vaRemodelOutflow>0,null),color:y.vaRemodelOutflow>0?"var(--va-purple)":"var(--muted)"}}>{y.vaRemodelOutflow>0?`(${FMT_USD(y.vaRemodelOutflow)})`:"—"}</td>))}</tr>)}
 
           {/* Cash Flow — unified bottom line */}
           <R label="Cash Flow" bold color="accent"><Yr bold color="accent">{y=>FMT_USD(y.cashFlow)}</Yr></R>
 
           {/* Monthly Net */}
-          <tr><td style={{...tdL(false,true),color:"var(--accent2)",fontStyle:"italic"}}>↳ Monthly Net</td>{result.years.map(y=>{const mc=y.monthlyCashFlow;return(<td key={y.yr} style={{...tdR(true,null),color:mc>=0?"var(--accent2)":"var(--red)",fontStyle:"italic"}}>{FMT_USD(mc)}</td>);})}</tr>
+          <tr><td style={{...tdL(false,true),color:"var(--accent2)",fontStyle:"italic"}}>↳ Monthly Net</td>{visibleYears.map(y=>{const mc=y.monthlyCashFlow;return(<td key={y.yr} style={{...tdR(true,null),color:mc>=0?"var(--accent2)":"var(--red)",fontStyle:"italic"}}>{FMT_USD(mc)}</td>);})}</tr>
 
           {/* Alt Rent — muted, informational, only during OO years */}
-          {oo&&altRent>0&&(<tr><td style={{...tdL(false,false),color:"var(--muted)"}}>Alt. Rent (if renting)</td>{result.years.map(y=>(<td key={y.yr} style={{...tdR(false,null),color:"var(--muted)",fontStyle:"italic"}}>{y.ooRentDeduction>0?`+${FMT_USD(altRent)}/mo`:"—"}</td>))}</tr>)}
+          {oo&&altRent>0&&(<tr><td style={{...tdL(false,false),color:"var(--muted)"}}>Alt. Rent (if renting)</td>{visibleYears.map(y=>(<td key={y.yr} style={{...tdR(false,null),color:"var(--muted)",fontStyle:"italic"}}>{y.ooRentDeduction>0?`+${FMT_USD(altRent)}/mo`:"—"}</td>))}</tr>)}
 
           {/* Incremental Cash Flow = Cash Flow + Alt Rent. Only when OO + alt rent set. */}
           {oo&&altRent>0&&(
@@ -179,7 +218,7 @@ function CashFlowTab({result,deal}){
                   </span>
                 </span>
               </td>
-              {result.years.map(y=>{
+              {visibleYears.map(y=>{
                 const icf=y.incrementalCashFlow;
                 const active=y.ooRentDeduction>0||altRent>0;
                 return(
@@ -196,23 +235,23 @@ function CashFlowTab({result,deal}){
 
           {/* OO pro-rate notice — only during OO years */}
           {oo&&result.years.some(y=>y.ooTaxProrateRatio<1)&&(
-            <tr><td colSpan={result.years.length+1} style={{padding:"5px 8px",fontSize:10,color:"var(--refi-amber)",fontStyle:"italic",background:"rgba(245,158,11,0.06)"}}>
+            <tr><td colSpan={visibleYears.length+1} style={{padding:"5px 8px",fontSize:10,color:"var(--refi-amber)",fontStyle:"italic",background:"rgba(245,158,11,0.06)"}}>
               ⚠ During owner-occupancy years only the rental share ({result.years[0]?.ooTaxProrateRatio<1?`${Math.round(result.years[0].ooTaxProrateRatio*100)}%`:"100%"}) of interest &amp; depreciation is deductible. The owner's share of operating expenses is added back to NOI since those costs were not incurred for rental purposes.
             </td></tr>
           )}
 
           {/* NOI reference row — starting point for tax derivation */}
-          <tr><td style={{...tdL(false,false),color:"var(--muted)",fontStyle:"italic"}}>NOI (from above)</td>{result.years.map(y=><td key={y.yr} style={{...tdR(false,null),color:"var(--muted)",fontStyle:"italic"}}>{FMT_USD(y.noi)}</td>)}</tr>
+          <tr><td style={{...tdL(false,false),color:"var(--muted)",fontStyle:"italic"}}>NOI (from above)</td>{visibleYears.map(y=><td key={y.yr} style={{...tdR(false,null),color:"var(--muted)",fontStyle:"italic"}}>{FMT_USD(y.noi)}</td>)}</tr>
 
           {/* Owner expense addback — only non-zero during OO years */}
           {oo&&result.years.some(y=>y.ooExpAddBack>0)&&(
             <tr><td style={{...tdL(false,true,"var(--refi-amber)")}}>↳ + Owner Exp. Add-back ({result.years[0]?.ooTaxProrateRatio<1?`${Math.round((1-result.years[0].ooTaxProrateRatio)*100)}%`:""} non-deductible)</td>
-              {result.years.map(y=><td key={y.yr} style={{...tdR(false,null),color:y.ooExpAddBack>0?"var(--refi-amber)":"var(--muted)"}}>{y.ooExpAddBack>0?`+${FMT_USD(y.ooExpAddBack)}`:"—"}</td>)}
+              {visibleYears.map(y=><td key={y.yr} style={{...tdR(false,null),color:y.ooExpAddBack>0?"var(--refi-amber)":"var(--muted)"}}>{y.ooExpAddBack>0?`+${FMT_USD(y.ooExpAddBack)}`:"—"}</td>)}
             </tr>
           )}
 
           {/* Mortgage Interest — prorated to rental units only during OO years */}
-          <tr><td style={tdL(false,false)}>− Mortgage Interest {oo&&result.years[0]?.ooTaxProrateRatio<1?`(${Math.round(result.years[0].ooTaxProrateRatio*100)}% rental share)`:""}</td>{result.years.map(y=><td key={y.yr} style={tdR(false,"red")}>{FMT_USD(y.interest*y.ooTaxProrateRatio)}</td>)}</tr>
+          <tr><td style={tdL(false,false)}>− Mortgage Interest {oo&&result.years[0]?.ooTaxProrateRatio<1?`(${Math.round(result.years[0].ooTaxProrateRatio*100)}% rental share)`:""}</td>{visibleYears.map(y=><td key={y.yr} style={tdR(false,"red")}>{FMT_USD(y.interest*y.ooTaxProrateRatio)}</td>)}</tr>
 
           {/* Depreciation — clickable to expand */}
           <tr style={{cursor:"pointer"}} onClick={()=>setShowTaxDetail(v=>!v)}>
@@ -220,15 +259,15 @@ function CashFlowTab({result,deal}){
               <span style={{color:"var(--accent)",marginRight:4,fontSize:9,display:"inline-block",transform:showTaxDetail?"rotate(90deg)":"rotate(0)"}}>&#9658;</span>
               − {result.taxAdvEnabled?"Total Depreciation":"Depreciation (27.5yr)"}
             </td>
-            {result.years.map(y=><td key={y.yr} style={tdR(false,"red")}>{FMT_USD(result.taxAdvEnabled?y.totalDepreciation:y.depreciation)}</td>)}
+            {visibleYears.map(y=><td key={y.yr} style={tdR(false,"red")}>{FMT_USD(result.taxAdvEnabled?y.totalDepreciation:y.depreciation)}</td>)}
           </tr>
           {showTaxDetail&&result.taxAdvEnabled&&(<>
-            <tr style={{background:"var(--row-sub)"}}><td style={{...tdL(false,true),background:"var(--row-sub)"}}>&#x21b3; SL Dep (27.5yr)</td>{result.years.map(y=><td key={y.yr} style={tdR(false,null)}>{FMT_USD(y.slDepreciation)}</td>)}</tr>
+            <tr style={{background:"var(--row-sub)"}}><td style={{...tdL(false,true),background:"var(--row-sub)"}}>&#x21b3; SL Dep (27.5yr)</td>{visibleYears.map(y=><td key={y.yr} style={tdR(false,null)}>{FMT_USD(y.slDepreciation)}</td>)}</tr>
             {result.years.some(y=>y.cs5Depreciation>0)&&(
-              <tr style={{background:"var(--row-sub)"}}><td style={{...tdL(false,true,"var(--accent2)"),background:"var(--row-sub)"}}>&#x21b3; Cost Seg 5-yr</td>{result.years.map(y=><td key={y.yr} style={{...tdR(false,null),color:y.cs5Depreciation>0?"var(--accent2)":"var(--muted)"}}>{y.cs5Depreciation>0?FMT_USD(y.cs5Depreciation):"—"}</td>)}</tr>
+              <tr style={{background:"var(--row-sub)"}}><td style={{...tdL(false,true,"var(--accent2)"),background:"var(--row-sub)"}}>&#x21b3; Cost Seg 5-yr</td>{visibleYears.map(y=><td key={y.yr} style={{...tdR(false,null),color:y.cs5Depreciation>0?"var(--accent2)":"var(--muted)"}}>{y.cs5Depreciation>0?FMT_USD(y.cs5Depreciation):"—"}</td>)}</tr>
             )}
             {result.years.some(y=>y.cs15Depreciation>0)&&(
-              <tr style={{background:"var(--row-sub)"}}><td style={{...tdL(false,true,"var(--accent2)"),background:"var(--row-sub)"}}>&#x21b3; Cost Seg 15-yr</td>{result.years.map(y=><td key={y.yr} style={{...tdR(false,null),color:y.cs15Depreciation>0?"var(--accent2)":"var(--muted)"}}>{y.cs15Depreciation>0?FMT_USD(y.cs15Depreciation):"—"}</td>)}</tr>
+              <tr style={{background:"var(--row-sub)"}}><td style={{...tdL(false,true,"var(--accent2)"),background:"var(--row-sub)"}}>&#x21b3; Cost Seg 15-yr</td>{visibleYears.map(y=><td key={y.yr} style={{...tdR(false,null),color:y.cs15Depreciation>0?"var(--accent2)":"var(--muted)"}}>{y.cs15Depreciation>0?FMT_USD(y.cs15Depreciation):"—"}</td>)}</tr>
             )}
           </>)}
 
@@ -247,7 +286,7 @@ function CashFlowTab({result,deal}){
               {hasCF&&(
                 <tr>
                   <td style={tdL(false,false)}>− Carryforward Applied</td>
-                  {result.years.map(y=><td key={y.yr} style={tdR(false,y.carryforwardUsedThisYr>0?"red":null)}>
+                  {visibleYears.map(y=><td key={y.yr} style={tdR(false,y.carryforwardUsedThisYr>0?"red":null)}>
                     {y.carryforwardUsedThisYr>0?`(${FMT_USD(y.carryforwardUsedThisYr)})`:"—"}
                   </td>)}
                 </tr>
@@ -266,7 +305,7 @@ function CashFlowTab({result,deal}){
 
           {/* Federal Tax / Benefit */}
           <tr><td style={tdL(true,false)}>Federal Tax / (Benefit)</td>
-            {result.years.map(y=>{const te=result.taxAdvEnabled?y.taxEffectAdv:y.taxEffect;return(<td key={y.yr} style={{...tdR(true,null),color:te<0?"var(--green)":"var(--red)"}}>{FMT_USD(te)}</td>);})}
+            {visibleYears.map(y=>{const te=result.taxAdvEnabled?y.taxEffectAdv:y.taxEffect;return(<td key={y.yr} style={{...tdR(true,null),color:te<0?"var(--green)":"var(--red)"}}>{FMT_USD(te)}</td>);})}
           </tr>
           {/* State Income Tax row — only rendered when a state is configured */}
           {result.years[0]?.totalStateTax !== undefined && result.years.some(y => y.totalStateTax > 0) && (
@@ -279,7 +318,7 @@ function CashFlowTab({result,deal}){
                   </span>
                 )}
               </td>
-              {result.years.map(y => (
+              {visibleYears.map(y => (
                 <td key={y.yr} style={{...tdR(false,null), color: y.totalStateTax > 0 ? "var(--red)" : "var(--muted)"}}>
                   {y.totalStateTax > 0 ? FMT_USD(y.totalStateTax) : "—"}
                 </td>
@@ -290,7 +329,7 @@ function CashFlowTab({result,deal}){
           {result.taxAdvEnabled&&result.years.some(y=>y.taxBenefitFromCF>0)&&(
             <tr>
               <td style={{...tdL(false,true),color:"var(--green)"}}>↳ Carryforward Saves (This Yr)</td>
-              {result.years.map(y=>(
+              {visibleYears.map(y=>(
                 <td key={y.yr} style={{...tdR(false,null),color:y.taxBenefitFromCF>0?"var(--green)":"var(--muted)"}}>
                   {y.taxBenefitFromCF>0?`(${FMT_USD(y.taxBenefitFromCF)})`:"—"}
                 </td>
@@ -310,7 +349,7 @@ function CashFlowTab({result,deal}){
                   <span style={{color:"var(--refi-amber)",marginRight:4,fontSize:9,display:"inline-block",transform:showCFDetail?"rotate(90deg)":"rotate(0)"}}>&#9658;</span>
                   PAL Carryforward Balance
                 </td>
-                {result.years.map(y=>(
+                {visibleYears.map(y=>(
                   <td key={y.yr} style={{...tdR(true,null),color:y.cumulativeCarryforward>0?"var(--refi-amber)":"var(--muted)"}}>
                     {y.cumulativeCarryforward>0?FMT_USD(y.cumulativeCarryforward):"—"}
                   </td>
@@ -321,7 +360,7 @@ function CashFlowTab({result,deal}){
               {showCFDetail&&result.years.some(y=>y.suspendedLossThisYr>0)&&(
                 <tr style={{background:"var(--row-sub)"}}>
                   <td style={{...tdL(false,true,"var(--refi-amber)"),background:"var(--row-sub)"}}>&#x21b3; + Suspended This Yr</td>
-                  {result.years.map(y=>(
+                  {visibleYears.map(y=>(
                     <td key={y.yr} style={{...tdR(false,null),color:y.suspendedLossThisYr>0?"var(--refi-amber)":"var(--muted)"}}>
                       {y.suspendedLossThisYr>0?`+${FMT_USD(y.suspendedLossThisYr)}`:"—"}
                     </td>
@@ -333,7 +372,7 @@ function CashFlowTab({result,deal}){
               {showCFDetail&&result.years.some(y=>y.carryforwardUsedThisYr>0)&&(
                 <tr style={{background:"var(--row-sub)"}}>
                   <td style={{...tdL(false,true),color:"var(--accent)",background:"var(--row-sub)"}}>&#x21b3; − Applied This Yr</td>
-                  {result.years.map(y=>(
+                  {visibleYears.map(y=>(
                     <td key={y.yr} style={{...tdR(false,null),color:y.carryforwardUsedThisYr>0?"var(--accent)":"var(--muted)"}}>
                       {y.carryforwardUsedThisYr>0?`(${FMT_USD(y.carryforwardUsedThisYr)})`:"—"}
                     </td>
@@ -341,7 +380,7 @@ function CashFlowTab({result,deal}){
                 </tr>
               )}
 
-              <tr><td colSpan={11} style={{padding:"2px 8px 8px 8px",fontSize:10,color:"var(--muted)",fontStyle:"italic",lineHeight:1.5}}>
+              <tr><td colSpan={visibleYears.length+1} style={{padding:"2px 8px 8px 8px",fontSize:10,color:"var(--muted)",fontStyle:"italic",lineHeight:1.5}}>
                 Deferred tax asset — not cash. Reduces future taxable income and releases in full upon taxable sale. Not released by a 1031 exchange.
               </td></tr>
             </>
@@ -356,6 +395,14 @@ function CashFlowTab({result,deal}){
           <R label="Total Equity" bold color="accent"><Yr bold color="accent">{y=>FMT_USD(y.equity)}</Yr></R>
         </tbody>
       </table>
+    </div>
+    {/* Right-edge scroll shadow — fades in when content extends past viewport.
+        Positioned over the scroll container so it doesn't shift table layout. */}
+    {showRightShadow && (
+      <div aria-hidden="true" style={{position:"absolute",top:0,right:0,bottom:0,width:24,
+        pointerEvents:"none",
+        background:"linear-gradient(to right, transparent, var(--bg) 90%)"}}/>
+    )}
     </div>
   </div>);
 }
