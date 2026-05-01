@@ -3,7 +3,7 @@ import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContai
 import { iSty } from './ui/InputRow';
 import Tip from './ui/Tip';
 import { FMT_USD, FMT_PCT, FMT_X, mapsUrl } from '../lib/constants';
-import { calcExitScenarios } from '../lib/calc';
+import { calcExitScenarios, calcDeal } from '../lib/calc';
 import { GLOSSARY } from '../lib/glossary';
 import PhotoGallery from './PhotoGallery';
 import DSCRBadge from './ui/DSCRBadge';
@@ -36,6 +36,17 @@ const DSPanel = ({children,accent,style}) => (
 
 function DealSummaryTab({deal, result, onUpdate}) {
   const isMobile = useIsMobile();
+  // Quick-switch OO ↔ fully-rented scenario (backlog 920) — only used when ownerOccupied is enabled
+  const [showFullyRented, setShowFullyRented] = React.useState(false);
+  // Memoize alt scenario (turn OO off for what-if comparison)
+  const altResult = React.useMemo(() => {
+    if (!deal?.assumptions?.ownerOccupied) return null;
+    const altDeal = JSON.parse(JSON.stringify(deal));
+    altDeal.assumptions.ownerOccupied = false;
+    altDeal.assumptions.ownerOccupancyYears = 0;
+    altDeal.assumptions.alternativeRent = 0;
+    return calcDeal(altDeal);
+  }, [deal]);
   const a = deal.assumptions;
   const addr = deal.address;
   const maps = mapsUrl(addr);
@@ -118,6 +129,94 @@ function DealSummaryTab({deal, result, onUpdate}) {
           <div style={{background:"var(--accent-soft)",borderRadius:10,padding:"10px 16px",fontSize:12,color:"var(--accent)",fontWeight:700}}>💰 Monthly Cash Flow</div>
           <div style={{background:"var(--accent-soft)",borderRadius:10,padding:"10px 16px",fontSize:12,color:"var(--accent)",fontWeight:700}}>📈 {holdYears}-Year Equity Growth</div>
         </div>
+      </div>
+    )}
+
+    {/* House-Hack Hero: Effective Mortgage prominent for OO deals (backlog 910) */}
+    {result.ooEnabled && +a.purchasePrice > 0 && (
+      <DSPanel accent style={{marginBottom:14,borderTop:"3px solid var(--oo-violet)",borderColor:"rgba(124,58,237,0.25)"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
+          <div style={{flex:"1 1 240px"}}>
+            <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--oo-violet)",marginBottom:6,display:"flex",alignItems:"center"}}>
+              🏠 Your Effective Mortgage<Tip text={GLOSSARY.effectiveMortgage}/>
+            </div>
+            <div style={{fontSize:isMobile?34:44,fontWeight:900,letterSpacing:"-2px",color:emPos?"var(--red)":"var(--green)",lineHeight:1,marginBottom:6,fontFamily:"'Fraunces',serif"}}>
+              {emPos?"+":"-"}{FMT_USD(Math.abs(effectiveMortgage))}<span style={{fontSize:14,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
+            </div>
+            <div style={{fontSize:12,color:"var(--muted)",lineHeight:1.5}}>
+              {emPos
+                ? <>Tenant rents cover <strong style={{color:"var(--accent)"}}>{Math.round(Math.min(100,(egiExOO/Math.max(piti,1))*100))}%</strong> of your PITI. You still pay {FMT_USD(Math.abs(effectiveMortgage))}/mo out of pocket to live here.</>
+                : <>Tenant rents cover <strong style={{color:"var(--green)"}}>100%</strong> of PITI plus {FMT_USD(Math.abs(effectiveMortgage))}/mo. You live for free with positive cash flow.</>
+              }
+            </div>
+          </div>
+          <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
+            <div style={{textAlign:"center"}}>
+              <div style={{fontSize:9,color:"var(--muted)",fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:4}}>PITI</div>
+              <div style={{fontSize:15,fontWeight:800,color:"var(--text)"}}>{FMT_USD(piti)}<span style={{fontSize:10,color:"var(--muted)",fontWeight:400}}>/mo</span></div>
+            </div>
+            <div style={{textAlign:"center"}}>
+              <div style={{fontSize:9,color:"var(--muted)",fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:4}}>Tenant Rent</div>
+              <div style={{fontSize:15,fontWeight:800,color:"var(--accent)"}}>{FMT_USD(egiExOO)}<span style={{fontSize:10,color:"var(--muted)",fontWeight:400}}>/mo</span></div>
+            </div>
+            {altRent>0 && (
+              <div style={{textAlign:"center"}}>
+                <div style={{fontSize:9,color:"var(--muted)",fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:4}}>vs. Renting</div>
+                <div style={{fontSize:15,fontWeight:800,color:vsRent>=0?"var(--green)":"var(--red)"}}>{vsRent>=0?"+":"-"}{FMT_USD(Math.abs(vsRent))}<span style={{fontSize:10,color:"var(--muted)",fontWeight:400}}>/mo</span></div>
+              </div>
+            )}
+          </div>
+        </div>
+      </DSPanel>
+    )}
+
+    {/* What-if scenario toggle (backlog 920) — show fully-rented projection for OO deals */}
+    {result.ooEnabled && altResult && +a.purchasePrice > 0 && (
+      <div style={{marginBottom:14}}>
+        <button
+          onClick={()=>setShowFullyRented(v=>!v)}
+          style={{
+            background:showFullyRented?"var(--accent)":"var(--card)",
+            color:showFullyRented?"#fff":"var(--accent)",
+            border:"1px solid var(--accent)",
+            borderRadius:100,padding:"6px 14px",fontSize:12,fontWeight:700,
+            cursor:"pointer",fontFamily:"inherit",display:"inline-flex",alignItems:"center",gap:6,
+          }}>
+          {showFullyRented ? "✓ Showing fully-rented" : "🔀 What if I move out?"}
+        </button>
+        <span style={{fontSize:11,color:"var(--muted)",marginLeft:10}}>
+          {showFullyRented ? "Compare your unit rented to a tenant" : "Quick toggle to see all-units-rented numbers"}
+        </span>
+        {showFullyRented && (
+          <DSPanel style={{marginTop:10,borderColor:"var(--accent)"}}>
+            <div style={{fontSize:11,fontWeight:800,letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--accent)",marginBottom:10}}>
+              House-Hack vs. Fully Rented (Year 1)
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr 1fr",gap:10}}>
+              {[
+                { label:"Monthly Cash Flow", oo:result.years[0]?.monthlyCashFlow||0, alt:altResult.years[0]?.monthlyCashFlow||0, fmt:v=>(v>=0?"+":"-")+FMT_USD(Math.abs(v))+"/mo", colorOf:v=>v>=0?"var(--green)":"var(--red)" },
+                { label:"Cap Rate", oo:result.capRate, alt:altResult.capRate, fmt:v=>FMT_PCT(v), colorOf:v=>v>=0.05?"var(--green)":v>=0.04?"var(--accent2)":"var(--red)" },
+                { label:"CoC Return", oo:result.cocReturn, alt:altResult.cocReturn, fmt:v=>FMT_PCT(v), colorOf:v=>v>=0.06?"var(--green)":v>=0.03?"var(--accent2)":"var(--red)" },
+                { label:`IRR (${holdYears}-Yr)`, oo:result.irr, alt:altResult.irr, fmt:v=>FMT_PCT(v), colorOf:v=>v>=0.12?"var(--green)":v>=0.08?"var(--accent2)":"var(--red)" },
+              ].map(({label,oo,alt,fmt,colorOf})=>(
+                <div key={label} style={{borderRadius:10,padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)"}}>
+                  <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>{label}</div>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:4}}>
+                    <span style={{fontSize:10,color:"var(--oo-violet)",fontWeight:700}}>You in unit</span>
+                    <span style={{fontSize:13,fontWeight:800,color:colorOf(oo)}}>{fmt(oo)}</span>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
+                    <span style={{fontSize:10,color:"var(--accent)",fontWeight:700}}>Fully rented</span>
+                    <span style={{fontSize:13,fontWeight:800,color:colorOf(alt)}}>{fmt(alt)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{marginTop:10,fontSize:11,color:"var(--muted)",lineHeight:1.5}}>
+              The "fully-rented" scenario assumes you move out and lease your unit at the same rent as the others. Useful for evaluating exit options or future cash flow once your owner-occupancy period ends.
+            </div>
+          </DSPanel>
+        )}
       </div>
     )}
 
