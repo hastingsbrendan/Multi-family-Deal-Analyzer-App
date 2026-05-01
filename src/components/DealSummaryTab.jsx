@@ -9,6 +9,31 @@ import PhotoGallery from './PhotoGallery';
 import DSCRBadge from './ui/DSCRBadge';
 import { useIsMobile } from '../lib/hooks';
 
+const SubHdr = ({children}) => (
+  <div style={{fontSize:11,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--accent)",marginBottom:8,marginTop:4,borderLeft:"3px solid var(--accent)",paddingLeft:8}}>
+    {children}
+  </div>
+);
+
+const SLbl = ({children, tip}) => (
+  <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--muted)",marginBottom:10,display:"flex",alignItems:"center"}}>
+    {children}{tip&&<Tip text={tip}/>}
+  </div>
+);
+
+const KV = ({label,value,color,bold,last,tip}) => (
+  <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:last?"none":"1px solid var(--border)"}}>
+    <span style={{fontSize:11,color:"var(--muted)",display:"inline-flex",alignItems:"center"}}>{label}{tip&&<Tip text={tip}/>}</span>
+    <span style={{fontSize:12,fontWeight:bold?800:700,color:color||"var(--text)"}}>{value}</span>
+  </div>
+);
+
+const DSPanel = ({children,accent,style}) => (
+  <div style={{background:"var(--card)",border:"1px solid "+(accent?"rgba(13,148,136,0.25)":"var(--border)"),borderRadius:12,padding:"14px 14px",borderTop:accent?"2px solid var(--accent)":undefined,...style}}>
+    {children}
+  </div>
+);
+
 function DealSummaryTab({deal, result, onUpdate}) {
   const isMobile = useIsMobile();
   const a = deal.assumptions;
@@ -68,31 +93,6 @@ function DealSummaryTab({deal, result, onUpdate}) {
     ["Prop. Mgmt", expBrk.propertyMgmt],
     ["Utilities", expBrk.utilities],
   ].filter(([,v])=>v>0);
-
-  const SubHdr = ({children}) => (
-    <div style={{fontSize:11,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--accent)",marginBottom:8,marginTop:4,borderLeft:"3px solid var(--accent)",paddingLeft:8}}>
-      {children}
-    </div>
-  );
-
-  const SLbl = ({children, tip}) => (
-    <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--muted)",marginBottom:10,display:"flex",alignItems:"center"}}>
-      {children}{tip&&<Tip text={tip}/>}
-    </div>
-  );
-
-  const KV = ({label,value,color,bold,last,tip}) => (
-    <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:last?"none":"1px solid var(--border)"}}>
-      <span style={{fontSize:11,color:"var(--muted)",display:"inline-flex",alignItems:"center"}}>{label}{tip&&<Tip text={tip}/>}</span>
-      <span style={{fontSize:12,fontWeight:bold?800:700,color:color||"var(--text)"}}>{value}</span>
-    </div>
-  );
-
-  const Panel = ({children,accent,style}) => (
-    <div style={{background:"var(--card)",border:"1px solid "+(accent?"rgba(13,148,136,0.25)":"var(--border)"),borderRadius:12,padding:"14px 14px",borderTop:accent?"2px solid var(--accent)":undefined,...style}}>
-      {children}
-    </div>
-  );
 
   return(<div style={{padding:"16px 0"}}>
 
@@ -197,7 +197,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 2fr",gap:10,marginBottom:10,alignItems:"stretch"}}>
           {/* Col 1: Hero card (compact) + IRR + Cap Rate side-by-side below */}
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            <Panel accent>
+            <DSPanel accent>
               <SLbl tip="Total monthly equity gained across the hold period — sum of appreciation, principal paydown, cash flow, and tax benefits, divided by months held.">Avg. Monthly Equity Growth · {holdYears}-Year Hold</SLbl>
               <div style={{fontSize:36,fontWeight:900,letterSpacing:"-2px",color:avgMonthlyEquity>=0?"var(--accent)":"var(--red)",lineHeight:1,marginBottom:6,fontFamily:"'Fraunces',serif"}}>
                 {avgMonthlyEquity>=0?"+":"-"}{FMT_USD(Math.abs(avgMonthlyEquity))}<span style={{fontSize:13,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
@@ -215,20 +215,20 @@ function DealSummaryTab({deal, result, onUpdate}) {
                   </div>
                 ))}
               </div>
-            </Panel>
+            </DSPanel>
             {/* IRR + Cap Rate side-by-side below hero */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
               {returnItems.map(({label,val,good,note,tip})=>(
-                <Panel key={label}>
+                <DSPanel key={label}>
                   <div style={{fontSize:10,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4,display:"flex",alignItems:"center"}}>{label}{tip&&<Tip text={tip}/>}</div>
                   <div style={{fontSize:22,fontWeight:900,color:good?"var(--accent)":"var(--accent2)",lineHeight:1,fontFamily:"'Fraunces',serif"}}>{val}</div>
                   <div style={{fontSize:10,color:"var(--muted)",marginTop:4}}>{note}</div>
-                </Panel>
+                </DSPanel>
               ))}
             </div>
           </div>
           {/* Col 2: Stacked bar chart — fills full height */}
-          <Panel style={{padding:"14px 16px 10px",display:"flex",flexDirection:"column"}}>
+          <DSPanel style={{padding:"14px 16px 10px",display:"flex",flexDirection:"column"}}>
             <div style={{marginBottom:8}}>
               <div style={{fontSize:11,fontWeight:800,color:"var(--text)",letterSpacing:"-0.1px",fontFamily:"'Fraunces',serif"}}>Cumulative Equity Build-Up · {holdYears}-Year Hold</div>
               <div style={{display:"flex",gap:12,flexWrap:"wrap",marginTop:4}}>
@@ -259,7 +259,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          </Panel>
+          </DSPanel>
         </div>
       );
     })()}
@@ -376,7 +376,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
           <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"2fr 1fr 1fr",gap:10,marginBottom:10}}>
 
             {/* Cash Flow hero */}
-            <Panel accent>
+            <DSPanel accent>
               <SLbl tip={GLOSSARY.cashFlow}>{result.ooEnabled?"Avg Monthly Cash Flow · You in Unit "+(( result.ooUnit||0)+1):"Avg Monthly Cash Flow · "+_holdLen+"-Yr Hold"}</SLbl>
               <div style={{fontSize:44,fontWeight:900,letterSpacing:"-2px",color:avgMonthlyCF>=0?"var(--green)":"var(--accent2)",lineHeight:1,marginBottom:10,fontFamily:"'Fraunces',serif"}}>
                 {avgMonthlyCF>=0?"+":"-"}{FMT_USD(Math.abs(avgMonthlyCF))}<span style={{fontSize:14,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
@@ -395,13 +395,13 @@ function DealSummaryTab({deal, result, onUpdate}) {
                   </div>
                 </div>
               )}
-            </Panel>
+            </DSPanel>
 
             {/* Effective Mortgage */}
-            <Panel style={{borderTop:"2px solid var(--accent)"}}>
+            <DSPanel style={{borderTop:"2px solid var(--accent)"}}>
               <SLbl tip={GLOSSARY.effectiveMortgage}>Effective Mortgage</SLbl>
               <div style={{fontSize:11,color:"var(--muted)",marginBottom:8}}>PITI − Tenant rents</div>
-              <div style={{fontSize:28,fontWeight:900,letterSpacing:"-1px",color:emPos?"#dc2626":"var(--green)",lineHeight:1,marginBottom:10,fontFamily:"'Fraunces',serif"}}>
+              <div style={{fontSize:28,fontWeight:900,letterSpacing:"-1px",color:emPos?"var(--red)":"var(--green)",lineHeight:1,marginBottom:10,fontFamily:"'Fraunces',serif"}}>
                 {emPos?"+":"-"}{FMT_USD(Math.abs(effectiveMortgage))}<span style={{fontSize:13,color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
               </div>
               <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Rent covers PITI</div>
@@ -413,10 +413,10 @@ function DealSummaryTab({deal, result, onUpdate}) {
                 <span style={{fontWeight:800,color:"var(--accent)"}}>{Math.round(Math.min(100,(egiExOO/Math.max(piti,1))*100))}%</span>
                 <span>EGI <strong style={{color:"var(--accent)"}}>{FMT_USD(egiExOO)}</strong></span>
               </div>
-            </Panel>
+            </DSPanel>
 
             {/* Income → Cash Flow waterfall bar */}
-            <Panel>
+            <DSPanel>
               <SLbl>Monthly Waterfall</SLbl>
               <WFBar label="Gross Rent"   value={grossRentMo}  color="var(--accent)"  pct={100}     />
               <WFBar label="−Vacancy"     value={-vacancyMo}   color="var(--red)"     pct={vacancyMo/wfTotal*100}/>
@@ -424,14 +424,14 @@ function DealSummaryTab({deal, result, onUpdate}) {
               <WFBar label="−PITI"        value={-pitiMo}      color="#0891B2"        pct={pitiPct} />
               <WFBar label="−OpEx"        value={-opexMo}      color="var(--accent2)" pct={opexPct} />
               <WFBar label="Cash Flow"    value={cfMo}         color={cfMo>=0?"var(--green)":"var(--red)"} pct={cfPct} isResult/>
-            </Panel>
+            </DSPanel>
           </div>
 
           {/* ── Row B: PITI donut + OpEx donut ── */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:0}}>
 
             {/* PITI donut */}
-            <Panel>
+            <DSPanel>
               <SLbl>PITI Breakdown · /mo</SLbl>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,alignItems:"center"}}>
                 <DonutChart slices={pitiSlices} centerSub="total/mo"/>
@@ -451,10 +451,10 @@ function DealSummaryTab({deal, result, onUpdate}) {
                   </div>
                 </div>
               </div>
-            </Panel>
+            </DSPanel>
 
             {/* OpEx donut */}
-            <Panel>
+            <DSPanel>
               <SLbl>Operating Expenses · /mo (excl. tax &amp; insurance)</SLbl>
               {opexSlices.length>0?(
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,alignItems:"center"}}>
@@ -478,7 +478,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
               ):(
                 <div style={{fontSize:11,color:"var(--muted)",padding:"12px 0"}}>No operating expenses configured in Assumptions.</div>
               )}
-            </Panel>
+            </DSPanel>
           </div>
         </div>
       );
@@ -492,7 +492,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
 
       {/* Col 1: Property facts + Exit */}
       <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        <Panel>
+        <DSPanel>
           <SLbl>Property</SLbl>
           {[
             ["Units", numUnits],
@@ -503,8 +503,8 @@ function DealSummaryTab({deal, result, onUpdate}) {
             ["Baths / Unit", baths],
             ["Expected Close", expectedClose],
           ].map(([l,v],i,arr)=><KV key={l} label={l} value={v} last={i===arr.length-1}/>)}
-        </Panel>
-        <Panel>
+        </DSPanel>
+        <DSPanel>
           <SLbl>Exit (Year {holdYears})</SLbl>
           {/* Gross proceeds waterfall */}
           <KV label="Exit Value" value={FMT_USD(result.exitValue)}/>
@@ -538,11 +538,11 @@ function DealSummaryTab({deal, result, onUpdate}) {
           <div style={{fontSize:9,color:"var(--muted)",fontStyle:"italic",marginTop:4,lineHeight:1.4}}>
             A 1031 exchange defers all taxes shown above — suspended losses are not released.
           </div>
-        </Panel>
+        </DSPanel>
       </div>
 
       {/* Col 2: Financing */}
-      <Panel>
+      <DSPanel>
         <SLbl>Financing</SLbl>
         {[
           ["Purchase Price", FMT_USD(+a.purchasePrice)],
@@ -562,26 +562,26 @@ function DealSummaryTab({deal, result, onUpdate}) {
             <span style={{fontSize:14,fontWeight:900,color:"var(--text)"}}>{FMT_USD(piti)}/mo</span>
           </div>
         </div>
-      </Panel>
+      </DSPanel>
 
       {/* Col 3: Rents + Expenses */}
       <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        <Panel>
+        <DSPanel>
           <SLbl>Rents</SLbl>
           {a.units.slice(0,numUnits).map((u,i)=>(
             <KV key={i} label={"Unit "+(i+1)+(result.ooEnabled&&i===result.ooUnit?" 🏠":"")} value={FMT_USD(+(u.rent||u.listedRent)||0)+"/mo"} color={result.ooEnabled&&i===result.ooUnit?"var(--muted)":"var(--text)"}/>
           ))}
           <KV label="Gross Rent" value={FMT_USD(result.grossRentYear0/12)+"/mo"}/>
-          <KV label={"Vacancy ("+((+a.vacancyRate)||0)+"%)"} value={FMT_USD(-result.grossRentYear0/12*(+a.vacancyRate||0)/100)+"/mo"} color="#dc2626" tip={GLOSSARY.vacancyRate}/>
+          <KV label={"Vacancy ("+((+a.vacancyRate)||0)+"%)"} value={FMT_USD(-result.grossRentYear0/12*(+a.vacancyRate||0)/100)+"/mo"} color="var(--red)" tip={GLOSSARY.vacancyRate}/>
           <KV label="EGI (All Units)" value={FMT_USD(result.years[0]?.egi/12||0)+"/mo"} color="var(--accent)" bold tip={GLOSSARY.egi}/>
           {result.ooEnabled&&<KV label="EGI (Tenant Only)" value={FMT_USD(egiExOO)+"/mo"} color="var(--accent)" bold/>}
           <KV label="NOI Year 1" value={FMT_USD(result.noi)+"/yr"} color="var(--accent)" last tip={GLOSSARY.noi}/>
-        </Panel>
-        <Panel>
+        </DSPanel>
+        <DSPanel>
           <SLbl>Annual Expenses</SLbl>
           {expRows.map(([l,v],i)=><KV key={l} label={l} value={FMT_USD(v)+"/yr"} last={i===expRows.length-1}/>)}
           {expRows.length===0&&<div style={{fontSize:12,color:"var(--muted)"}}>No expenses configured.</div>}
-        </Panel>
+        </DSPanel>
         {/* ── FHA Self-Sufficiency — compact, 3–4 unit only ── */}
         {result.fhaSelfSufficiency?.applies && (() => {
           const fha = result.fhaSelfSufficiency;
