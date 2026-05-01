@@ -74,20 +74,33 @@ src/
     GroupsPage.jsx, ErrorBoundary.jsx
     AssumptionsTab/
       PropertyLookupPanel.jsx — Rentcast address lookup + auto-fill
+    LoanTypeTab/
+      QuestionCard.jsx        — single quiz step (choice + slider variants)
+    MarketTab/
+      marketHelpers.js        — CENSUS_VARS, FRED_BATCH, BLS/QCEW helpers, parseFredObs/yoyPct/etc.
+      MarketUIHelpers.jsx     — SectionHeader, StatRow, BenchmarkRow, MktSection, MktEmptyState, ChartTooltip, RateCompare
+      RateContextPanel.jsx    — mortgage spread / Treasury / Fed funds panel
+      AssumptionsCheckPanel.jsx — assumptions vs CPI Rent / HPI YoY benchmarks
+    SettingsPage/
+      AppearanceTab.jsx       — dark mode toggle + legal footer
+      GroupsTab.jsx           — single CTA into Groups page
     ui/ — InputRow, Section, MetricCard, DSCRBadge, CFSectionHeader, UndoToast,
            Panel, KeyValue, Pill, Button, EmptyState, SectionHeader, Tip,
-           FmtInt, CollapsibleSection
+           FmtInt, CollapsibleSection, Spinner, ScoreBadge, ProgressBar
   lib/
     calc.js          — calcDeal(), calcExitScenarios(), calcSensitivity(), DEFAULT_PREFS, newDeal()
                        Internal helpers: calcIRR, buildDealConfig, calcYear, calcExit
     glossary.js      — GLOSSARY object with tooltip definitions for financial terms
-    constants.js     — sbClient, STORAGE_KEY, FMT_USD, FMT_PCT, loadLocal, saveLocal, sbRead, sbWrite, sbWriteDeal
+    constants.js     — sbClient, STORAGE_KEY, FMT_USD, FMT_PCT, STATUS_COLORS, STATUS_BG_VARS,
+                       loadLocal, saveLocal, sbRead, sbWrite, sbWriteDeal, validateDealShape
     groups.js        — all group/comment Supabase functions (22 functions)
     loanEngine.js    — LOAN_CATALOG, runRecommendationEngine(), QUESTIONS, getQuestionFlow()
     taxEngine.js     — calcStateTax(), STATE_TAX_DATA (50 states + DC, 2026 brackets)
     useCloudSync.js  — useCloudSync() hook, per-deal cloud sync
     hooks.js         — useIsMobile()
-    export.js, floodZone.js
+    floodZone.js     — FEMA flood zone lookup + county/MSA resolver
+    export/          — split exports: colors, helpers, portfolioXLSX, dealXLSX, dealPDF, index
+    export.js        — thin re-export shim for backward compat (10 lines)
   contexts/
     SubscriptionContext.jsx  — useSubscription(), PLANS, computeTier()
   styles/
@@ -198,8 +211,9 @@ Three server-side proxy Workers live in `functions/api/`. All require a Supabase
 - New Supabase functions: `groups.js` (group/social) or `constants.js` (core CRUD)
 
 ### React state write patterns
-- **Never use sequential `upd()` calls** — each deep-copies the same stale closure. Merge into one `upd()` with a single `JSON.parse(JSON.stringify(...))`.
+- **Never use sequential `upd()` calls** — each deep-copies the same stale closure. Merge into one `upd()` with a single `structuredClone(...)`.
 - **Commit on `blur`, not `onChange`** for formatted number inputs — keystroke-level updates cause stale closure writes.
+- **Use `structuredClone()` for deep copies** — replaces the historical `JSON.parse(JSON.stringify(...))` pattern. Faster, supports Date/Map natively. All 23 sites migrated in BACK-073.
 
 ---
 
@@ -226,7 +240,7 @@ BACK-XXX sub-tasks:
 
 ## Product Backlog
 
-Last updated: April 2026 (v16). Status key: `Done (PROD)` = on main/production · `Done` = completed, may be on develop · `Backlog` = not started · `In Progress` = active · `Deferred` = intentionally postponed.
+Last updated: May 2026 (v17). Status key: `Done (PROD)` = on main/production · `Done` = completed, may be on develop · `Backlog` = not started · `In Progress` = active · `Deferred` = intentionally postponed.
 
 ### Financial Model
 | ID | Priority | Status | Effort | Feature |
@@ -291,10 +305,25 @@ Last updated: April 2026 (v16). Status key: `Done (PROD)` = on main/production �
 | BACK-066 | P1 | Done (PROD) | M | Test coverage — taxEngine (32), loanEngine (19), floodZone (13) unit tests |
 | BACK-067 | P1 | Done (PROD) | L | calcDeal decomposition — 4 internal helpers (calcIRR, buildDealConfig, calcYear, calcExit) |
 | BACK-068 | P2 | Done (PROD) | M | AssumptionsTab extraction — FmtInt, CollapsibleSection, PropertyLookupPanel to own files |
-| BACK-069 | P2 | Backlog | M | MarketTab extraction — Demographics, Housing, Employment, Rate sections to own files |
-| BACK-070 | P2 | Backlog | S | DealSummaryTab — hoist SubHdr/SLbl/KV/Panel from render to ui/ |
-| BACK-071 | P2 | Backlog | S | PortfolioPage — memoize calcDeal per deal on _deal_id+updated_at |
-| BACK-072 | P2 | Backlog | S | Hardcoded hex audit pass #2 — replace ~117 remaining hex colors with CSS vars |
+| BACK-069 | P2 | Done (PROD) | M | MarketTab extraction — helpers, RateContextPanel, AssumptionsCheckPanel, MarketUIHelpers in MarketTab/ |
+| BACK-070 | P2 | Done (PROD) | S | DealSummaryTab — hoisted SubHdr/SLbl/KV/DSPanel from render to module scope |
+| BACK-071 | P2 | Done (PROD) | S | PortfolioPage — memoized calcDeal per deal on _deal_id+updated_at |
+| BACK-072 | P2 | Done (PROD) | S | Hex audit — replaced #dc2626 → var(--red); remaining hex are intentional (chart palettes, brand SVGs, alpha-appended) |
+| BACK-073 | P2 | Done | S | structuredClone migration — replaced 27 JSON.parse(JSON.stringify) calls across 10 files |
+| BACK-074 | P2 | Done | S | --warn-bg / --warn-text + --status-{state}-bg CSS vars (light + dark themes) |
+| BACK-075 | P2 | Done | S | ui/Spinner primitive — replaces 4 ad-hoc Loading… snippets; supports inline / block / fullPage |
+| BACK-076 | P2 | Done | S | validateDealShape now also runs at sbWriteDeal — closes the read-only validation gap |
+| BACK-077 | P2 | Done | M | groups.js test coverage — 20 smoke tests with chainable Supabase mock |
+| BACK-078 | P1 | Done (PROD) | L | calcDeal split into `lib/export/` — colors/helpers/portfolioXLSX/dealXLSX/dealPDF; export.js → 10-line shim |
+| BACK-079 | P1 | Done (PROD) | M | export.js smoke tests — 8 tests across all 3 export pipelines, jsPDF mocked to avoid filesystem writes |
+| BACK-080 | P2 | Done (PROD) | M | LoanTypeTab extraction — ScoreBadge, ProgressBar, QuestionCard moved out (838 → 689 lines) |
+| BACK-081 | P2 | Done | S | SettingsPage — extracted Appearance + Groups tabs to SettingsPage/ directory (Defaults+Account stay inline) |
+| BACK-082 | P2 | Done | S | Status pill alpha-hex migration — 4 spots use STATUS_BG_VARS instead of STATUS_COLORS+'22' |
+| BACK-083 | P1 | Done | M | Sprint 4 design-system primitive adoption — ~25 buttons → <Button>, DSPanel/MktSection → <Panel>, Sample/PRO badges → <Pill> |
+| BACK-084 | P2 | Done | M | Sprint 4d token adoption — 140 inline values (radius + fontSize) migrated to tokens in DealSummaryTab + AssumptionsTab |
+| BACK-085 | P2 | Backlog | M | Test infrastructure — install jsdom + @testing-library/react to enable useCloudSync state-machine tests + component smoke tests |
+| BACK-086 | P3 | Backlog | M | Settings split — extract Defaults + Account tabs to SettingsPage/ (deferred — heavy state coupling, low ROI) |
+| BACK-087 | P2 | Backlog | M | Continue Button primitive migration — ~150 raw <button> tags remain in AssumptionsTab/MarketTab/LoanTypeTab/GroupsPage bodies |
 
 ### Loan Type Module
 | ID | Priority | Status | Effort | Feature |
@@ -325,15 +354,15 @@ Last updated: April 2026 (v16). Status key: `Done (PROD)` = on main/production �
 | UX-010 | P2 | Backlog | M | Tab bar — icons and beginner/advanced grouping |
 | UX-012 | P1 | Backlog | M | Assumptions tab — collapse advanced inputs by default |
 | UX-014 | P2 | Backlog | L | Assumptions tab — live summary sidebar / sticky footer |
-| UX-015 | P1 | Backlog | M | Deal Summary — plain-English verdict card at top |
-| UX-017 | P1 | Backlog | S | Mobile — declutter global nav inside a deal |
-| UX-018 | P2 | Backlog | M | Mobile — Cash Flow tab Year 1 default + scroll shadow |
-| 910 | P1 | Backlog | M | Effective mortgage metric — hero KPI for house hacking |
+| UX-015 | P1 | Deferred | M | Deal Summary verdict card *(deferred — risks being interpreted as financial advice)* |
+| UX-017 | P1 | Done (PROD) | S | Mobile — declutter global nav inside a deal (refresh+feedback moved to avatar dropdown) |
+| UX-018 | P2 | Done | M | Mobile — Cash Flow tab Year 1 + Exit default + right-edge scroll shadow |
+| 910 | P1 | Done (PROD) | M | Effective mortgage hero card on Deal Summary for OO deals |
 | 914 | P1 | Backlog | M | Post-tax cash flow in Deal Summary monthly section |
 | 916 | P2 | Backlog | M | Assumptions tab — Progressive Disclosure (Advanced Mode toggle) |
 | 917 | P2 | Backlog | M | Sticky Live KPI Bar — persists across tab scroll |
 | 918 | P2 | Backlog | M | Cash Flow tab — Year 1 waterfall chart |
-| 920 | P1 | Backlog | S | Quick-switch scenario toggle — House Hack vs. Fully Rented |
+| 920 | P1 | Done (PROD) | S | Quick-switch toggle — House Hack vs. Fully Rented (side-by-side metrics) |
 | UX-019 | P1 | Done (PROD) | M | Design tokens — type, spacing, radius, shadow, transition scales in index.css |
 | UX-020 | P1 | Done (PROD) | L | ui/ primitives — Panel, KeyValue, Pill, Button, EmptyState, SectionHeader, Tip |
 | UX-021 | P1 | Done (PROD) | M | Glossary tooltips — ~30 Tip placements across Deal Summary, Cash Flow, Red Flags |
@@ -341,8 +370,9 @@ Last updated: April 2026 (v16). Status key: `Done (PROD)` = on main/production �
 | UX-023 | P1 | Done (PROD) | S | Sample deal CTA on empty portfolio page |
 | UX-024 | P1 | Done (PROD) | M | Settings consolidation — single tabbed page (Defaults, Account, Appearance, Groups) |
 | UX-025 | P2 | Done (PROD) | S | Fraunces serif on hero metrics; removed 47 system-ui overrides in DealSummaryTab |
-| UX-026 | P2 | Backlog | M | Sync visibility — one-time toast for new users after first sync |
-| UX-027 | P2 | Backlog | S | Pro pill in nav for paid users |
+| UX-026 | P2 | Done (PROD) | M | Sync visibility — one-time toast for new users after first sync |
+| UX-027 | P2 | Done (PROD) | S | Pro pill in nav for paid users |
+| UX-028 | P1 | Done (PROD) | S | Wire sample-deal CTA → guided tour auto-fire (gated by per-user localStorage flag) |
 
 ### Data & Integrations
 | ID | Priority | Status | Effort | Feature |
