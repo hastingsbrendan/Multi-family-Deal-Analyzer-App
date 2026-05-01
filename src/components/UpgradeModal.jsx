@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { trackUpgradeGateHit } from '../lib/analytics';
+import Button from './ui/Button';
 
 // ─── Stripe Checkout redirect ─────────────────────────────────────────────────
 // Creates a Checkout Session via our Supabase Edge Function and redirects.
@@ -77,23 +78,9 @@ export function UpgradeCard({ userEmail, compact = false }) {
 
   if (compact) {
     return (
-      <button
-        onClick={handleUpgrade}
-        disabled={loading}
-        style={{
-          background: 'var(--accent)',
-          color: '#fff',
-          border: 'none',
-          borderRadius: 100,
-          padding: '7px 16px',
-          fontSize: 13,
-          fontWeight: 700,
-          cursor: loading ? 'wait' : 'pointer',
-          fontFamily: 'inherit',
-        }}
-      >
+      <Button variant="primary" onClick={handleUpgrade} disabled={loading} style={{padding:'7px 16px',fontSize:13,cursor:loading?'wait':'pointer'}}>
         {loading ? 'Redirecting…' : '⚡ Upgrade — $9/mo'}
-      </button>
+      </Button>
     );
   }
 
@@ -115,25 +102,9 @@ export function UpgradeCard({ userEmail, compact = false }) {
       <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20, lineHeight: 1.5 }}>
         Upgrade to keep access to PDF export, Rent Comps, Sensitivity analysis, and deal sharing.
       </div>
-      <button
-        onClick={handleUpgrade}
-        disabled={loading}
-        style={{
-          background: 'var(--accent)',
-          color: '#fff',
-          border: 'none',
-          borderRadius: 100,
-          padding: '12px 28px',
-          fontSize: 15,
-          fontWeight: 800,
-          cursor: loading ? 'wait' : 'pointer',
-          width: '100%',
-          fontFamily: 'inherit',
-          letterSpacing: '-0.2px',
-        }}
-      >
+      <Button variant="primary" size="lg" onClick={handleUpgrade} disabled={loading} style={{width:'100%',fontWeight:800,letterSpacing:'-0.2px',cursor:loading?'wait':'pointer'}}>
         {loading ? 'Redirecting to checkout…' : '⚡ Upgrade — $9/mo'}
-      </button>
+      </Button>
       <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10 }}>
         Cancel anytime · Secure checkout via Stripe
       </div>

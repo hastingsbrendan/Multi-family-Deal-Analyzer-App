@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as Sentry from '@sentry/react';
 import { sbGetComments, sbPostComment, sbDeleteComment, sbEditComment } from '../lib/groups';
+import Button from './ui/Button';
 
 function CommentsPanel({ groupId, dealId, currentUser }) {
   const [comments, setComments]   = useState([]);
@@ -154,11 +155,7 @@ function CommentsPanel({ groupId, dealId, currentUser }) {
                         }}
                       />
                       <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-                        <button onClick={() => handleEditSave(comment.id)} style={{
-                          background: 'var(--accent)', color: '#fff', border: 'none',
-                          borderRadius: 6, padding: '4px 12px', fontSize: 12,
-                          fontWeight: 700, cursor: 'pointer'
-                        }}>Save</button>
+                        <Button variant="primary" size="sm" onClick={() => handleEditSave(comment.id)} style={{borderRadius:6,padding:'4px 12px',fontSize:12}}>Save</Button>
                         <button onClick={() => setEditingId(null)} style={{
                           background: 'none', border: '1px solid var(--border)',
                           borderRadius: 6, padding: '4px 10px', fontSize: 12,
@@ -220,18 +217,9 @@ function CommentsPanel({ groupId, dealId, currentUser }) {
           onFocus={e => e.target.style.borderColor = 'var(--accent)'}
           onBlur={e => e.target.style.borderColor = 'var(--border)'}
         />
-        <button
-          onClick={handlePost}
-          disabled={!body.trim() || posting}
-          style={{
-            background: 'var(--accent)', color: '#fff', border: 'none',
-            borderRadius: 100, padding: '9px 18px', fontSize: 13, fontWeight: 700,
-            cursor: body.trim() && !posting ? 'pointer' : 'not-allowed',
-            opacity: body.trim() && !posting ? 1 : 0.45, flexShrink: 0,
-            transition: 'opacity 0.15s'
-          }}>
+        <Button variant="primary" onClick={handlePost} disabled={!body.trim() || posting} style={{flexShrink:0}}>
           {posting ? '…' : 'Post'}
-        </button>
+        </Button>
       </div>
     </div>
   );

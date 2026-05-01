@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { iSty, btnSm, srcSty } from './ui/InputRow';
 import { sbClient, authUpdatePassword, authUpdateProfile } from '../lib/constants';
+import Button from './ui/Button';
 
 function ProfilePage({ user, onBack, onSignOut, dark, setDark }) {
   const [displayName, setDisplayName] = useState(user?.user_metadata?.display_name || "");
@@ -47,10 +48,7 @@ function ProfilePage({ user, onBack, onSignOut, dark, setDark }) {
   return (
     <div style={{maxWidth:540, margin:"0 auto", paddingBottom:40}}>
       <div style={{display:"flex", alignItems:"center", gap:12, margin:"20px 0 24px"}}>
-        <button onClick={onBack} style={{background:"var(--card)", border:"1px solid var(--border)",
-          borderRadius:8, padding:"8px 14px", color:"var(--text)", fontSize:13, cursor:"pointer", fontWeight:600}}>
-          ← Back
-        </button>
+        <Button variant="secondary" onClick={onBack} style={{borderRadius:8,fontWeight:600}}>← Back</Button>
         <div style={{fontWeight:800, fontSize:18}}>Account & Profile</div>
       </div>
 
@@ -92,11 +90,9 @@ function ProfilePage({ user, onBack, onSignOut, dark, setDark }) {
           </div>
           {profErr && <div style={{color:"var(--red)", fontSize:13}}>{profErr}</div>}
           {saved   && <div style={{color:"var(--green)", fontSize:13, fontWeight:600}}>✓ Profile saved</div>}
-          <button onClick={saveProfile} disabled={saving}
-            style={{background:"var(--accent)", color:"#fff", border:"none", borderRadius:8,
-              padding:"10px", fontSize:14, fontWeight:700, cursor:"pointer", opacity:saving?.7:1}}>
+          <Button variant="primary" size="lg" onClick={saveProfile} disabled={saving} style={{borderRadius:8,padding:'10px'}}>
             {saving ? "Saving…" : "Save Profile"}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -106,11 +102,7 @@ function ProfilePage({ user, onBack, onSignOut, dark, setDark }) {
         {!changingPw
           ? <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
               <span style={{color:"var(--muted)", fontSize:13, letterSpacing:2}}>••••••••••</span>
-              <button onClick={()=>setChangingPw(true)}
-                style={{background:"var(--card)", border:"1px solid var(--border)", borderRadius:6,
-                  padding:"7px 14px", fontSize:13, fontWeight:600, cursor:"pointer", color:"var(--text)"}}>
-                Change
-              </button>
+              <Button variant="secondary" onClick={()=>setChangingPw(true)} style={{borderRadius:6,fontWeight:600}}>Change</Button>
             </div>
           : <div style={{display:"flex", flexDirection:"column", gap:10}}>
               <input type="password" placeholder="New password (min 8 chars)" value={newPw}
@@ -121,16 +113,12 @@ function ProfilePage({ user, onBack, onSignOut, dark, setDark }) {
               {pwErr   && <div style={{color:"var(--red)", fontSize:13}}>{pwErr}</div>}
               {pwSaved && <div style={{color:"var(--green)", fontSize:13, fontWeight:600}}>✓ Password updated</div>}
               <div style={{display:"flex", gap:8}}>
-                <button onClick={changePw} disabled={saving}
-                  style={{flex:1, background:"var(--accent)", color:"#fff", border:"none",
-                    borderRadius:8, padding:"10px", fontSize:14, fontWeight:700, cursor:"pointer", opacity:saving?.7:1}}>
+                <Button variant="primary" size="lg" onClick={changePw} disabled={saving} style={{flex:1,borderRadius:8,padding:'10px'}}>
                   {saving ? "Updating…" : "Update Password"}
-                </button>
-                <button onClick={()=>{setChangingPw(false);setNewPw("");setConfirmPw("");setPwErr("");}}
-                  style={{flex:1, background:"none", border:"1px solid var(--border)", borderRadius:8,
-                    padding:"10px", fontSize:14, color:"var(--muted)", cursor:"pointer"}}>
+                </Button>
+                <Button variant="secondary" size="lg" onClick={()=>{setChangingPw(false);setNewPw("");setConfirmPw("");setPwErr("");}} style={{flex:1,borderRadius:8,padding:'10px',background:'none',color:'var(--muted)'}}>
                   Cancel
-                </button>
+                </Button>
               </div>
             </div>
         }
@@ -144,11 +132,9 @@ function ProfilePage({ user, onBack, onSignOut, dark, setDark }) {
         <div style={{color:"var(--muted)", fontSize:13, marginBottom:14}}>
           You'll need to sign back in to access your deals.
         </div>
-        <button onClick={onSignOut}
-          style={{background:"rgba(239,68,68,0.07)", color:"var(--red)", border:"1px solid rgba(239,68,68,0.3)",
-            borderRadius:8, padding:"10px 20px", fontSize:14, fontWeight:700, cursor:"pointer"}}>
+        <Button variant="danger" size="lg" onClick={onSignOut} style={{background:"rgba(239,68,68,0.07)",color:"var(--red)",border:"1px solid rgba(239,68,68,0.3)",borderRadius:8}}>
           Sign Out
-        </button>
+        </Button>
       </div>
     </div>
   );

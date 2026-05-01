@@ -12,6 +12,7 @@ import { TrialBanner } from './UpgradeModal';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { FeedbackModal } from './FeedbackModal';
 import UndoToast from './ui/UndoToast';
+import Pill from './ui/Pill';
 import DisclaimerModal from './DisclaimerModal';
 
 // Core views — always needed on first load
@@ -378,7 +379,7 @@ function App() {
               style={{background:"none",border:"1px solid var(--border)",borderRadius:4,padding:"2px 7px",fontSize:11,color:"var(--muted)",cursor:syncStatus==="saving"?"not-allowed":"pointer",lineHeight:1.4,flexShrink:0}}>
               {syncStatus==="saving" ? "…" : "↻"}
             </button>
-            {tier==='pro'&&<span style={{fontSize:10,fontWeight:800,color:"var(--accent)",background:"var(--accent-soft)",borderRadius:100,padding:"2px 8px",letterSpacing:"0.05em",flexShrink:0}}>PRO</span>}
+            {tier==='pro'&&<Pill variant="accent" size="xs" style={{fontSize:10,fontWeight:800,letterSpacing:'0.05em',flexShrink:0,borderRadius:100,padding:'2px 8px'}}>PRO</Pill>}
             {(()=>{
               const name = user?.user_metadata?.display_name || "";
               const parts = name.trim().split(" ").filter(Boolean);

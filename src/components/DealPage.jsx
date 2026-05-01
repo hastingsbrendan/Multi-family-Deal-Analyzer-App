@@ -8,6 +8,7 @@ import { BlurGate } from './UpgradeModal';
 import { useFeatureCheck } from './FeatureGate';
 import { trackTabViewed, trackFeatureUsed } from '../lib/analytics';
 import ErrorBoundary from './ErrorBoundary';
+import Button from './ui/Button';
 
 // Lazy-load tab components — only downloaded when the user navigates to that tab
 // lazyWithRetry auto hard-reloads on stale-chunk errors after a new deployment
@@ -85,7 +86,7 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
 
   return(<div style={{maxWidth:980,margin:"0 auto",paddingBottom:60}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,gap:8}}>
-      <button onClick={onBack} style={{color:"var(--accent)",cursor:"pointer",fontSize:13,fontWeight:700,padding:"6px 12px",borderRadius:100,border:"1px solid var(--border)",background:"var(--card)",whiteSpace:"nowrap"}}>← Portfolio</button>
+      <Button variant="secondary" size="sm" onClick={onBack} style={{color:"var(--accent)",borderColor:"var(--border)",padding:"6px 12px",fontSize:13}}>← Portfolio</Button>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
         <select value={deal.status} onChange={e=>onUpdate({...deal,status:e.target.value})} style={{background:STATUS_COLORS[deal.status]+"22",border:`1px solid ${STATUS_COLORS[deal.status]}55`,borderRadius:6,padding:"6px 10px",color:STATUS_COLORS[deal.status],fontWeight:700,fontSize:13,cursor:"pointer"}}>
           {STATUS_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
@@ -103,13 +104,13 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
 
         {/* PDF button — gated */}
         {groupRole!=="Viewer" && canPDF && (
-          <button onClick={onExportPDF} style={{background:"var(--card)",color:"var(--accent)",border:"1px solid var(--accent)",borderRadius:100,padding:"7px 14px",cursor:"pointer",fontSize:13,fontWeight:700}}>⬇ PDF</button>
+          <Button variant="outline" onClick={onExportPDF} style={{padding:"7px 14px",fontSize:13}}>⬇ PDF</Button>
         )}
         {groupRole!=="Viewer" && !canPDF && (
           <button onClick={()=>setTab(-1)} style={{background:"var(--card)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:100,padding:"7px 14px",cursor:"pointer",fontSize:13,fontWeight:700}}>🔒 Export PDF — Pro</button>
         )}
 
-        <button onClick={onExport} style={{background:"var(--accent)",color:"#fff",border:"none",borderRadius:100,padding:"7px 14px",cursor:"pointer",fontSize:13,fontWeight:700}}>⬇ Excel</button>
+        <Button variant="primary" onClick={onExport} style={{padding:"7px 14px",fontSize:13}}>⬇ Excel</Button>
       </div>
     </div>
     <AddressAutocomplete value={deal.address} onChange={v=>onUpdate({...deal,address:v})} placeholder="Enter property address..." inputStyle={{width:"100%",background:"none",border:"none",borderBottom:"2px solid var(--accent)",fontSize:isMobile?18:24,fontFamily:"'Fraunces',serif",fontWeight:900,color:"var(--text)",padding:"6px 0",marginBottom:14,outline:"none",letterSpacing:"-0.5px"}}/>

@@ -2,6 +2,8 @@ import React, { useState, useMemo, useCallback, useRef } from 'react';
 import InputRow, { iSty } from './ui/InputRow';
 import Tip from './ui/Tip';
 import EmptyState from './ui/EmptyState';
+import Button from './ui/Button';
+import Pill from './ui/Pill';
 import { FMT_PCT, FMT_USD, FMT_X, STATUS_COLORS, STATUS_OPTIONS } from '../lib/constants';
 import { useIsMobile } from '../lib/hooks';
 import { calcDeal } from '../lib/calc';
@@ -171,7 +173,7 @@ function DealCard({ d, r, onSelect, onDelete, onShareDeal, inCompare, onToggleCo
           <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text)', lineHeight: 1.3, marginBottom: 2 }}>
             {d.address || <em style={{ color: 'var(--muted)' }}>Untitled</em>}
             {d._isSample && (
-              <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: 'var(--accent-soft)', color: 'var(--accent)', letterSpacing: '0.06em', textTransform: 'uppercase', marginLeft: 6 }}>Sample</span>
+              <Pill variant="accent" size="xs" style={{fontWeight:700,letterSpacing:'0.06em',textTransform:'uppercase',marginLeft:6,padding:'1px 6px',fontSize:9,borderRadius:4}}>Sample</Pill>
             )}
           </div>
           <div style={{ fontSize: 11, color: 'var(--muted)' }}>{a.numUnits}-unit · {FMT_USD(+a.purchasePrice)}</div>
@@ -371,7 +373,7 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => onTour && onTour()} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>🗺️</button>
-            <button onClick={onAdd} data-tour="add-deal" style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '8px 16px', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>+ Add</button>
+            <Button variant="primary" onClick={onAdd} data-tour="add-deal" style={{fontWeight:800}}>+ Add</Button>
           </div>
         </div>
         {filterBar}
@@ -395,8 +397,8 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
               <div style={{fontSize:16,fontWeight:800,color:"var(--text)",marginBottom:8}}>Delete this deal?</div>
               <div style={{fontSize:13,color:"var(--muted)",marginBottom:20}}>This action can be undone immediately after.</div>
               <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
-                <button onClick={()=>setConfirmDeleteId(null)} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 18px",fontSize:13,fontWeight:700,cursor:"pointer",color:"var(--text)"}}>Cancel</button>
-                <button onClick={confirmDelete} style={{background:"var(--red)",border:"none",borderRadius:8,padding:"8px 18px",fontSize:13,fontWeight:700,cursor:"pointer",color:"#fff"}}>Delete</button>
+                <Button variant="secondary" onClick={()=>setConfirmDeleteId(null)} style={{borderRadius:8}}>Cancel</Button>
+                <Button variant="danger" onClick={confirmDelete} style={{borderRadius:8}}>Delete</Button>
               </div>
             </div>
           </div>
@@ -423,10 +425,10 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
               ⇄ Compare {compareCount}
             </button>
           )}
-          <button onClick={() => onTour && onTour()} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 14px', color: 'var(--muted)', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>🗺️ Tour</button>
-          <button onClick={() => onOpenGroups && onOpenGroups()} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 14px', color: 'var(--muted)', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>👥 Groups</button>
-          <button onClick={onExport} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 16px', color: 'var(--text)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>⬇ Excel</button>
-          <button onClick={onAdd} data-tour="add-deal" style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '8px 18px', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>+ New Deal</button>
+          <Button variant="secondary" onClick={() => onTour && onTour()} style={{borderRadius:8,background:'none',color:'var(--muted)',fontWeight:600}}>🗺️ Tour</Button>
+          <Button variant="secondary" onClick={() => onOpenGroups && onOpenGroups()} style={{borderRadius:8,background:'none',color:'var(--muted)',fontWeight:600}}>👥 Groups</Button>
+          <Button variant="secondary" onClick={onExport} style={{borderRadius:8}}>⬇ Excel</Button>
+          <Button variant="primary" onClick={onAdd} data-tour="add-deal" style={{fontWeight:800}}>+ New Deal</Button>
         </div>
       </div>
 
@@ -484,7 +486,7 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
                     <td onClick={e => e.stopPropagation()} style={{ padding: '8px 6px 8px 12px', color: 'var(--muted)', cursor: 'grab', fontSize: 16, userSelect: 'none' }} title="Drag to reorder">⠿</td>
                     <td style={{ padding: '12px', fontWeight: 700, color: 'var(--text)' }}>
                       {d.address || <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>Untitled</span>}
-                      {d._isSample && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: 'var(--accent-soft)', color: 'var(--accent)', marginLeft: 6 }}>Sample</span>}
+                      {d._isSample && <Pill variant="accent" size="xs" style={{padding:'1px 5px',marginLeft:6,fontSize:9,borderRadius:3}}>Sample</Pill>}
                     </td>
                     <td style={{ padding: '12px' }}><span style={{ background: STATUS_COLORS[d.status] + '22', color: STATUS_COLORS[d.status], borderRadius: 4, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{d.status}</span></td>
                     <td style={{ padding: '12px', color: 'var(--text)', fontSize: 11, whiteSpace: 'nowrap' }}>{fmtShowing(d)}</td>
@@ -513,8 +515,8 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
             <div style={{fontSize:16,fontWeight:800,color:"var(--text)",marginBottom:8}}>Delete this deal?</div>
             <div style={{fontSize:13,color:"var(--muted)",marginBottom:20}}>This action can be undone immediately after.</div>
             <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
-              <button onClick={()=>setConfirmDeleteId(null)} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 18px",fontSize:13,fontWeight:700,cursor:"pointer",color:"var(--text)"}}>Cancel</button>
-              <button onClick={confirmDelete} style={{background:"var(--red)",border:"none",borderRadius:8,padding:"8px 18px",fontSize:13,fontWeight:700,cursor:"pointer",color:"#fff"}}>Delete</button>
+              <Button variant="secondary" onClick={()=>setConfirmDeleteId(null)} style={{borderRadius:8}}>Cancel</Button>
+              <Button variant="danger" onClick={confirmDelete} style={{borderRadius:8}}>Delete</Button>
             </div>
           </div>
         </div>

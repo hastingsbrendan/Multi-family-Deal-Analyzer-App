@@ -7,6 +7,7 @@ import { calcExitScenarios } from '../lib/calc';
 import { GLOSSARY } from '../lib/glossary';
 import PhotoGallery from './PhotoGallery';
 import DSCRBadge from './ui/DSCRBadge';
+import Panel from './ui/Panel';
 import { useIsMobile } from '../lib/hooks';
 
 const SubHdr = ({children}) => (
@@ -28,10 +29,9 @@ const KV = ({label,value,color,bold,last,tip}) => (
   </div>
 );
 
+// DSPanel is now an alias for the shared Panel primitive (with explicit 12px radius for visual continuity)
 const DSPanel = ({children,accent,style}) => (
-  <div style={{background:"var(--card)",border:"1px solid "+(accent?"rgba(13,148,136,0.25)":"var(--border)"),borderRadius:12,padding:"14px 14px",borderTop:accent?"2px solid var(--accent)":undefined,...style}}>
-    {children}
-  </div>
+  <Panel accent={accent} style={{borderRadius:12,...style}}>{children}</Panel>
 );
 
 function DealSummaryTab({deal, result, onUpdate}) {
