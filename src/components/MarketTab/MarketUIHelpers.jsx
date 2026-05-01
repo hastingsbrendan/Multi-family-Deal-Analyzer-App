@@ -1,4 +1,5 @@
 import React from 'react';
+import Panel from '../ui/Panel';
 
 export function SectionHeader({title,subtitle}){return(<div style={{marginBottom:16}}><div style={{fontSize:13,fontWeight:800,color:'var(--text)',letterSpacing:'-0.2px',fontFamily:"'Fraunces',serif"}}>{title}</div>{subtitle&&<div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{subtitle}</div>}</div>);}
 
@@ -22,7 +23,7 @@ export function BenchmarkRow({ label, value, accent, natVal, stateVal, format })
   );
 }
 
-export function MktSection({children,style}){return(<div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:14,padding:'18px 20px',...style}}>{children}</div>);}
+export function MktSection({children,style}){return(<Panel padding="18px 20px" style={style}>{children}</Panel>);}
 
 export function MktEmptyState({icon,title,sub}){return(<div style={{textAlign:'center',padding:'32px 16px',color:'var(--muted)'}}><div style={{fontSize:32,marginBottom:8}}>{icon}</div><div style={{fontSize:13,fontWeight:700,color:'var(--text)',marginBottom:4}}>{title}</div><div style={{fontSize:12}}>{sub}</div></div>);}
 

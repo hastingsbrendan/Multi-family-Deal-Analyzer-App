@@ -3,6 +3,7 @@ import InputRow, { iSty } from './ui/InputRow';
 import Tip from './ui/Tip';
 import EmptyState from './ui/EmptyState';
 import Button from './ui/Button';
+import Pill from './ui/Pill';
 import { FMT_PCT, FMT_USD, FMT_X, STATUS_COLORS, STATUS_OPTIONS } from '../lib/constants';
 import { useIsMobile } from '../lib/hooks';
 import { calcDeal } from '../lib/calc';
@@ -172,7 +173,7 @@ function DealCard({ d, r, onSelect, onDelete, onShareDeal, inCompare, onToggleCo
           <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text)', lineHeight: 1.3, marginBottom: 2 }}>
             {d.address || <em style={{ color: 'var(--muted)' }}>Untitled</em>}
             {d._isSample && (
-              <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: 'var(--accent-soft)', color: 'var(--accent)', letterSpacing: '0.06em', textTransform: 'uppercase', marginLeft: 6 }}>Sample</span>
+              <Pill variant="accent" size="xs" style={{fontWeight:700,letterSpacing:'0.06em',textTransform:'uppercase',marginLeft:6,padding:'1px 6px',fontSize:9,borderRadius:4}}>Sample</Pill>
             )}
           </div>
           <div style={{ fontSize: 11, color: 'var(--muted)' }}>{a.numUnits}-unit · {FMT_USD(+a.purchasePrice)}</div>
@@ -485,7 +486,7 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
                     <td onClick={e => e.stopPropagation()} style={{ padding: '8px 6px 8px 12px', color: 'var(--muted)', cursor: 'grab', fontSize: 16, userSelect: 'none' }} title="Drag to reorder">⠿</td>
                     <td style={{ padding: '12px', fontWeight: 700, color: 'var(--text)' }}>
                       {d.address || <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>Untitled</span>}
-                      {d._isSample && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: 'var(--accent-soft)', color: 'var(--accent)', marginLeft: 6 }}>Sample</span>}
+                      {d._isSample && <Pill variant="accent" size="xs" style={{padding:'1px 5px',marginLeft:6,fontSize:9,borderRadius:3}}>Sample</Pill>}
                     </td>
                     <td style={{ padding: '12px' }}><span style={{ background: STATUS_COLORS[d.status] + '22', color: STATUS_COLORS[d.status], borderRadius: 4, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{d.status}</span></td>
                     <td style={{ padding: '12px', color: 'var(--text)', fontSize: 11, whiteSpace: 'nowrap' }}>{fmtShowing(d)}</td>
