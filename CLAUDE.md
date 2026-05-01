@@ -240,194 +240,31 @@ BACK-XXX sub-tasks:
 
 ## Product Backlog
 
-Last updated: May 2026 (v17). Status key: `Done (PROD)` = on main/production · `Done` = completed, may be on develop · `Backlog` = not started · `In Progress` = active · `Deferred` = intentionally postponed.
+**Source of truth: `RentHack_Product_Backlog_v17.xlsx`** (project root). Do not duplicate the backlog in this file — read/edit the Excel directly.
 
-### Financial Model
-| ID | Priority | Status | Effort | Feature |
-|----|----------|--------|--------|---------|
-| 1 | P0 | Done | XL | Core financial engine (Cap Rate, CoC, IRR, DSCR, NOI) |
-| 2 | P0 | Done | L | Assumptions tab (rents, expenses, vacancy, financing) |
-| 3 | P1 | Done | L | Value-Add / Remodel modeling |
-| 4 | P2 | Done | M | Refinance scenario modeling |
-| 5 | P1 | Done | L | Owner-occupancy cash flow modeling |
-| BACK-010 | P1 | Backlog | M | 10-year cash flow view on Deal Summary |
-| BACK-011 | P1 | Done (PROD) | S | Incremental Cash Flow metric — correct formula |
-| BACK-012 | P2 | Done (PROD) | S | HOA / condo fee as real expense field |
-| BACK-013 | P1 | Done (PROD) | XL | Advanced Tax Modeling — cost seg, PAL carryforward (IRC §469) |
-| BACK-014 | P1 | Done (PROD) | L | State income tax engine — taxEngine.js (50 states + DC) |
-| BACK-015 | P1 | Done (PROD) | M | State income tax UI — Tax Profile section + Cash Flow row |
-| BACK-016 | P2 | Backlog | S | State income tax — Deal Summary card update |
-| BACK-017 | P3 | Backlog | M | State income tax v2 — auto-populate county local rates |
-| BACK-018 | P1 | Done (PROD) | S | Lender-view DSCR (full-building rent, no OO deduction) |
-| BACK-019 | P2 | Done (PROD) | M | Refi scenario modeling |
-| BACK-020 | P2 | Done (PROD) | M | Value-add renovation scenario |
-| BACK-021 | P1 | Done (PROD) | L | PAL carryforward + §469 suspended loss tracking |
-| BACK-062 | P1 | Done (PROD) | S | FHA Self-Sufficiency Test — Deal Summary card |
-| BACK-063 | P2 | Backlog | M | DTI Calculator — loan eligibility + PMI impact |
-| 805 | P2 | Done (PROD) | M | Hold period flexibility — configurable exit year (1–30 yrs) + Exit Year Scenarios panel |
-| SFR-001 | P1 | Backlog | S | SFR data layer — numUnits:1 + propertyType field |
+**Workflow when shipping a backlog item:**
+1. Find the row by ID in the `Product Backlog` sheet.
+2. Update its `Status` column to `Done (PROD)` (after merge to main) or `Done` (still on develop).
+3. Append a `◇ Build complete: ...` note to the `Acceptance Criteria / Build Notes` column with the file paths touched and a short summary of what was actually built.
+4. If shipping new work that didn't have an existing ID, append a new row using the next sequential `BACK-NNN` or `UX-NNN` number (highest in v17: BACK-094, UX-053).
 
-### Analysis
-| ID | Priority | Status | Effort | Feature |
-|----|----------|--------|--------|---------|
-| 6 | P2 | Done | M | Sensitivity analysis tab |
-| 801 | P1 | Done | L | Scenario analysis — Adverse / Base / Optimal toggles |
-| 802 | P1 | Done | M | Interactive sensitivity sliders |
-| 803 | P1 | Done (PROD) | L | Deal comparison view (side-by-side) |
-| 804 | P1 | Backlog | L | Portfolio-level dashboard |
-| 806 | P2 | Backlog | S | Additional red flag auto-checks |
+**Updating the Excel from a Claude session:**
 
-### Auth & Users
-| ID | Priority | Status | Effort | Feature |
-|----|----------|--------|--------|---------|
-| 101 | P0 | Done | L | Supabase Auth — email/password + email verification |
-| 102 | P1 | Done | M | Google OAuth |
-| 103 | P0 | Done | S | Password reset flow |
-| 104 | P1 | Done | S | User profile page |
-| 105 | P0 | Done | M | Row Level Security on all Supabase tables |
-| 106 | P1 | Done | M | User preferences & global default settings |
-| 108 | P2 | Backlog | M | Income & tax profile |
-| 109 | P3 | Backlog | S | Notification preferences |
-| UX-006 | P1 | Done (PROD) | XS | Surface Google OAuth button on auth screen |
+```bash
+python Technical/update_backlog.py    # see this file as a template
+```
 
-### Infrastructure
-| ID | Priority | Status | Effort | Feature |
-|----|----------|--------|--------|---------|
-| 1001 | P1 | Done | XL | Migrate to React/Vite |
-| 1002 | P1 | Done | M | GitHub CI/CD + Cloudflare Pages |
-| 1003 | P1 | Done | M | Error monitoring (Sentry) |
-| 1004 | P0 | Done | L | Database schema redesign for multi-user |
-| 1005 | P1 | Done (PROD) | L | Serverless API layer — Rentcast + geocode proxy Workers |
-| 1006 | P2 | Backlog | M | Data backup & disaster recovery *(deferred — requires Supabase Pro + R2 cost approval. Build plan saved in backlog AC column.)* |
-| 1007 | P2 | Backlog | M | Performance monitoring & analytics (PostHog) |
-| BACK-064 | P0 | Done (PROD) | S | FRED API — CORS fix via Cloudflare Pages Function proxy |
-| BACK-065 | P2 | Done (PROD) | M | FRED API — expanded 5-series batch + Rate Context panels |
-| BACK-066 | P1 | Done (PROD) | M | Test coverage — taxEngine (32), loanEngine (19), floodZone (13) unit tests |
-| BACK-067 | P1 | Done (PROD) | L | calcDeal decomposition — 4 internal helpers (calcIRR, buildDealConfig, calcYear, calcExit) |
-| BACK-068 | P2 | Done (PROD) | M | AssumptionsTab extraction — FmtInt, CollapsibleSection, PropertyLookupPanel to own files |
-| BACK-069 | P2 | Done (PROD) | M | MarketTab extraction — helpers, RateContextPanel, AssumptionsCheckPanel, MarketUIHelpers in MarketTab/ |
-| BACK-070 | P2 | Done (PROD) | S | DealSummaryTab — hoisted SubHdr/SLbl/KV/DSPanel from render to module scope |
-| BACK-071 | P2 | Done (PROD) | S | PortfolioPage — memoized calcDeal per deal on _deal_id+updated_at |
-| BACK-072 | P2 | Done (PROD) | S | Hex audit — replaced #dc2626 → var(--red); remaining hex are intentional (chart palettes, brand SVGs, alpha-appended) |
-| BACK-073 | P2 | Done | S | structuredClone migration — replaced 27 JSON.parse(JSON.stringify) calls across 10 files |
-| BACK-074 | P2 | Done | S | --warn-bg / --warn-text + --status-{state}-bg CSS vars (light + dark themes) |
-| BACK-075 | P2 | Done | S | ui/Spinner primitive — replaces 4 ad-hoc Loading… snippets; supports inline / block / fullPage |
-| BACK-076 | P2 | Done | S | validateDealShape now also runs at sbWriteDeal — closes the read-only validation gap |
-| BACK-077 | P2 | Done | M | groups.js test coverage — 20 smoke tests with chainable Supabase mock |
-| BACK-078 | P1 | Done (PROD) | L | calcDeal split into `lib/export/` — colors/helpers/portfolioXLSX/dealXLSX/dealPDF; export.js → 10-line shim |
-| BACK-079 | P1 | Done (PROD) | M | export.js smoke tests — 8 tests across all 3 export pipelines, jsPDF mocked to avoid filesystem writes |
-| BACK-080 | P2 | Done (PROD) | M | LoanTypeTab extraction — ScoreBadge, ProgressBar, QuestionCard moved out (838 → 689 lines) |
-| BACK-081 | P2 | Done | S | SettingsPage — extracted Appearance + Groups tabs to SettingsPage/ directory (Defaults+Account stay inline) |
-| BACK-082 | P2 | Done | S | Status pill alpha-hex migration — 4 spots use STATUS_BG_VARS instead of STATUS_COLORS+'22' |
-| BACK-083 | P1 | Done | M | Sprint 4 design-system primitive adoption — ~25 buttons → <Button>, DSPanel/MktSection → <Panel>, Sample/PRO badges → <Pill> |
-| BACK-084 | P2 | Done | M | Sprint 4d token adoption — 140 inline values (radius + fontSize) migrated to tokens in DealSummaryTab + AssumptionsTab |
-| BACK-085 | P2 | Backlog | M | Test infrastructure — install jsdom + @testing-library/react to enable useCloudSync state-machine tests + component smoke tests |
-| BACK-086 | P3 | Backlog | M | Settings split — extract Defaults + Account tabs to SettingsPage/ (deferred — heavy state coupling, low ROI) |
-| BACK-087 | P2 | Backlog | M | Continue Button primitive migration — ~150 raw <button> tags remain in AssumptionsTab/MarketTab/LoanTypeTab/GroupsPage bodies |
+The script copies the current vN.xlsx → new vN+1.xlsx, applies row updates and new-row appends, and preserves cell styling via openpyxl. After running, upload the new vN+1.xlsx to Google Drive manually (folder ID in the Key Resources table below) and bump the version reference everywhere — including the file ref in this section heading.
 
-### Loan Type Module
-| ID | Priority | Status | Effort | Feature |
-|----|----------|--------|--------|---------|
-| LOAN-001 | P2 | Backlog | S | Save selected loan type to Supabase deal record |
-| LOAN-002 | P1 | Done (PROD) | XL | Loan recommendation engine — quiz/wizard UX |
-| LOAN-003 | P2 | Backlog | M | Fix loan engine audit issues (472 no-recommendation scenarios, HomeStyle hard-disqualify, CHOICERenovation scoring gap, Bank Statement for W-2 users, null DSCR on empty rents) |
-| LOAN-004 | P2 | Backlog | S | USDA loan re-enable for SFR |
-| 1404 | P1 | Backlog | S | Dynamic down payment calculation by loan type |
-| 1405 | P1 | Done | M | County loan limit lookup via ZIP code |
-| 1408 | P1 | Done | L | Loan eligibility filter — show only qualifying loans |
-| 1409 | P1 | Backlog | M | MIP / PMI monthly cost in cash flow model |
-| 1410 | P1 | Backlog | S | VA Funding Fee & FHA UFMIP in closing costs |
-| 1412 | P2 | Backlog | L | Loan comparison side-by-side view |
-| 1413 | P2 | Backlog | M | FHA 203(k) rehab budget integration |
+**Sheets in the workbook:**
+- `Product Backlog` — main item list (10 columns: ID, Epic, Feature/Task, Priority, Status, Effort, User Story, AC/Build Notes, Why It Matters, Dependencies)
+- `Roadmap` — phase planning
+- `Legend` — priority and effort definitions
+- `Error Log` — tracked bugs with root cause + fix
+- `Data Dictionary` — field-level documentation
+- `Blog Topics` — content calendar
 
-### UX & UI
-| ID | Priority | Status | Effort | Feature |
-|----|----------|--------|--------|---------|
-| BACK-030 | P2 | Done (PROD) | L | Deal Summary redesign — equity chart + profitability layout |
-| BACK-031 | P2 | Done (PROD) | S | Assumptions tab — consolidated 2/3-col input grids |
-| BACK-032 | P2 | Done (PROD) | M | Traffic-light metric coloring with investor benchmarks |
-| BACK-033 | P3 | Backlog | S | Pill-style tab bar with icons |
-| BACK-034 | P3 | Backlog | M | Live recalculation sidebar on Assumptions tab |
-| BACK-035 | P3 | Backlog | S | Dark mode elevation polish |
-| BACK-036 | P2 | Done (PROD) | M | Portfolio page — card grid layout |
-| BACK-050 | P1 | Backlog | M | Real app screenshots for landing page |
-| UX-010 | P2 | Backlog | M | Tab bar — icons and beginner/advanced grouping |
-| UX-012 | P1 | Backlog | M | Assumptions tab — collapse advanced inputs by default |
-| UX-014 | P2 | Backlog | L | Assumptions tab — live summary sidebar / sticky footer |
-| UX-015 | P1 | Deferred | M | Deal Summary verdict card *(deferred — risks being interpreted as financial advice)* |
-| UX-017 | P1 | Done (PROD) | S | Mobile — declutter global nav inside a deal (refresh+feedback moved to avatar dropdown) |
-| UX-018 | P2 | Done | M | Mobile — Cash Flow tab Year 1 + Exit default + right-edge scroll shadow |
-| 910 | P1 | Done (PROD) | M | Effective mortgage hero card on Deal Summary for OO deals |
-| 914 | P1 | Backlog | M | Post-tax cash flow in Deal Summary monthly section |
-| 916 | P2 | Backlog | M | Assumptions tab — Progressive Disclosure (Advanced Mode toggle) |
-| 917 | P2 | Backlog | M | Sticky Live KPI Bar — persists across tab scroll |
-| 918 | P2 | Backlog | M | Cash Flow tab — Year 1 waterfall chart |
-| 920 | P1 | Done (PROD) | S | Quick-switch toggle — House Hack vs. Fully Rented (side-by-side metrics) |
-| UX-019 | P1 | Done (PROD) | M | Design tokens — type, spacing, radius, shadow, transition scales in index.css |
-| UX-020 | P1 | Done (PROD) | L | ui/ primitives — Panel, KeyValue, Pill, Button, EmptyState, SectionHeader, Tip |
-| UX-021 | P1 | Done (PROD) | M | Glossary tooltips — ~30 Tip placements across Deal Summary, Cash Flow, Red Flags |
-| UX-022 | P1 | Done (PROD) | S | New deals open on Assumptions tab when empty (no rents/price) |
-| UX-023 | P1 | Done (PROD) | S | Sample deal CTA on empty portfolio page |
-| UX-024 | P1 | Done (PROD) | M | Settings consolidation — single tabbed page (Defaults, Account, Appearance, Groups) |
-| UX-025 | P2 | Done (PROD) | S | Fraunces serif on hero metrics; removed 47 system-ui overrides in DealSummaryTab |
-| UX-026 | P2 | Done (PROD) | M | Sync visibility — one-time toast for new users after first sync |
-| UX-027 | P2 | Done (PROD) | S | Pro pill in nav for paid users |
-| UX-028 | P1 | Done (PROD) | S | Wire sample-deal CTA → guided tour auto-fire (gated by per-user localStorage flag) |
-
-### Data & Integrations
-| ID | Priority | Status | Effort | Feature |
-|----|----------|--------|--------|---------|
-| 501 | P1 | Done | L | Property data auto-fill from listing URL |
-| 502 | P1 | Done | L | Rent comps from Rentcast API |
-| 503 | P1 | Done | M | Property tax history & assessment data |
-| BACK-040 | P0 | Done (PROD) | L | Rentcast integration — property lookup + rent AVM |
-| BACK-041 | P2 | Backlog | S | RentCast — purchase price AVM |
-| BACK-042 | P2 | Done (PROD) | S | FEMA flood zone lookup |
-| BACK-043 | P1 | Done (PROD) | M | Loan limits — FHFA conforming + FHA by ZIP (2026) |
-| 504 | P2 | Backlog | M | Permit & code violation history |
-| 507 | P2 | Backlog | S | Mortgage rate feed (live rates by loan type) |
-
-### Monetization & Payments
-| ID | Priority | Status | Effort | Feature |
-|----|----------|--------|--------|---------|
-| 401 | P0 | Done | L | Stripe integration — subscription checkout |
-| 402 | P0 | Backlog | M | Stripe webhooks — subscription lifecycle |
-| 403 | P1 | Backlog | S | Billing portal (manage, invoices, cancel) |
-| MON-001 | P0 | Done (PROD) | L | Subscription tiers — trial/pro/locked |
-| 911 | P1 | Done | L | Pricing tier enforcement |
-
-### Growth & Marketing
-| ID | Priority | Status | Effort | Feature |
-|----|----------|--------|--------|---------|
-| SEO-001 | P1 | Done (PROD) | S | robots.txt, sitemap.xml, meta tags, OG |
-| SEO-002 | P1 | Done (PROD) | S | OG image (1200×630) |
-| SEO-007 | P2 | Done (PROD) | M | Blog — coming soon page at /blog/ |
-| BACK-051 | P1 | Backlog | M | Landing page copy + testimonials |
-| BACK-060 | P2 | Backlog | S | Landing page — add Pro pricing tier |
-| 1202 | P1 | Backlog | M | Email onboarding sequence |
-| 1204 | P2 | Backlog | S | In-app NPS + feature requests |
-| SEO-008 | P2 | Backlog | M | Blog — first post: 'How to analyze a duplex in 5 minutes' |
-
-### STR Module (all Backlog)
-| ID | Priority | Effort | Feature |
-|----|----------|--------|---------|
-| 1501 | P0 | M | STR revenue estimator (per unit) |
-| 1502 | P1 | L | AirDNA API integration |
-| 1504 | P1 | L | STR revenue projection in cash flow model |
-| 1505 | P1 | M | STR vs LTR comparison card |
-| 1509 | P1 | L | STR regulatory / legal flags by city |
-| 1511 | P1 | M | Hybrid unit strategy (some LTR, some STR) |
-| 1512 | P1 | M | Owner-occupied unit STR income (house hack STR) |
-| 1525 | P0 | S | AirDNA cost-benefit analysis for API adoption |
-
-### SFR Module (all Backlog)
-| ID | Priority | Effort | Feature |
-|----|----------|--------|---------|
-| SFR-001 | P1 | S | Data layer — numUnits:1 + propertyType field |
-| SFR-002 | P1 | M | AssumptionsTab adapted for single-family |
-| SFR-003 | P1 | S | DealSummaryTab adapted summary card |
-| SFR-006 | P1 | M | loanEngine 1-unit down payment tables + USDA |
-| SFR-008 | P2 | XS | Update '2–4 unit' copy to inclusive language |
+Status key: `Done (PROD)` = on main/production · `Done` = completed, may be on develop · `Backlog` = not started · `In Progress` = active · `Deferred` = intentionally postponed · `Needs Design` = awaiting design spec.
 
 ---
 
@@ -455,6 +292,6 @@ App targets buyers and investors of 2–4 unit multifamily properties (expanding
 | Sentry DSN | `https://1427d8f17bc8fb78a755d240cdf1741f@o4511005787357184.ingest.us.sentry.io/4511005788930048` |
 | HUD USPS Crosswalk API token | Stored in Claude project memory (expires ~2036) |
 | RentHack Google Drive folder | `1yPTWxdM_kKSjkqGnVAUM_85URrQ3wEeR` |
-| Backlog Excel | `RentHack_Product_Backlog_v15.xlsx` — upload updates to Drive manually |
-| Backlog formatter | Run `/home/claude/format_backlog.py` after any Excel backlog update |
+| Backlog Excel | `RentHack_Product_Backlog_v17.xlsx` (source of truth) — bump version on each update; upload to Drive manually |
+| Backlog updater | `Technical/update_backlog.py` — copies vN → vN+1, applies row updates and appends |
 | PostHog | Integrated via `src/lib/analytics.js` |
