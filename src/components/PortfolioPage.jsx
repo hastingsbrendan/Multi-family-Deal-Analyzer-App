@@ -14,8 +14,105 @@ const cocColor = v => (v == null ? 'var(--muted)' : v >= 0.06 ? 'var(--green)' :
 const irrColor = v => (v == null ? 'var(--muted)' : v >= 0.12 ? 'var(--green)' : v >= 0.08 ? 'var(--accent2)' : 'var(--red)');
 const capColor = v => (v == null ? 'var(--muted)' : v >= 0.05 ? 'var(--green)' : v >= 0.04 ? 'var(--accent2)' : 'var(--red)');
 
+// ─── ComparePanel ─────────────────────────────────────────────────────────────
+function ComparePanel({ deals, results, onClose, onSelect }) {
+  const MAX = 3;
+  const cols = deals.slice(0, MAX);
+
+  const ROW_GROUPS = [
+    {
+      label: 'Deal Info',
+      rows: [
+        { label: 'Status',         fmt: (d) => d.status,                                  isLabel: true },
+        { label: 'Property Type',  fmt: (d) => d.assumptions.numUnits + '-unit',           isLabel: false },
+        { label: 'Purchase Price', fmt: (d) => FMT_USD(+d.assumptions.purchasePrice),      isLabel: false },
+        { label: 'Down Payment',   fmt: (d) => d.assumptions.downPaymentPct + '%',         isLabel: false },
+        { label: 'Cash In',        fmt: (_d, r) => FMT_USD(r.totalCash),                   isLabel: false },
+      ],
+    },
+    {
+      label: 'Year 1 Performance',
+      rows: [
+        { label: 'Monthly Cash Flow', fmt: (_d, r) => { const v = r.years?.[0]?.monthlyCashFlow ?? 0; return (v >= 0 ? '+' : '') + FMT_USD(v) + '/mo'; }, colorFn: (_d, r) => { const v = r.years?.[0]?.monthlyCashFlow ?? 0; return v >= 0 ? 'var(--green)' : 'var(--red)'; } },
+        { label: 'NOI',              fmt: (_d, r) => FMT_USD(r.years?.[0]?.noi ?? 0) + '/yr' },
+        { label: 'CoC Return',       fmt: (_d, r) => FMT_PCT(r.cocReturn),               colorFn: (_d, r) => cocColor(r.cocReturn) },
+        { label: 'Cap Rate',         fmt: (_d, r) => FMT_PCT(r.capRate),                 colorFn: (_d, r) => capColor(r.capRate) },
+        { label: 'DSCR',             fmt: (_d, r) => r.dscr != null && r.dscr > 0 ? r.dscr.toFixed(2) + 'x' : '—', colorFn: (_d, r) => r.dscr >= 1.25 ? 'var(--green)' : r.dscr >= 1.0 ? 'var(--accent2)' : 'var(--red)' },
+        { label: 'Expense Ratio',    fmt: (_d, r) => { const yr = r.years?.[0]; return yr?.egi > 0 ? FMT_PCT(yr.expenses / yr.egi) : '—'; }, colorFn: (_d, r) => { const yr = r.years?.[0]; if (!yr?.egi) return 'var(--muted)'; const er = yr.expenses / yr.egi; return er > 0.5 ? 'var(--red)' : er > 0.4 ? 'var(--accent2)' : 'var(--green)'; } },
+      ],
+    },
+    {
+      label: 'Hold-Period Returns',
+      rows: [
+        { label: 'IRR',             fmt: (_d, r) => FMT_PCT(r.irr),           colorFn: (_d, r) => irrColor(r.irr) },
+        { label: 'Equity Multiple', fmt: (_d, r) => FMT_X(r.equityMultiple),  colorFn: (_d, r) => (r.equityMultiple ?? 0) >= 2 ? 'var(--green)' : (r.equityMultiple ?? 0) >= 1.5 ? 'var(--accent2)' : 'var(--red)' },
+      ],
+    },
+  ];
+
+  const thStyle = { padding: '10px 16px', fontWeight: 700, fontSize: 13, color: 'var(--text)', background: 'var(--card)', borderBottom: '1px solid var(--border)', cursor: 'pointer', textAlign: 'left', whiteSpace: 'nowrap', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis' };
+  const tdStyle = { padding: '10px 16px', fontSize: 14, textAlign: 'left', borderBottom: '1px solid var(--border-faint)', verticalAlign: 'middle' };
+
+  return (
+    <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', marginBottom: 24, boxShadow: '0 4px 16px rgba(0,0,0,0.06)' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid var(--border)', background: 'var(--bg2)' }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Comparing {cols.length} deals</div>
+        <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '5px 12px', fontSize: 12, cursor: 'pointer', color: 'var(--muted)', fontWeight: 600 }}>✕ Exit Compare</button>
+      </div>
+
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 480 }}>
+          <thead>
+            <tr>
+              <th style={{ ...thStyle, color: 'var(--muted)', fontWeight: 600, fontSize: 11, width: 160, cursor: 'default' }}>Metric</th>
+              {cols.map(d => (
+                <th key={d.id} style={thStyle} onClick={() => onSelect(d.id)} title="Open deal">
+                  <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--accent)', marginBottom: 2 }}>{d.address || 'Untitled'}</div>
+                  <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--muted)' }}>{d.assumptions.numUnits}-unit · {FMT_USD(+d.assumptions.purchasePrice)}</div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {ROW_GROUPS.map(group => (
+              <React.Fragment key={group.label}>
+                <tr>
+                  <td colSpan={cols.length + 1} style={{ padding: '8px 16px 4px', fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', background: 'var(--bg)' }}>
+                    {group.label}
+                  </td>
+                </tr>
+                {group.rows.map(row => (
+                  <tr key={row.label} onMouseEnter={e => e.currentTarget.style.background='var(--row-hover)'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                    <td style={{ ...tdStyle, fontSize: 12, color: 'var(--muted)', fontWeight: 600, width: 160 }}>{row.label}</td>
+                    {cols.map(d => {
+                      const r = results[d.id] || {};
+                      const val = row.fmt(d, r);
+                      const color = row.colorFn ? row.colorFn(d, r) : 'var(--text)';
+                      if (row.isLabel) {
+                        return (
+                          <td key={d.id} style={tdStyle}>
+                            <span style={{ background: STATUS_COLORS[d.status] + '22', color: STATUS_COLORS[d.status], borderRadius: 4, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{val}</span>
+                          </td>
+                        );
+                      }
+                      return (
+                        <td key={d.id} style={{ ...tdStyle, fontWeight: 700, color }}>{val}</td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // ─── DealCard ─────────────────────────────────────────────────────────────────
-function DealCard({ d, r, onSelect, onDelete, onShareDeal }) {
+function DealCard({ d, r, onSelect, onDelete, onShareDeal, inCompare, onToggleCompare }) {
   const a = d.assumptions;
   const ooEnabled = r.ooEnabled;
 
@@ -43,6 +140,7 @@ function DealCard({ d, r, onSelect, onDelete, onShareDeal }) {
   }
 
   const [hovered, setHovered] = useState(false);
+  const showCheckbox = onToggleCompare && (hovered || inCompare);
 
   return (
     <div
@@ -51,14 +149,22 @@ function DealCard({ d, r, onSelect, onDelete, onShareDeal }) {
       onMouseLeave={() => setHovered(false)}
       style={{
         background: 'var(--card)',
-        border: `1px solid ${hovered ? 'var(--accent)' : 'var(--border)'}`,
+        border: `1px solid ${inCompare ? 'var(--accent)' : hovered ? 'var(--accent)' : 'var(--border)'}`,
         borderRadius: 14, padding: 16, cursor: 'pointer',
-        boxShadow: hovered ? '0 2px 12px rgba(13,148,136,0.1)' : 'none',
+        boxShadow: inCompare ? '0 0 0 2px rgba(13,148,136,0.2)' : hovered ? '0 2px 12px rgba(13,148,136,0.1)' : 'none',
         transition: 'border-color 0.15s, box-shadow 0.15s',
         display: 'flex', flexDirection: 'column', gap: 12,
         opacity: d.status === 'Pass' ? 0.72 : 1,
+        position: 'relative',
       }}
     >
+      {showCheckbox && (
+        <div onClick={e => { e.stopPropagation(); onToggleCompare(d.id); }}
+          style={{ position: 'absolute', top: 12, right: 12, zIndex: 2, background: inCompare ? 'var(--accent)' : 'var(--card)', border: `2px solid ${inCompare ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 5, width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0 }}>
+          {inCompare && <span style={{ color: '#fff', fontSize: 12, lineHeight: 1 }}>✓</span>}
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -132,6 +238,8 @@ function ViewToggle({ view, setView }) {
 function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport, onReorder, dark, setDark, filterState, onTour, activeGroup, onExitGroup, onShareDeal, onOpenGroups }) {
   const [filter, setFilter] = filterState;
   const [viewMode, setViewMode] = useState('cards');
+  const [compareIds, setCompareIds] = useState(new Set());
+  const [showCompare, setShowCompare] = useState(false);
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
   const [toast, setToast] = useState(null);
@@ -160,6 +268,16 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
     onReorder(next); setDragIdx(null); setDragOverIdx(null);
   };
   const handleDragEnd = () => { setDragIdx(null); setDragOverIdx(null); };
+
+  const toggleCompare = (id) => {
+    setCompareIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); } else if (next.size < 3) { next.add(id); }
+      return next;
+    });
+  };
+  const compareCount = compareIds.size;
+  const compareDeals = (deals || []).filter(d => compareIds.has(d.id));
 
   const moveItem = (i, dir) => {
     const ti = i + dir; if (ti < 0 || ti >= filtered.length) return;
@@ -287,6 +405,12 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <ViewToggle view={viewMode} setView={setViewMode} />
+          {compareCount >= 2 && (
+            <button onClick={() => setShowCompare(p => !p)}
+              style={{ background: showCompare ? 'var(--accent)' : 'var(--accent-soft)', color: showCompare ? '#fff' : 'var(--accent)', border: '1px solid var(--accent)', borderRadius: 8, padding: '8px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 700 }}>
+              ⇄ Compare {compareCount}
+            </button>
+          )}
           <button onClick={() => onTour && onTour()} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 14px', color: 'var(--muted)', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>🗺️ Tour</button>
           <button onClick={() => onOpenGroups && onOpenGroups()} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 14px', color: 'var(--muted)', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>👥 Groups</button>
           <button onClick={onExport} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 16px', color: 'var(--text)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>⬇ Excel</button>
@@ -297,11 +421,28 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
       {filterBar}
       <PortfolioMap deals={filtered} onSelect={onSelect} />
 
+      {showCompare && compareCount >= 2 && (
+        <ComparePanel
+          deals={compareDeals}
+          results={resultsByDealId}
+          onClose={() => { setShowCompare(false); setCompareIds(new Set()); }}
+          onSelect={onSelect}
+        />
+      )}
+
+      {compareCount > 0 && !showCompare && (
+        <div style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span>✓ {compareCount} deal{compareCount !== 1 ? 's' : ''} selected</span>
+          {compareCount < 2 && <span style={{ color: 'var(--muted)', fontWeight: 400 }}>— select {2 - compareCount} more to compare</span>}
+          <button onClick={() => setCompareIds(new Set())} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 11, cursor: 'pointer', padding: '0 4px', marginLeft: 4 }}>clear</button>
+        </div>
+      )}
+
       {filtered.length === 0 ? emptyState : viewMode === 'cards' ? (
         // ── Card grid ──────────────────────────────────────────────────────────
         <div data-tour="portfolio-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
           {filtered.map(d => (
-            <DealCard key={d.id} d={d} r={resultsByDealId[d.id] || {}} onSelect={onSelect} onDelete={handleDelete} onShareDeal={onShareDeal} />
+            <DealCard key={d.id} d={d} r={resultsByDealId[d.id] || {}} onSelect={onSelect} onDelete={handleDelete} onShareDeal={onShareDeal} inCompare={compareIds.has(d.id)} onToggleCompare={toggleCompare} />
           ))}
         </div>
       ) : (
