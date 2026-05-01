@@ -112,7 +112,16 @@ function App() {
 
   const { addDeal: _addDeal, addSampleDeal: _addSampleDeal, updateDeal, deleteDeal, reorderDeals } = useDeals({ prefs, setDeals, markDealDirty });
   const addDeal = useCallback(() => _addDeal(setActiveDealId), [_addDeal, setActiveDealId]);
-  const addSampleDeal = useCallback(() => _addSampleDeal(setActiveDealId), [_addSampleDeal, setActiveDealId]);
+  const addSampleDeal = useCallback(() => {
+    _addSampleDeal(setActiveDealId);
+    // First-touch users from the empty-portfolio CTA: auto-launch the guided tour
+    // unless they've explicitly closed/completed it before. We check the flag here
+    // so any later sample-deal additions don't re-trigger the tour.
+    if (user && !localStorage.getItem('rh_tour_seen_' + user.id)) {
+      localStorage.setItem('rh_tour_seen_' + user.id, '1');
+      setTourStep(0);
+    }
+  }, [_addSampleDeal, setActiveDealId, user]);
 
   const theme = dark ? "dark" : "light";
   const showDisclaimer = user && !user.user_metadata?.disclaimer_ack_at;
@@ -364,20 +373,26 @@ function App() {
                 )}
               </div>
             )}
-            {lastSyncedAt && (
+            {/* Mobile inside-a-deal: hide secondary controls (lastSyncedAt, feedback, refresh)
+                behind the avatar menu so the header stays readable. */}
+            {lastSyncedAt && !(isMobile && activeDeal) && (
               <div style={{fontSize:10,color:"var(--muted)",whiteSpace:"nowrap"}}>
                 {!syncBadge && "✓ "}{lastSyncedAt.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit",second:"2-digit"})}
               </div>
             )}
-            <button onClick={()=>setShowFeedback(true)}
-              title="Send feedback"
-              style={{background:"none",border:"1px solid var(--border)",borderRadius:4,padding:"2px 7px",fontSize:11,color:"var(--muted)",cursor:"pointer",lineHeight:1.4,flexShrink:0}}>
-              💬</button>
-            <button onClick={forceRefresh} disabled={syncStatus==="saving"}
-              title="Pull latest from cloud"
-              style={{background:"none",border:"1px solid var(--border)",borderRadius:4,padding:"2px 7px",fontSize:11,color:"var(--muted)",cursor:syncStatus==="saving"?"not-allowed":"pointer",lineHeight:1.4,flexShrink:0}}>
-              {syncStatus==="saving" ? "…" : "↻"}
-            </button>
+            {!(isMobile && activeDeal) && (
+              <button onClick={()=>setShowFeedback(true)}
+                title="Send feedback"
+                style={{background:"none",border:"1px solid var(--border)",borderRadius:4,padding:"2px 7px",fontSize:11,color:"var(--muted)",cursor:"pointer",lineHeight:1.4,flexShrink:0}}>
+                💬</button>
+            )}
+            {!(isMobile && activeDeal) && (
+              <button onClick={forceRefresh} disabled={syncStatus==="saving"}
+                title="Pull latest from cloud"
+                style={{background:"none",border:"1px solid var(--border)",borderRadius:4,padding:"2px 7px",fontSize:11,color:"var(--muted)",cursor:syncStatus==="saving"?"not-allowed":"pointer",lineHeight:1.4,flexShrink:0}}>
+                {syncStatus==="saving" ? "…" : "↻"}
+              </button>
+            )}
             {tier==='pro'&&<Pill variant="accent" size="xs" style={{fontSize:10,fontWeight:800,letterSpacing:'0.05em',flexShrink:0,borderRadius:100,padding:'2px 8px'}}>PRO</Pill>}
             {(()=>{
               const name = user?.user_metadata?.display_name || "";
@@ -415,6 +430,24 @@ function App() {
                           cursor:"pointer",fontFamily:"inherit"}}>
                         ⚙️ Settings
                       </button>
+                      {/* Mobile-only: feedback + refresh accessible from menu when header buttons are hidden */}
+                      {isMobile && activeDeal && (
+                        <>
+                          <button onClick={()=>{setShowFeedback(true);setProfileMenuOpen(false);}}
+                            style={{display:"block",width:"100%",textAlign:"left",padding:"10px 14px",
+                              background:"none",border:"none",color:"var(--text)",fontSize:13,
+                              cursor:"pointer",fontFamily:"inherit"}}>
+                            💬 Send Feedback
+                          </button>
+                          <button onClick={()=>{forceRefresh();setProfileMenuOpen(false);}} disabled={syncStatus==="saving"}
+                            style={{display:"block",width:"100%",textAlign:"left",padding:"10px 14px",
+                              background:"none",border:"none",color:"var(--text)",fontSize:13,
+                              cursor:syncStatus==="saving"?"not-allowed":"pointer",fontFamily:"inherit",
+                              opacity:syncStatus==="saving"?0.6:1}}>
+                            ↻ Refresh from Cloud
+                          </button>
+                        </>
+                      )}
                       <button onClick={handleSignOut}
                         style={{display:"block",width:"100%",textAlign:"left",padding:"10px 14px",
                           background:"none",border:"none",color:"var(--red)",fontSize:13,
