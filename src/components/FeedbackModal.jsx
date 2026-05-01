@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Button from './ui/Button';
 
 const CATEGORIES = ['Bug report', 'Feature request', 'General feedback', 'Question'];
 
@@ -52,11 +53,7 @@ export function FeedbackModal({ user, onClose }) {
             <div style={{fontSize:13, color:'var(--muted)', marginBottom:20}}>
               Every message is read. It genuinely helps make RentHack better.
             </div>
-            <button onClick={onClose} style={{
-              background:'var(--accent)', color:'#fff', border:'none',
-              borderRadius:100, padding:'10px 24px', fontSize:14,
-              fontWeight:700, cursor:'pointer', fontFamily:'inherit',
-            }}>Done</button>
+            <Button variant="primary" size="lg" onClick={onClose}>Done</Button>
           </div>
         ) : (
           <>
@@ -100,19 +97,9 @@ export function FeedbackModal({ user, onClose }) {
               <div style={{fontSize:11, color:'var(--muted)'}}>
                 Sending as {user?.email || 'anonymous'}
               </div>
-              <button
-                onClick={handleSubmit}
-                disabled={!message.trim() || status === 'sending'}
-                style={{
-                  background: message.trim() ? 'var(--accent)' : 'var(--border)',
-                  color: message.trim() ? '#fff' : 'var(--muted)',
-                  border:'none', borderRadius:100, padding:'10px 22px',
-                  fontSize:13, fontWeight:700, cursor: message.trim() ? 'pointer' : 'default',
-                  fontFamily:'inherit', transition:'all 0.15s',
-                }}
-              >
+              <Button variant="primary" onClick={handleSubmit} disabled={!message.trim() || status === 'sending'}>
                 {status === 'sending' ? 'Sending…' : status === 'error' ? 'Try again' : 'Send'}
-              </button>
+              </Button>
             </div>
             {status === 'error' && (
               <div style={{fontSize:12, color:'var(--red)', marginTop:8}}>

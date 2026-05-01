@@ -6,6 +6,7 @@ import { DEFAULT_PREFS } from '../lib/calc';
 import { GLOSSARY } from '../lib/glossary';
 import { useIsMobile } from '../lib/hooks';
 import { floodZoneInfo } from '../lib/floodZone';
+import Button from './ui/Button';
 
 // Per-flag plain-English tooltips, keyed by the flag's `key`
 const FLAG_TIPS = {
@@ -85,7 +86,7 @@ function RedFlagsTab({deal,result,onChange,prefs=DEFAULT_PREFS}){
     )}
     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10,marginTop:8}}>
       <div style={{fontSize:11,fontWeight:700,color:"var(--muted)",letterSpacing:"0.08em"}}>MANUAL FLAGS</div>
-      <button onClick={()=>upd(d=>d.redFlags.manual.push({id:Date.now(),label:"",detail:"",mitigation:""}))} style={{background:"var(--accent)",color:"#fff",border:"none",borderRadius:100,padding:"5px 12px",fontSize:11,fontWeight:700,cursor:"pointer"}}>+ Add Flag</button>
+      <Button variant="primary" size="sm" onClick={()=>upd(d=>d.redFlags.manual.push({id:Date.now(),label:"",detail:"",mitigation:""}))}>+ Add Flag</Button>
     </div>
     {manual.length===0&&(<div style={{...cSty,textAlign:"center",padding:20,color:"var(--muted)",fontSize:12}}>No manual flags added yet.</div>)}
     {manual.map(flag=>(<div key={flag.id} style={cSty}>

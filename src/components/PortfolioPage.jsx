@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback, useRef } from 'react';
 import InputRow, { iSty } from './ui/InputRow';
 import Tip from './ui/Tip';
 import EmptyState from './ui/EmptyState';
+import Button from './ui/Button';
 import { FMT_PCT, FMT_USD, FMT_X, STATUS_COLORS, STATUS_OPTIONS } from '../lib/constants';
 import { useIsMobile } from '../lib/hooks';
 import { calcDeal } from '../lib/calc';
@@ -371,7 +372,7 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => onTour && onTour()} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>🗺️</button>
-            <button onClick={onAdd} data-tour="add-deal" style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '8px 16px', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>+ Add</button>
+            <Button variant="primary" onClick={onAdd} data-tour="add-deal" style={{fontWeight:800}}>+ Add</Button>
           </div>
         </div>
         {filterBar}
@@ -395,8 +396,8 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
               <div style={{fontSize:16,fontWeight:800,color:"var(--text)",marginBottom:8}}>Delete this deal?</div>
               <div style={{fontSize:13,color:"var(--muted)",marginBottom:20}}>This action can be undone immediately after.</div>
               <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
-                <button onClick={()=>setConfirmDeleteId(null)} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 18px",fontSize:13,fontWeight:700,cursor:"pointer",color:"var(--text)"}}>Cancel</button>
-                <button onClick={confirmDelete} style={{background:"var(--red)",border:"none",borderRadius:8,padding:"8px 18px",fontSize:13,fontWeight:700,cursor:"pointer",color:"#fff"}}>Delete</button>
+                <Button variant="secondary" onClick={()=>setConfirmDeleteId(null)} style={{borderRadius:8}}>Cancel</Button>
+                <Button variant="danger" onClick={confirmDelete} style={{borderRadius:8}}>Delete</Button>
               </div>
             </div>
           </div>
@@ -423,10 +424,10 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
               ⇄ Compare {compareCount}
             </button>
           )}
-          <button onClick={() => onTour && onTour()} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 14px', color: 'var(--muted)', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>🗺️ Tour</button>
-          <button onClick={() => onOpenGroups && onOpenGroups()} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 14px', color: 'var(--muted)', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>👥 Groups</button>
-          <button onClick={onExport} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 16px', color: 'var(--text)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>⬇ Excel</button>
-          <button onClick={onAdd} data-tour="add-deal" style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '8px 18px', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>+ New Deal</button>
+          <Button variant="secondary" onClick={() => onTour && onTour()} style={{borderRadius:8,background:'none',color:'var(--muted)',fontWeight:600}}>🗺️ Tour</Button>
+          <Button variant="secondary" onClick={() => onOpenGroups && onOpenGroups()} style={{borderRadius:8,background:'none',color:'var(--muted)',fontWeight:600}}>👥 Groups</Button>
+          <Button variant="secondary" onClick={onExport} style={{borderRadius:8}}>⬇ Excel</Button>
+          <Button variant="primary" onClick={onAdd} data-tour="add-deal" style={{fontWeight:800}}>+ New Deal</Button>
         </div>
       </div>
 
@@ -513,8 +514,8 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
             <div style={{fontSize:16,fontWeight:800,color:"var(--text)",marginBottom:8}}>Delete this deal?</div>
             <div style={{fontSize:13,color:"var(--muted)",marginBottom:20}}>This action can be undone immediately after.</div>
             <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
-              <button onClick={()=>setConfirmDeleteId(null)} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 18px",fontSize:13,fontWeight:700,cursor:"pointer",color:"var(--text)"}}>Cancel</button>
-              <button onClick={confirmDelete} style={{background:"var(--red)",border:"none",borderRadius:8,padding:"8px 18px",fontSize:13,fontWeight:700,cursor:"pointer",color:"#fff"}}>Delete</button>
+              <Button variant="secondary" onClick={()=>setConfirmDeleteId(null)} style={{borderRadius:8}}>Cancel</Button>
+              <Button variant="danger" onClick={confirmDelete} style={{borderRadius:8}}>Delete</Button>
             </div>
           </div>
         </div>

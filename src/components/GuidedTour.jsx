@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 import { TOUR_STEPS } from './tourSteps';
+import Button from './ui/Button';
 
 // ─── Spotlight overlay + tooltip ─────────────────────────────────────────────
 function GuidedTour({ step, onNext, onBack, onClose }) {
@@ -158,22 +159,11 @@ function ProgressBar({ step, total }) {
 function NavButtons({ step, total, isFirst, isLast, onNext, onBack, onClose }) {
   return (
     <div style={{display:'flex',gap:10,alignItems:'center',justifyContent:'space-between'}}>
-      <button onClick={onBack} disabled={isFirst}
-        style={{background:'none',border:'1px solid var(--border)',borderRadius:8,
-          padding:'9px 16px',fontSize:13,cursor:isFirst?'not-allowed':'pointer',
-          color:'var(--muted)',opacity:isFirst?0.4:1,fontFamily:'inherit'}}>
-        ← Back
-      </button>
+      <Button variant="secondary" onClick={onBack} disabled={isFirst} style={{borderRadius:8,background:'none',color:'var(--muted)'}}>← Back</Button>
       <span style={{fontSize:11,color:'var(--muted)'}}>{step + 1} / {total}</span>
       {isLast
-        ? <button onClick={onClose} style={{background:'var(--accent)',color:'#fff',border:'none',
-            borderRadius:8,padding:'9px 20px',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
-            Get Started →
-          </button>
-        : <button onClick={onNext} style={{background:'var(--accent)',color:'#fff',border:'none',
-            borderRadius:8,padding:'9px 20px',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
-            Next →
-          </button>
+        ? <Button variant="primary" onClick={onClose} style={{borderRadius:8}}>Get Started →</Button>
+        : <Button variant="primary" onClick={onNext} style={{borderRadius:8}}>Next →</Button>
       }
     </div>
   );

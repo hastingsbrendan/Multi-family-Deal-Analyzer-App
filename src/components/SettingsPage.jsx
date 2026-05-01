@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { DEFAULT_PREFS } from '../lib/calc';
 import { sbClient, authUpdatePassword, authUpdateProfile } from '../lib/constants';
+import Button from './ui/Button';
 
 // ── Field definitions for push-to-all-deals ──────────────────────────────────
 const PUSH_FIELDS = [
@@ -380,11 +381,9 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
             </div>
             {profErr && <div style={{color:'var(--red)',fontSize:13}}>{profErr}</div>}
             {profSaved && <div style={{color:'var(--green)',fontSize:13,fontWeight:600}}>✓ Profile saved</div>}
-            <button onClick={saveProfile} disabled={profSaving}
-              style={{background:'var(--accent)',color:'#fff',border:'none',borderRadius:8,
-                padding:'10px',fontSize:14,fontWeight:700,cursor:'pointer',opacity:profSaving?0.7:1}}>
+            <Button variant="primary" size="lg" onClick={saveProfile} disabled={profSaving} style={{borderRadius:8,padding:'10px'}}>
               {profSaving?'Saving…':'Save Profile'}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -394,11 +393,7 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
           {!changingPw
             ? <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <span style={{color:'var(--muted)',fontSize:13,letterSpacing:2}}>••••••••••</span>
-                <button onClick={()=>setChangingPw(true)}
-                  style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:6,
-                    padding:'7px 14px',fontSize:13,fontWeight:600,cursor:'pointer',color:'var(--text)'}}>
-                  Change
-                </button>
+                <Button variant="secondary" onClick={()=>setChangingPw(true)} style={{borderRadius:6,fontWeight:600}}>Change</Button>
               </div>
             : <div style={{display:'flex',flexDirection:'column',gap:10}}>
                 <input type="password" placeholder="New password (min 8 chars)" value={newPw}
@@ -409,16 +404,12 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
                 {pwErr   && <div style={{color:'var(--red)',fontSize:13}}>{pwErr}</div>}
                 {pwSaved && <div style={{color:'var(--green)',fontSize:13,fontWeight:600}}>✓ Password updated</div>}
                 <div style={{display:'flex',gap:8}}>
-                  <button onClick={changePw} disabled={profSaving}
-                    style={{flex:1,background:'var(--accent)',color:'#fff',border:'none',
-                      borderRadius:8,padding:'10px',fontSize:14,fontWeight:700,cursor:'pointer',opacity:profSaving?0.7:1}}>
+                  <Button variant="primary" size="lg" onClick={changePw} disabled={profSaving} style={{flex:1,borderRadius:8,padding:'10px'}}>
                     {profSaving?'Updating…':'Update Password'}
-                  </button>
-                  <button onClick={()=>{setChangingPw(false);setNewPw('');setConfirmPw('');setPwErr('');}}
-                    style={{flex:1,background:'none',border:'1px solid var(--border)',borderRadius:8,
-                      padding:'10px',fontSize:14,color:'var(--muted)',cursor:'pointer'}}>
+                  </Button>
+                  <Button variant="secondary" size="lg" onClick={()=>{setChangingPw(false);setNewPw('');setConfirmPw('');setPwErr('');}} style={{flex:1,borderRadius:8,padding:'10px',background:'none',color:'var(--muted)'}}>
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </div>
           }
@@ -451,11 +442,9 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
         <div style={card}>
           <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>Sign Out</div>
           <div style={{color:'var(--muted)',fontSize:13,marginBottom:14}}>You'll need to sign back in to access your deals.</div>
-          <button onClick={onSignOut}
-            style={{background:'rgba(239,68,68,0.07)',color:'var(--red)',border:'1px solid rgba(239,68,68,0.3)',
-              borderRadius:8,padding:'10px 20px',fontSize:14,fontWeight:700,cursor:'pointer'}}>
+          <Button variant="danger" size="lg" onClick={onSignOut} style={{background:'rgba(239,68,68,0.07)',color:'var(--red)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:8}}>
             Sign Out
-          </button>
+          </Button>
         </div>
 
         {/* Danger Zone */}
@@ -465,11 +454,9 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
             Permanently deletes your account, all deals, and cancels your subscription. This cannot be undone.
           </div>
           {!showDeleteModal
-            ? <button onClick={()=>setShowDeleteModal(true)}
-                style={{background:'rgba(239,68,68,0.07)',color:'var(--red)',border:'1px solid rgba(239,68,68,0.3)',
-                  borderRadius:8,padding:'10px 20px',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
+            ? <Button variant="danger" size="lg" onClick={()=>setShowDeleteModal(true)} style={{background:'rgba(239,68,68,0.07)',color:'var(--red)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:8}}>
                 Delete my account
-              </button>
+              </Button>
             : <div>
                 <div style={{fontSize:13,color:'var(--muted)',marginBottom:10,lineHeight:1.5}}>
                   Type <strong style={{color:'var(--text)'}}>DELETE</strong> to confirm permanent account deletion:
@@ -482,18 +469,12 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
                 {deleteError && <div style={{color:'var(--red)',fontSize:13,padding:'8px 10px',
                   background:'rgba(239,68,68,0.07)',borderRadius:6,marginBottom:10}}>{deleteError}</div>}
                 <div style={{display:'flex',gap:10}}>
-                  <button onClick={handleDeleteAccount} disabled={deleteConfirm!=='DELETE'||deleteLoading}
-                    style={{background:'var(--red)',color:'#fff',border:'none',borderRadius:8,
-                      padding:'10px 20px',fontSize:14,fontWeight:700,fontFamily:'inherit',flex:1,
-                      cursor:(deleteConfirm==='DELETE'&&!deleteLoading)?'pointer':'default',
-                      opacity:(deleteConfirm==='DELETE'&&!deleteLoading)?1:0.5}}>
+                  <Button variant="danger" size="lg" onClick={handleDeleteAccount} disabled={deleteConfirm!=='DELETE'||deleteLoading} style={{flex:1,borderRadius:8}}>
                     {deleteLoading?'Deleting…':'Permanently delete my account'}
-                  </button>
-                  <button onClick={()=>{setShowDeleteModal(false);setDeleteConfirm('');setDeleteError('');}}
-                    style={{background:'none',border:'1px solid var(--border)',borderRadius:8,
-                      padding:'10px 16px',fontSize:14,cursor:'pointer',color:'var(--text)',fontFamily:'inherit'}}>
+                  </Button>
+                  <Button variant="secondary" size="lg" onClick={()=>{setShowDeleteModal(false);setDeleteConfirm('');setDeleteError('');}} style={{borderRadius:8,background:'none'}}>
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </div>
           }
@@ -535,12 +516,9 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
           <div style={{fontSize:13,color:'var(--muted)',marginBottom:20,lineHeight:1.6}}>
             Share deals with partners, co-investors, or clients. Each group has its own deal list and access controls.
           </div>
-          <button onClick={onOpenGroups}
-            style={{background:'var(--accent)',color:'#fff',border:'none',borderRadius:8,
-              padding:'12px 20px',fontSize:14,fontWeight:700,cursor:'pointer',display:'inline-flex',
-              alignItems:'center',gap:8}}>
+          <Button variant="primary" size="lg" onClick={onOpenGroups} style={{borderRadius:8,padding:'12px 20px',display:'inline-flex',alignItems:'center',gap:8}}>
             👥 Manage Deal Groups →
-          </button>
+          </Button>
         </div>
       )}
     </div>

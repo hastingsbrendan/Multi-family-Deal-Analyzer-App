@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { iSty, btnSm, srcSty } from './ui/InputRow';
 import { sbClient } from '../lib/constants';
 import { sbGetMyGroups, sbShareDealToGroup } from '../lib/groups';
+import Button from './ui/Button';
 
 function ShareDealModal({ deal, user, onClose, onShared }) {
   const [groups, setGroups]   = React.useState([]);
@@ -90,12 +91,10 @@ function ShareDealModal({ deal, user, onClose, onShared }) {
         )}
 
         <div style={{display:'flex',gap:10}}>
-          <button onClick={handleShare}
-            disabled={!selected||sharing||groups.length===0}
-            style={{...btnPrimary, opacity:(!selected||sharing)?0.5:1}}>
+          <Button variant="primary" size="lg" onClick={handleShare} disabled={!selected||sharing||groups.length===0} style={{borderRadius:8}}>
             {sharing ? 'Sharing…' : 'Share Deal'}
-          </button>
-          <button onClick={onClose} style={btnGhost}>Cancel</button>
+          </Button>
+          <Button variant="secondary" onClick={onClose} style={{borderRadius:8,background:'none',color:'var(--muted)'}}>Cancel</Button>
         </div>
       </div>
     </div>
