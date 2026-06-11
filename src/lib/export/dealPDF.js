@@ -240,7 +240,9 @@ function exportDealPDF(deal, user) {
   const finRows = [
     ['Loan Amount',      fmt$(r.loanAmt)],
     ['Monthly P&I',      fmt$(r.monthlyPayment)],
-    ['Monthly PITI',     fmt$(r.monthlyPayment + (a.expenses?.propertyTax || 0)/12 + (a.expenses?.insurance || 0)/12 + (+a.pmi || 0))],
+    // Use RESOLVED expenses (baseExpBreakdown) — raw a.expenses fields are stale
+    // when the user is in %-of-rent mode (2026-06 accuracy audit)
+    ['Monthly PITI',     fmt$(r.monthlyPayment + (r.baseExpBreakdown?.propertyTax || 0)/12 + (r.baseExpBreakdown?.insurance || 0)/12 + (+a.pmi || 0))],
     ['Down Payment',     fmt$(+a.purchasePrice - r.loanAmt)],
     ['LTV',              a.purchasePrice > 0 ? fmtPct(r.loanAmt / +a.purchasePrice) : '—'],
     ['Closing Costs',    fmt$(r.closingCostsTotal)],
@@ -421,7 +423,8 @@ function exportDealPDF(deal, user) {
     { label: 'Rent Growth',          value: a.rentGrowth ? a.rentGrowth + '%/yr' : '—' },
     { label: 'Expense Growth',       value: a.expenseGrowth ? a.expenseGrowth + '%/yr' : '—' },
     { label: 'Exit Value',           value: fmt$(r.exitValue) },
-    { label: 'Loan Payoff',          value: fmt$(r.years[(holdYrs - 1)]?.loanBalance) },
+    { label: 'Selling Costs',        value: fmt$(r.sellingCosts) },
+    { label: 'Loan Payoff',          value: fmt$(r.exitLoanBalance) }, // was years[].loanBalance — field is named .balance; rendered undefined
     { label: 'Net Proceeds',         value: fmt$(r.netProceeds) },
     { label: 'Total Cash Flow',      value: fmt$(r.years.slice(0, holdYrs).reduce((s, y) => s + (y.cashFlow || 0), 0)) },
     { label: `IRR (${holdYrs}-Year)`, value: fmtPct(r.irr) },

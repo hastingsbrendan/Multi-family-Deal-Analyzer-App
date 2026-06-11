@@ -8,6 +8,7 @@ import { GLOSSARY } from '../lib/glossary';
 import PhotoGallery from './PhotoGallery';
 import DSCRBadge from './ui/DSCRBadge';
 import Panel from './ui/Panel';
+import CollapsibleSection from './ui/CollapsibleSection';
 import { useIsMobile } from '../lib/hooks';
 
 const SubHdr = ({children}) => (
@@ -53,11 +54,12 @@ function DealSummaryTab({deal, result, onUpdate}) {
   // Hold period — available at component scope so all sections can reference it
   const holdYears = result.holdYears||10;
 
-  // PITI components
+  // PITI components — includes PMI/MIP so the housing payment matches reality
   const pAndI = result.monthlyPayment||0;
   const taxMo = (result.baseExpBreakdown?.propertyTax||0)/12;
   const insMo = (result.baseExpBreakdown?.insurance||0)/12;
-  const piti = pAndI + taxMo + insMo;
+  const pmiMo = +a.pmi||0;
+  const piti = pAndI + taxMo + insMo + pmiMo;
 
   // EGI excluding owner unit (for Effective Mortgage display — matches new calc engine)
   const ooUnit = result.ooEnabled ? result.ooUnit : -1;
@@ -66,7 +68,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
     const units = a.units.slice(0, a.numUnits);
     return units.reduce((s, u, i) => {
       if (i === ooUnit && result.ooEnabled) return s;
-      return s + (+(u.rent||u.listedRent)||0) * 12 * (1-vac) / 12;
+      return s + (+(u.rent||u.listedRent)||0) * (1-vac); // monthly tenant rent after vacancy
     }, 0);
   })();
 
@@ -243,18 +245,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
           }, 0) / result.years.length / 12
         : 0;
       const avgMonthlyEquity = avgMonthlyAppreciation + avgMonthlyPrincipal + avgMonthlyCashFlow + avgMonthlyTaxBenefit;
-      // Build cumulative chart data: each year stacks the four contributors
-      const chartData = result.years.map(y => {
-        const taxBen = result.taxAdvEnabled ? -(y.taxEffectAdv||0) : -(y.taxEffect||0);
-        return {
-          yr: `Yr ${y.yr}`,
-          appreciation: Math.round(y.appreciationGain||0),
-          principal:    Math.round(y.principalPaydown||0),
-          cashFlow:     Math.round((y.cashFlow||0) * y.yr), // cumulative
-          taxBenefit:   Math.round(taxBen * y.yr),          // cumulative
-        };
-      });
-      // Actually use truly cumulative sums for CF and tax
+      // Cumulative chart data: each year stacks the four contributors
       let cumCF = 0, cumTax = 0;
       const chartDataCumulative = result.years.map(y => {
         cumCF  += (y.cashFlow||0);
@@ -385,11 +376,12 @@ function DealSummaryTab({deal, result, onUpdate}) {
       const opexMo        = result.baseExpenses/12;
       const cfMo          = regularCF;
 
-      // PITI slices
+      // PITI slices — PMI included so the donut totals the real housing payment
       const pitiSlices = [
         {name:"P&I",        value:pAndI,  color:"#0D9488"},
         {name:"Prop. Tax",  value:taxMo,  color:"#0891B2"},
         {name:"Insurance",  value:insMo,  color:"#7C3AED"},
+        {name:"PMI / MIP",  value:pmiMo,  color:"#DB2777"},
       ].filter(s=>s.value>0);
 
       // OpEx slices — operating only (prop tax + insurance already shown in PITI)
@@ -607,33 +599,29 @@ function DealSummaryTab({deal, result, onUpdate}) {
           <SLbl>Exit (Year {holdYears})</SLbl>
           {/* Gross proceeds waterfall */}
           <KV label="Exit Value" value={FMT_USD(result.exitValue)}/>
+          {result.sellingCosts>0&&<KV label={"− Selling Costs ("+(a.sellingCostPct==null||a.sellingCostPct===''?6:+a.sellingCostPct)+"%)"} value={FMT_USD(-result.sellingCosts)} color="var(--red)" tip={GLOSSARY.sellingCosts}/>}
           <KV label="− Loan Payoff" value={FMT_USD(-result.exitLoanBalance)} color="var(--red)"/>
-          <KV label="= Gross Proceeds" value={FMT_USD(result.exitValue-result.exitLoanBalance)} bold/>
+          <KV label="= Gross Proceeds" value={FMT_USD(result.exitValue-(result.sellingCosts||0)-result.exitLoanBalance)} bold/>
           {/* Tax stack */}
           <div style={{marginTop:6,marginBottom:2,fontSize:9,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:"var(--muted)"}}>Tax on Sale</div>
           <KV label="Total Gain" value={FMT_USD(result.totalGainOnSale)}/>
           <KV label="§1250 Recapture (25%)" value={FMT_USD(-result.recaptureTax)} color="var(--red)" tip={GLOSSARY.sec1250Recapture}/>
           <KV label="LTCG (15%)" value={FMT_USD(-result.ltcgTax)} color="var(--red)"/>
-          {/* PAL carryforward benefit — deferred tax asset, not cash */}
-          {result.taxAdvEnabled&&result.palTaxBenefit>0&&(
+          {/* PAL carryforward benefit — deferred tax asset, not cash (both modes) */}
+          {result.palTaxBenefit>0&&(
             <div style={{background:"rgba(245,158,11,0.07)",border:"1px solid rgba(245,158,11,0.25)",borderRadius:"var(--r-sm)",padding:"5px 8px",margin:"4px 0"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
                 <span style={{fontSize:10,color:"var(--refi-amber)",fontWeight:700}}>Suspended Loss Tax Benefit</span>
                 <span style={{fontSize:"var(--text-xs)",color:"var(--refi-amber)",fontWeight:700}}>+{FMT_USD(result.palTaxBenefit)}</span>
               </div>
               <div style={{fontSize:9,color:"var(--muted)",marginTop:2,lineHeight:1.4}}>
-                Deferred tax asset — reduces tax owed at sale, not additional cash proceeds. Releases {FMT_USD(result.finalPalCarryforward)} of accumulated suspended losses at your {Math.round((result.taxAdvEnabled&&deal?.assumptions?.taxBracket)||22)}% bracket.
+                Deferred tax asset — reduces tax owed at sale, not additional cash proceeds. Releases {FMT_USD(result.finalPalCarryforward)} of accumulated suspended losses at your {Math.round(+deal?.assumptions?.taxBracket||22)}% bracket.
               </div>
             </div>
           )}
           <KV label="Net Tax on Sale" value={FMT_USD(-result.netTaxOnSale)} color="var(--red)" bold/>
           <div style={{height:1,background:"var(--border)",margin:"6px 0"}}/>
           <KV label="Net Proceeds" value={FMT_USD(result.netProceeds)} color="var(--accent)" bold last/>
-          {!result.taxAdvEnabled&&result.finalPalCarryforward>0&&(
-            <div style={{fontSize:9,color:"var(--muted)",fontStyle:"italic",marginTop:4,lineHeight:1.4}}>
-              Enable Advanced Tax Modeling to see §1250 recapture and suspended loss tax benefit.
-            </div>
-          )}
           <div style={{fontSize:9,color:"var(--muted)",fontStyle:"italic",marginTop:4,lineHeight:1.4}}>
             A 1031 exchange defers all taxes shown above — suspended losses are not released.
           </div>
@@ -645,9 +633,9 @@ function DealSummaryTab({deal, result, onUpdate}) {
         <SLbl>Financing</SLbl>
         {[
           ["Purchase Price", FMT_USD(+a.purchasePrice)],
-          ["Down Payment", FMT_USD(result.totalCashBase-(Object.values(a.closingCosts||{}).reduce((s,v)=>s+(+v||0),0)))+" ("+(+a.downPaymentPct||25)+"%)"],
+          ["Down Payment", FMT_USD(result.totalCashBase-(Object.values(a.closingCosts||{}).reduce((s,v)=>s+(+v||0),0)))+" ("+((a.downPaymentPct==null||a.downPaymentPct==='')?25:+a.downPaymentPct)+"%)"],
           ["Loan Amount", FMT_USD(result.loanAmt)],
-          ["Interest Rate", (+a.interestRate||7).toFixed(3)+"%"],
+          ["Interest Rate", ((a.interestRate==null||a.interestRate==='')?7:+a.interestRate).toFixed(3)+"%"],
           ["Amortization", (a.amortYears||30)+" years"],
           ["Total Cash In", FMT_USD(result.totalCash)],
         ].map(([l,v],i)=><KV key={l} label={l} value={v}/>)}
@@ -656,6 +644,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
           <KV label="P&I" value={FMT_USD(pAndI)+"/mo"}/>
           <KV label="Property Tax" value={FMT_USD(taxMo)+"/mo"}/>
           <KV label="Insurance" value={FMT_USD(insMo)+"/mo"}/>
+          {pmiMo>0&&<KV label="PMI / MIP" value={FMT_USD(pmiMo)+"/mo"} tip={GLOSSARY.pmi}/>}
           <div style={{display:"flex",justifyContent:"space-between",padding:"7px 0"}}>
             <span style={{fontSize:12,fontWeight:800,color:"var(--text)"}}>PITI Total</span>
             <span style={{fontSize:"var(--text-base)",fontWeight:900,color:"var(--text)"}}>{FMT_USD(piti)}/mo</span>
@@ -737,17 +726,13 @@ function DealSummaryTab({deal, result, onUpdate}) {
       </div>
     </div>
 
-    {/* ── BACK-805: Exit Year Scenarios ── */}
+    {/* ── BACK-805: Exit Year Scenarios — collapsed by default (2026-06 UX audit) ── */}
+    <CollapsibleSection title="📅 Exit Year Scenarios" badge={`Yr ${result.holdYears||10} selected`}>
     {(()=>{
       const exitScenarios = calcExitScenarios(deal);
-      const holdYrs = result.holdYears||10;
       const fmtM = v => v>=1000000?`$${(v/1000000).toFixed(2)}M`:v>=1000?`$${(v/1000).toFixed(0)}K`:FMT_USD(v);
       return(
         <div style={{marginTop:8,marginBottom:8}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"2px solid var(--accent)",paddingBottom:6,marginBottom:12}}>
-            <div style={{fontSize:12,fontWeight:800,letterSpacing:"0.1em",color:"var(--accent)",textTransform:"uppercase"}}>📅 Exit Year Scenarios</div>
-            <span style={{fontSize:"var(--text-xs)",color:"var(--muted)"}}>Yr {holdYrs} selected</span>
-          </div>
           <div style={{overflowX:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
               <thead>
@@ -778,14 +763,17 @@ function DealSummaryTab({deal, result, onUpdate}) {
             </table>
           </div>
           <div style={{fontSize:10,color:"var(--muted)",marginTop:6,lineHeight:1.5}}>
-            IRR color: <span style={{color:"var(--green)",fontWeight:700}}>&gt;12% ✓</span> · <span style={{color:"var(--accent2)",fontWeight:700}}>8–12% ◐</span> · <span style={{color:"var(--red)",fontWeight:700}}>&lt;8% ✗</span>. Net proceeds after loan payoff and capital gains tax. Assumes same rent growth, expenses, and appreciation across all periods.
+            IRR color: <span style={{color:"var(--green)",fontWeight:700}}>&gt;12% ✓</span> · <span style={{color:"var(--accent2)",fontWeight:700}}>8–12% ◐</span> · <span style={{color:"var(--red)",fontWeight:700}}>&lt;8% ✗</span>. Net proceeds after selling costs, loan payoff, depreciation recapture, and capital gains tax. Assumes same rent growth, expenses, and appreciation across all periods.
           </div>
         </div>
       );
     })()}
+    </CollapsibleSection>
 
-    {/* ── Rentcast Property Data ── */}
-    {deal.assumptions.rentcastData && (()=>{
+    {/* ── Rentcast Property Data — collapsed by default (2026-06 UX audit) ── */}
+    {deal.assumptions.rentcastData && (
+    <CollapsibleSection title="🔍 Rentcast Property Data">
+    {(()=>{
       const rd = deal.assumptions.rentcastData;
       const rcTax = rd.annualTax;
       const DataRow = ({label, value, highlight}) => (value != null && value !== "" && value !== "—") ? (
@@ -796,10 +784,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
       ) : null;
       return(
         <div style={{marginTop:8,padding:"12px 0"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"2px solid var(--rentcast-indigo)",paddingBottom:6,marginBottom:12}}>
-            <div style={{fontSize:12,fontWeight:800,letterSpacing:"0.1em",color:"var(--rentcast-indigo)",textTransform:"uppercase"}}>🔍 Rentcast Property Data</div>
-            <span style={{fontSize:"var(--text-xs)",color:"var(--muted)"}}>Fetched {rd.fetchedAt}</span>
-          </div>
+          <div style={{fontSize:"var(--text-xs)",color:"var(--muted)",marginBottom:8}}>Fetched {rd.fetchedAt}</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
             <div>
               <DataRow label="Property Type" value={rd.propertyType}/>
@@ -822,6 +807,8 @@ function DealSummaryTab({deal, result, onUpdate}) {
         </div>
       );
     })()}
+    </CollapsibleSection>
+    )}
   </div>);
 }
 // ─── EXPENSE INPUT ROW ────────────────────────────────────────────────────────
