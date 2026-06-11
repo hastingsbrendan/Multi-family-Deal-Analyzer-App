@@ -4,7 +4,7 @@ import { FMT_USD, FMT_PCT, STATUS_OPTIONS, STATUS_COLORS, STATUS_BG_VARS, IS_PRO
 import { calcDeal, DEFAULT_PREFS } from '../lib/calc';
 import AddressAutocomplete from './AddressAutocomplete';
 import CommentsPanel from './CommentsPanel';
-import { BlurGate } from './UpgradeModal';
+import { BlurGate, UpgradeCard } from './UpgradeModal';
 import { useFeatureCheck } from './FeatureGate';
 import { trackTabViewed, trackFeatureUsed } from '../lib/analytics';
 import ErrorBoundary from './ErrorBoundary';
@@ -63,6 +63,9 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
     return !anyRent;
   })();
   const [tab, setTab] = useState(isEmptyDeal ? 1 : 0);
+  // Upgrade prompt overlay — locked header buttons open this instead of blanking
+  // the tab area (the old setTab(-1) rendered no content at all)
+  const [showUpgrade, setShowUpgrade] = useState(false);
   useEffect(() => { if (forceTab != null) setTab(forceTab); }, [forceTab]);
 
   // Track initial tab view and subsequent tab switches
@@ -96,7 +99,7 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
           <button onClick={onShare} style={{background:"var(--accentlt, #CCFBF1)",border:"1px solid rgba(13,148,136,0.25)",borderRadius:6,padding:"7px 14px",cursor:"pointer",fontSize:13,color:"var(--accentdk, #0F766E)",fontWeight:700}}>👥 Share</button>
         )}
         {onShare && !canShare && (
-          <button onClick={()=>setTab(-1)} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:6,padding:"7px 14px",cursor:"pointer",fontSize:13,color:"var(--muted)",fontWeight:700}}>🔒 Share Deal — Pro</button>
+          <button onClick={()=>setShowUpgrade(true)} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:6,padding:"7px 14px",cursor:"pointer",fontSize:13,color:"var(--muted)",fontWeight:700}}>🔒 Share Deal — Pro</button>
         )}
 
         {groupRole==="Viewer"&&<div style={{fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:20,background:"var(--teal-lt, #CCFBF1)",color:"var(--accentdk, #0F766E)",border:"1px solid rgba(13,148,136,0.35)"}}>👁 View Only</div>}
@@ -106,7 +109,7 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
           <Button variant="outline" onClick={onExportPDF} style={{padding:"7px 14px",fontSize:13}}>⬇ PDF</Button>
         )}
         {groupRole!=="Viewer" && !canPDF && (
-          <button onClick={()=>setTab(-1)} style={{background:"var(--card)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:100,padding:"7px 14px",cursor:"pointer",fontSize:13,fontWeight:700}}>🔒 Export PDF — Pro</button>
+          <button onClick={()=>setShowUpgrade(true)} style={{background:"var(--card)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:100,padding:"7px 14px",cursor:"pointer",fontSize:13,fontWeight:700}}>🔒 Export PDF — Pro</button>
         )}
 
         <Button variant="primary" onClick={onExport} style={{padding:"7px 14px",fontSize:13}}>⬇ Excel</Button>
@@ -148,6 +151,13 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
         >
           {TAB_NEXT[tab].hint} →
         </button>
+      </div>
+    )}
+    {showUpgrade && (
+      <div onClick={()=>setShowUpgrade(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+        <div onClick={e=>e.stopPropagation()}>
+          <UpgradeCard userEmail={userEmail}/>
+        </div>
       </div>
     )}
     {activeGroup && deal._deal_id && (

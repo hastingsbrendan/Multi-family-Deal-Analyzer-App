@@ -66,9 +66,12 @@ export function BlurGate({ feature, children, userEmail, dealId }) {
 
 // ─── Upgrade card ─────────────────────────────────────────────────────────────
 export function UpgradeCard({ userEmail, compact = false }) {
-  const { tier } = useSubscription();
+  const { tier, daysLeft } = useSubscription();
   if (tier === 'pro') return null;
   const [loading, setLoading] = React.useState(false);
+  // Copy is tier-aware: "trial has ended" only when a trial actually ran out.
+  // Locked users who never trialed (or whose trial ended long ago) get a neutral headline.
+  const headline = tier === 'trial' ? 'Go Pro before your trial ends' : 'Unlock RentHack Pro';
 
   async function handleUpgrade() {
     setLoading(true);
@@ -97,10 +100,10 @@ export function UpgradeCard({ userEmail, compact = false }) {
     }}>
       <div style={{ fontSize: 32, marginBottom: 10 }}>🔒</div>
       <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text)', marginBottom: 6, fontFamily: "'Fraunces', serif" }}>
-        Your trial has ended
+        {headline}
       </div>
       <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20, lineHeight: 1.5 }}>
-        Upgrade to keep access to PDF export, Rent Comps, Sensitivity analysis, and deal sharing.
+        Pro includes PDF export, Rent Comps, Sensitivity analysis, and deal sharing.
       </div>
       <Button variant="primary" size="lg" onClick={handleUpgrade} disabled={loading} style={{width:'100%',fontWeight:800,letterSpacing:'-0.2px',cursor:loading?'wait':'pointer'}}>
         {loading ? 'Redirecting to checkout…' : '⚡ Upgrade — $9/mo'}

@@ -49,6 +49,16 @@ function ExpenseInputRow({lbl, modeToggle, isItemPct, rawVal, onChange, mobile, 
 function AssumptionsTab({deal,onChange}){
   const a=deal.assumptions;
   const isMobile=useIsMobile();
+  // Quick/Advanced split (2026-06 UX audit): brand-new deals (no rents yet) hide
+  // the advanced sections behind one expander so the first-run form is ~5 sections
+  // instead of 10. Deals with data default to expanded.
+  const [showAdvanced,setShowAdvanced]=useState(()=>{
+    const n=deal?.assumptions?.numUnits||2;
+    return (deal?.assumptions?.units||[]).slice(0,n).some(u=>+(u?.rent||u?.listedRent)>0);
+  });
+  // Hoisted from the Advanced Tax IIFE — hooks may not live inside the
+  // conditionally-rendered advanced block (Rules of Hooks)
+  const [taxOpen, setTaxOpen] = useState(false);
   const upd=(path,val)=>{const d=structuredClone(deal);const parts=path.split(".");let obj=d.assumptions;for(let i=0;i<parts.length-1;i++){if(obj[parts[i]]==null||typeof obj[parts[i]]!=="object")obj[parts[i]]={};obj=obj[parts[i]];}obj[parts[parts.length-1]]=val;onChange(d);};
   // Auto-populate state from deal.address whenever address changes and state is not yet set.
   // Matches the 2-letter state code from formatted addresses like "123 Main St, Chicago, IL 60601".
@@ -198,7 +208,8 @@ function AssumptionsTab({deal,onChange}){
     <Section title="Financing">
       {(()=>{
         const pp=+a.purchasePrice||0;
-        const dpPct=(+a.downPaymentPct||25)/100;
+        // Honor a legitimate 0% down (VA) — blank/undefined falls back to 25%
+        const dpPct=((a.downPaymentPct==null||a.downPaymentPct==='')?25:(+a.downPaymentPct||0))/100;
         const dp=pp>0?pp*dpPct:(+a.downPaymentDollar||0);
         const naturalLoan=Math.max(0, pp-dp-(+a.sellerConcessions||0));
         const loanLimit=+a.loanLimit||0;
@@ -302,7 +313,7 @@ function AssumptionsTab({deal,onChange}){
                 <div style={dividerSt}/>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                   <div>
-                    <label style={labelSt}>Loan Limit <span style={{fontWeight:400,textTransform:"none",fontSize:9}}>(optional cap)</span></label>
+                    <label style={{...labelSt,display:"flex",alignItems:"center"}}>Loan Limit&nbsp;<span style={{fontWeight:400,textTransform:"none",fontSize:9}}>(optional cap)</span><Tip text="Optional cap on loan size — your county's conforming limit or FHA max. Leave blank for no cap. When the natural loan exceeds it, Loan Amount is capped and the difference is added to your required down payment."/></label>
                     <div style={{display:"flex",alignItems:"center",gap:6}}>
                       <span style={{color:"var(--muted)",fontSize:"var(--text-base)",fontWeight:700,flexShrink:0}}>$</span>
                       <input type="text" inputMode="numeric"
@@ -483,6 +494,9 @@ function AssumptionsTab({deal,onChange}){
       <InputRow label="Vacancy Rate" value={a.vacancyRate} onChange={v=>upd("vacancyRate",v)} suffix="%" tip="The % of the year each unit sits empty between tenants. 5% is roughly 18 days/yr — a common starting point for stable markets."/>
     </Section>
     <Section title="Expenses" action={<label style={{fontSize:12,color:"var(--muted)",display:"flex",gap:6,alignItems:"center",cursor:"pointer"}}><input type="checkbox" checked={a.selfManage} onChange={e=>upd("selfManage",e.target.checked)}/> Self-manage</label>}>
+      <div style={{fontSize:"var(--text-xs)",color:"var(--muted)",marginBottom:8,lineHeight:1.5}}>
+        💡 Each expense can be entered as a fixed <strong style={{color:"var(--text)"}}>$ per year</strong> or as a <strong style={{color:"var(--text)"}}>% of gross rent</strong> — use the <strong style={{color:"var(--accent)"}}>$ / %</strong> toggle beside each field.
+      </div>
       {expFields.map(([vk,pk,lbl])=>{
         // Property Tax is edited in Property Details — show read-only here
         if(vk==="propertyTax"){
@@ -553,7 +567,7 @@ function AssumptionsTab({deal,onChange}){
       const ccTotal = ccLineTotal + insUpfrontAmt;
       // Down payment (mirrors Financing section logic)
       const ccPP = +a.purchasePrice||0;
-      const ccDpPct = (+a.downPaymentPct||25)/100;
+      const ccDpPct = ((a.downPaymentPct==null||a.downPaymentPct==='')?25:(+a.downPaymentPct||0))/100;
       const ccDp = ccPP>0 ? ccPP*ccDpPct : (+a.downPaymentDollar||0);
       const totalDueAtClosing = ccTotal + ccDp;
       const roSt = {
@@ -648,6 +662,18 @@ function AssumptionsTab({deal,onChange}){
       );
     })()}
     <div data-tour="advanced-features">
+    {/* ── Advanced settings expander (2026-06 UX audit) ── */}
+    <button onClick={()=>setShowAdvanced(v=>!v)}
+      style={{display:"flex",alignItems:"center",gap:8,width:"100%",background:"var(--card)",border:"1px solid var(--border)",borderRadius:"var(--r-md)",padding:"12px 14px",cursor:"pointer",fontFamily:"inherit",marginBottom:12,textAlign:"left"}}>
+      <span style={{fontSize:13,fontWeight:800,color:"var(--accent)"}}>{showAdvanced?"▲ Hide advanced settings":"▼ Show advanced settings"}</span>
+      <span style={{fontSize:11,color:"var(--muted)"}}>owner occupancy · growth &amp; exit · tax profile · refinance · value-add</span>
+    </button>
+    {!showAdvanced&&(
+      <div style={{fontSize:"var(--text-xs)",color:"var(--muted)",padding:"0 2px 12px",lineHeight:1.6}}>
+        Currently using: {a.ownerOccupied?`owner-occupied (Unit ${(+a.ownerUnit||0)+1}, ${a.ownerOccupancyYears||2} yrs)`:"investment property (no owner unit)"} · {a.rentGrowth||0}% rent growth · {a.appreciationRate||0}% appreciation · {a.taxBracket||0}% tax bracket{a.state?` · ${a.state} state tax`:""} · {(a.sellingCostPct??6)}% selling costs at exit
+      </div>
+    )}
+    {showAdvanced&&(<>
     <Section title="Owner Occupancy" action={<label style={{fontSize:12,color:"var(--muted)",display:"flex",gap:8,alignItems:"center",cursor:"pointer"}}><input type="checkbox" checked={!!a.ownerOccupied} onChange={e=>upd("ownerOccupied",e.target.checked)}/> Enable</label>}>
       {a.ownerOccupied ? (<>
         <div style={{display:isMobile?"block":"grid",gridTemplateColumns:"200px 1fr 1fr",gap:8,alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--border-faint)"}}>
@@ -713,6 +739,7 @@ function AssumptionsTab({deal,onChange}){
             <Col label="Appreciation" value={a.appreciationRate} path="appreciationRate" suffix="%/yr" tip="Annual % increase in the property's value. Used to project your equity at sale. Conservative assumption: 3–4%/yr; be careful not to over-assume."/>
           </div>
           <InputRow label="Federal Tax Bracket" value={a.taxBracket} onChange={v=>upd("taxBracket",v)} suffix="%" tip="Your marginal federal income tax rate. Used to estimate the tax benefit of mortgage interest and depreciation deductions."/>
+          <InputRow label="Selling Costs" value={a.sellingCostPct??6} onChange={v=>upd("sellingCostPct",v)} suffix="% of sale" tip="Agent commissions plus seller-paid closing costs when you eventually sell — typically 6–8% of the sale price. Deducted from exit proceeds and from the taxable gain."/>
         </>);
       })()}
     </Section>
@@ -868,7 +895,6 @@ function AssumptionsTab({deal,onChange}){
     </Section>
     </CollapsibleSection>
     {(()=>{
-      const [taxOpen, setTaxOpen] = React.useState(false);
       const tax = a.tax || {};
       const taxEnabled = !!tax.enabled;
       const csEnabled = taxEnabled && !!tax.costSegEnabled;
@@ -994,6 +1020,7 @@ function AssumptionsTab({deal,onChange}){
         </div>
       );
     })()}
+    </>)}
     </div>
   </div>);
 }

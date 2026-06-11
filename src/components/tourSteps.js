@@ -63,11 +63,22 @@ export const TOUR_STEPS = [
     placement: 'top',
   },
   {
+    // Tab ids must match TAB_CONFIG in DealPage.jsx — Market is tab 4,
+    // Showing 5, Red Flags 6, Sensitivity 7. (Fixed 2026-06: indices were
+    // off by one, so the tour narrated the wrong tabs.)
+    title: 'Market Data',
+    body: 'Local market context from official sources — rent trends, home-price growth, mortgage-rate spreads, and employment data — to sanity-check your assumptions.',
+    target: 'tab-content',
+    page: 'deal',
+    tab: 4,
+    placement: 'top',
+  },
+  {
     title: 'Showing Notes',
     body: 'Log your property visit — record condition, first impressions, and rehab estimates. Tag photos to specific areas of the property.',
     target: 'tab-content',
     page: 'deal',
-    tab: 4,
+    tab: 5,
     placement: 'top',
   },
   {
@@ -75,7 +86,7 @@ export const TOUR_STEPS = [
     body: 'Automatic risk checks flag issues with DSCR, cap rate, and expense ratios against your thresholds. Add manual flags for anything you spot on-site.',
     target: 'tab-content',
     page: 'deal',
-    tab: 5,
+    tab: 6,
     placement: 'top',
   },
   {
@@ -83,7 +94,7 @@ export const TOUR_STEPS = [
     body: 'See how your returns shift when rent, vacancy, purchase price, interest rate, or appreciation change. Stress-test the deal before you commit.',
     target: 'tab-content',
     page: 'deal',
-    tab: 6,
+    tab: 7,
     placement: 'top',
   },
   {
