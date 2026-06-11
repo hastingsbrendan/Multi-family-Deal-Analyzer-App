@@ -36,6 +36,7 @@ function baseDeal(assumptionOverrides = {}) {
       interestRate: 6,
       amortYears: 30,
       holdPeriod: 5,
+      sellingCostPct: 0, // zero so legacy hand-computed expectations stay deterministic
       closingCosts: { title: 0, transferTax: 0, inspection: 0, attorney: 0, lenderFees: 0, discountPoints: 0, appraisal: 0, creditReport: 0 },
       insuranceUpfront: false,
       sellerConcessions: 0,
@@ -445,11 +446,14 @@ describe('calcDeal — exit analysis', () => {
     expect(r.equityMultiple).toBeGreaterThan(1);
   });
 
-  test('no capital gains tax when appreciation is zero', () => {
-    // With appreciationRate=0 and 5yr hold, exitValue = purchasePrice → no gain
+  test('zero appreciation still owes depreciation recapture (adjusted basis)', () => {
+    // Selling at the purchase price is NOT tax-free: depreciation taken reduces
+    // basis, so the gain equals the depreciation and is recaptured at 25% (§1250).
+    // The old assertion (zero tax) encoded a bug — gain was measured against raw
+    // purchase price instead of adjusted basis (2026-06 accuracy audit).
     const r = calcDeal(baseDeal({ appreciationRate: 0, holdPeriod: 5 }));
-    expect(r.totalGainOnSale).toBeCloseTo(0, 0);
-    expect(r.netTaxOnSale).toBeCloseTo(0, 0);
+    expect(r.totalGainOnSale).toBeCloseTo(r.cumulativeDepreciationTaken, 0);
+    expect(r.netTaxOnSale).toBeCloseTo(r.cumulativeDepreciationTaken * 0.25, 0);
   });
 });
 
