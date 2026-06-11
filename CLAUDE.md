@@ -240,13 +240,13 @@ BACK-XXX sub-tasks:
 
 ## Product Backlog
 
-**Source of truth: `RentHack_Product_Backlog_v17.xlsx`** (project root). Do not duplicate the backlog in this file — read/edit the Excel directly.
+**Source of truth: `RentHack_Product_Backlog_v19.xlsx`** (project root). Do not duplicate the backlog in this file — read/edit the Excel directly.
 
 **Workflow when shipping a backlog item:**
 1. Find the row by ID in the `Product Backlog` sheet.
 2. Update its `Status` column to `Done (PROD)` (after merge to main) or `Done` (still on develop).
 3. Append a `◇ Build complete: ...` note to the `Acceptance Criteria / Build Notes` column with the file paths touched and a short summary of what was actually built.
-4. If shipping new work that didn't have an existing ID, append a new row using the next sequential `BACK-NNN` or `UX-NNN` number (highest in v17: BACK-094, UX-053).
+4. If shipping new work that didn't have an existing ID, append a new row using the next sequential `BACK-NNN` or `UX-NNN` number (highest in v19: BACK-107, UX-059).
 
 **Updating the Excel from a Claude session:**
 
@@ -292,6 +292,6 @@ App targets buyers and investors of 2–4 unit multifamily properties (expanding
 | Sentry DSN | `https://1427d8f17bc8fb78a755d240cdf1741f@o4511005787357184.ingest.us.sentry.io/4511005788930048` |
 | HUD USPS Crosswalk API token | Stored in Claude project memory (expires ~2036) |
 | RentHack Google Drive folder | `1yPTWxdM_kKSjkqGnVAUM_85URrQ3wEeR` |
-| Backlog Excel | `RentHack_Product_Backlog_v17.xlsx` (source of truth) — bump version on each update; upload to Drive manually |
+| Backlog Excel | `RentHack_Product_Backlog_v19.xlsx` (source of truth) — bump version on each update; upload to Drive manually |
 | Backlog updater | `Technical/update_backlog.py` — copies vN → vN+1, applies row updates and appends |
 | PostHog | Integrated via `src/lib/analytics.js` |
