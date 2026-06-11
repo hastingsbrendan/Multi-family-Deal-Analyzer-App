@@ -32,13 +32,15 @@ export const GLOSSARY = {
     "elsewhere (only relevant when you live in one unit). Shows true cost of owning vs. renting.",
   effectiveMortgage:
     "Your monthly housing cost after tenants pay you. Calculated as principal + interest " +
-    "+ taxes + insurance MINUS the rent the other units bring in.",
+    "+ taxes + insurance (+ PMI if any) MINUS the rent the other units bring in, after " +
+    "your vacancy assumption is deducted from that rent.",
 
   // ── Risk metrics ────────────────────────────────────────────────────────────
   dscr:
     "Debt Service Coverage Ratio — annual income (after expenses) divided by annual " +
-    "mortgage payments. Lenders typically require ≥1.25x. Below 1.0x means rent doesn't " +
-    "cover the loan.",
+    "mortgage payments (P&I). Lenders typically require ≥1.25x. Below 1.0x means rent " +
+    "doesn't cover the loan. For house-hacks this app shows two views: yours (owner " +
+    "unit rent excluded) and the lender's (all units counted as rented).",
   dscrLenderView:
     "Lender-view DSCR uses 100% of building rent (no owner-unit deduction) — this is " +
     "what your lender will see when underwriting your loan.",
@@ -55,7 +57,14 @@ export const GLOSSARY = {
   // ── Loan & financing ───────────────────────────────────────────────────────
   pmi:
     "Private Mortgage Insurance — extra monthly fee charged when down payment is below " +
-    "20% on conventional loans. Drops off automatically at 78% LTV.",
+    "20% on conventional loans. This app deducts it from cash flow until the loan " +
+    "balance reaches 78% of the purchase price (the legal auto-cancel point). Note: " +
+    "FHA MIP usually lasts the life of the loan when you put under 10% down — for an " +
+    "FHA deal, treat post-cancellation years as slightly optimistic.",
+  sellingCosts:
+    "Costs to sell the property — agent commissions plus seller-paid closing costs, " +
+    "typically 6–8% of the sale price. Deducted from your exit proceeds and from the " +
+    "taxable gain.",
   ltv:
     "Loan-to-Value — loan amount divided by property value. 80% LTV = 20% down.",
   loanLimit:
@@ -69,7 +78,9 @@ export const GLOSSARY = {
   // ── Tax concepts ───────────────────────────────────────────────────────────
   qbi:
     "Qualified Business Income deduction (IRC §199A) — pass-through landlords can " +
-    "deduct up to 20% of net rental income. Phase-outs apply at high incomes.",
+    "deduct up to 20% of net rental income. Requires the rental to qualify as a trade " +
+    "or business (the IRS safe harbor asks for 250+ hours/yr of rental services); " +
+    "phase-outs apply at high incomes. Confirm eligibility with your CPA.",
   costSegregation:
     "Cost Segregation Study — accelerates depreciation by reclassifying portions of " +
     "the building (appliances, flooring, land improvements) into 5- or 15-year asset " +
@@ -86,7 +97,8 @@ export const GLOSSARY = {
   sec1250Recapture:
     "§1250 Unrecaptured Gain — at sale, the portion of your gain equal to the depreciation " +
     "you took is taxed at 25% (not the 15% long-term capital gains rate). The rest is " +
-    "true LTCG at 15%.",
+    "true LTCG at 15%. Gain is measured against your ADJUSTED basis (purchase price + " +
+    "improvements − depreciation), so even selling at your purchase price can owe this tax.",
   ownerOccupied:
     "House-hack scenario where you live in one unit while renting the others. " +
     "Unlocks low down payments (3.5% FHA, 5% conventional) but you forgo that unit's rent.",

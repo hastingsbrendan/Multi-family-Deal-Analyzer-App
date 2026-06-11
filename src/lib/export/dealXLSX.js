@@ -263,7 +263,7 @@ function exportDealXLSX(deal, user) {
     ['DSCR (Yr 1)',                        r.dscr,                N2,    false, 'Lender minimum: 1.25x'],
     ['Break-Even Occupancy',               r.breakEvenOccupancy,  PCT1,  false, 'Lower is better; ideal < vacancy rate'],
     ['Annual NOI (Yr 1)',                  r.noi,                 USD,   false, 'Before debt service'],
-    [`Net Proceeds (Exit Yr ${holdYrs})`,  r.netProceeds,         USD,   true,  'After capital gains tax at sale'],
+    [`Net Proceeds (Exit Yr ${holdYrs})`,  r.netProceeds,         USD,   true,  'After selling costs, depreciation recapture, and capital gains tax'],
   ];
   kpiRows.forEach(([lbl, val, fmt, isKpi, note], i) => {
     dataRow(ws1, row, lbl, val, fmt, isKpi, i % 2 === 1, false, false, note);
@@ -340,9 +340,10 @@ function exportDealXLSX(deal, user) {
 
   const exitRows = [
     ['Projected Exit Value',    r.exitValue,            USD,  false, false],
+    ['Selling Costs',           r.sellingCosts || 0,    USD,  false, false],
     ['Remaining Loan Balance',  r.exitLoanBalance,      USD,  false, false],
     ['Total Gain on Sale',      r.totalGainOnSale,      USD,  false, false],
-    ['Capital Gains Tax',       r.capitalGainsTax,      USD,  false, false],
+    ['Tax on Sale (Recapture + LTCG)', r.capitalGainsTax, USD, false, false],
     ['Net Sale Proceeds',       r.netProceeds,          USD,  true,  false],
     ['Cumulative Cash Flows',   cumCF,                  USD,  false, false],
     ['Total Return',            r.netProceeds + cumCF,  USD,  true,  true],

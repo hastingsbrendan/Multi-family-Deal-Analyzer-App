@@ -15,7 +15,8 @@ const ROW_TIPS = {
   'NOI':                  GLOSSARY.noi,
   'Cash Flow':            GLOSSARY.cashFlow,
   'Incremental Cash Flow':GLOSSARY.incrementalCashFlow,
-  'After-Tax Cash Flow':  "Cash Flow minus your federal tax owed (or plus your tax savings if rental shows a loss).",
+  'After-Tax Cash Flow':  "Cash Flow minus federal AND state/local tax owed (or plus your tax savings if the rental shows a deductible loss).",
+  '− PMI / MIP':          GLOSSARY.pmi,
   'Total Equity':         "Property value minus remaining loan balance — your accumulated stake in the property.",
   '= Taxable Income (Gross)':  "NOI plus owner-expense add-back, minus mortgage interest and depreciation. Your starting point for federal tax.",
   '= Eff. Taxable Income':"Taxable income after applying any prior-year suspended losses (PAL carryforward).",
@@ -92,7 +93,9 @@ function CashFlowTab({result,deal}){
   };
   const oo=result.ooEnabled;
   const altRent=result.ooAltRentMonthly||0;
-  const hasCF=result.taxAdvEnabled&&result.years.some(y=>y.cumulativeCarryforward>0||y.suspendedLossThisYr>0);
+  // PAL carryforward UI renders in BOTH modes — basic mode now suspends losses
+  // over the §469 allowance too (2026-06 accuracy audit)
+  const hasCF=result.years.some(y=>y.cumulativeCarryforward>0||y.suspendedLossThisYr>0);
 
   return(<div style={{padding:"16px 0"}}>
     {/* Year 1 Quick Summary */}
@@ -173,6 +176,11 @@ function CashFlowTab({result,deal}){
             {visibleYears.map(y=>(<td key={y.yr} style={tdR(false,"red")}>{y.refiEvent&&<div style={{fontSize:8,fontWeight:800,color:"var(--refi-amber)"}}>↻ Refi</div>}{FMT_USD(y.debtService)}</td>))}
           </tr>
           {result.refiYear&&(<tr><td style={{...tdL(false,true),color:"var(--refi-amber)"}}>↳ Cash-Out (Yr {result.refiYear})</td>{visibleYears.map(y=>(<td key={y.yr} style={{...tdR(!!y.refiEvent,null),color:y.refiEvent?"var(--refi-amber)":"var(--muted)"}}>{y.refiEvent?FMT_USD(y.refiEvent.cashOut):"—"}</td>))}</tr>)}
+
+          {/* PMI / MIP — financing cost, shown until 78%-LTV cancellation */}
+          {result.years.some(y=>y.pmi>0)&&(
+            <R label="− PMI / MIP" color="red"><Yr color="red">{y=>y.pmi>0?FMT_USD(y.pmi):"—"}</Yr></R>
+          )}
 
           {/* Owner Utilities — below debt service, amber, only during OO years */}
           {oo&&(<tr><td style={{...tdL(false,true,"var(--refi-amber)")}}>↳ − Owner Utilities (Yr 1–{result.ooYears})</td>{visibleYears.map(y=>(<td key={y.yr} style={{...tdR(!!y.ooUtilities,null),color:y.ooUtilities>0?"var(--refi-amber)":"var(--muted)"}}>{y.ooUtilities>0?`(${FMT_USD(y.ooUtilities)})`:"—"}</td>))}</tr>)}
@@ -299,7 +307,22 @@ function CashFlowTab({result,deal}){
           ):(
             <>
               <R label="= Taxable RE Income" bold><Yr bold>{y=>FMT_USD(y.taxableIncome)}</Yr></R>
-              <R label="− QBI Deduction (20%)" color="red"><Yr color="red">{y=>y.taxableIncome>0?FMT_USD(y.qbi):"—"}</Yr></R>
+              {/* §469 derivation rows — only when losses were suspended or applied */}
+              {hasCF&&(
+                <tr>
+                  <td style={tdL(false,false)}>− Carryforward Applied</td>
+                  {visibleYears.map(y=><td key={y.yr} style={tdR(false,y.carryforwardUsedThisYr>0?"red":null)}>
+                    {y.carryforwardUsedThisYr>0?`(${FMT_USD(y.carryforwardUsedThisYr)})`:"—"}
+                  </td>)}
+                </tr>
+              )}
+              {hasCF&&(
+                <R label="= Eff. Taxable Income" bold
+                   tip="Taxable income after the §469 passive-loss limit: losses beyond your allowance are suspended (carried forward), and prior suspended losses offset positive years.">
+                  <Yr bold>{y=>FMT_USD(y.taxableAfterPal??y.taxableIncome)}</Yr>
+                </R>
+              )}
+              <R label="− QBI Deduction (20%)" color="red"><Yr color="red">{y=>(y.taxableAfterPal??y.taxableIncome)>0?FMT_USD(y.qbi):"—"}</Yr></R>
             </>
           )}
 
