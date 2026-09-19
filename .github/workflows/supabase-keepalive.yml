@@ -1,0 +1,79 @@
+# Keeps the RentHack Supabase project from being auto-paused.
+#
+# Supabase pauses free-tier projects after ~7 consecutive days with no activity.
+# That is what took renthack.io down: the frontend kept serving, but every
+# login, signup, deal load and deal save failed, and /api/rentcast + /api/geocode
+# returned 401 because they verify JWTs against Supabase.
+#
+# This workflow issues one lightweight PostgREST query per day. The query runs
+# in Postgres (RLS returns an empty set for the anon role), which counts as
+# project activity and resets the inactivity timer.
+#
+# It doubles as uptime monitoring: a non-200 fails the run and GitHub emails you.
+#
+# NOTE: GitHub only runs `schedule` triggers from the repository's DEFAULT
+# branch (main). A copy living only on develop will never fire.
+
+name: Supabase Keepalive
+
+on:
+  schedule:
+    # 14:10 UTC daily. Off the hour on purpose — GitHub drops scheduled runs
+    # during the congestion spike at :00.
+    - cron: '10 14 * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: supabase-keepalive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    name: Ping Supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Query Supabase to reset the inactivity timer
+        env:
+          SB_URL: https://lxkwvayalxuoryuwxtsq.supabase.co
+          # Supabase anon key. Public by design (it ships in the browser bundle),
+          # but kept in Actions secrets so rotation is a one-place change.
+          SB_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SB_ANON_KEY:-}" ]; then
+            echo "::error::Repository secret SUPABASE_ANON_KEY is not set — the keepalive cannot run."
+            echo "Add it at: Settings -> Secrets and variables -> Actions -> New repository secret"
+            exit 1
+          fi
+
+          echo "Pinging $SB_URL ..."
+
+          # Retry to absorb transient network blips; only a sustained outage should page.
+          attempt=1
+          max=3
+          while [ "$attempt" -le "$max" ]; do
+            code=$(curl -sS -o /tmp/body.txt -w '%{http_code}' \
+              --max-time 30 \
+              -H "apikey: $SB_ANON_KEY" \
+              -H "Authorization: Bearer $SB_ANON_KEY" \
+              "$SB_URL/rest/v1/deals?select=deal_id&limit=1" || echo "000")
+
+            if [ "$code" = "200" ]; then
+              echo "OK - Supabase responded 200 on attempt $attempt. Inactivity timer reset."
+              exit 0
+            fi
+
+            echo "Attempt $attempt/$max failed (HTTP $code)."
+            sed -n '1,5p' /tmp/body.txt || true
+            attempt=$((attempt + 1))
+            # Plain `[ ... ] && sleep` would abort the loop under `set -e` on the
+            # final pass and skip the diagnostic below, so branch explicitly.
+            if [ "$attempt" -le "$max" ]; then
+              sleep 20
+            fi
+          done
+
+          echo "::error::Supabase did not return 200 after $max attempts (last HTTP $code). The project may be paused, unreachable, or the anon key may have been rotated."
+          exit 1
