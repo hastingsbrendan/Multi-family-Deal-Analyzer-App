@@ -95,10 +95,12 @@ export const GLOSSARY = {
     "estate professional) get banked. They offset future rental income or release in " +
     "full when you sell.",
   sec1250Recapture:
-    "§1250 Unrecaptured Gain — at sale, the portion of your gain equal to the depreciation " +
-    "you took is taxed at 25% (not the 15% long-term capital gains rate). The rest is " +
-    "true LTCG at 15%. Gain is measured against your ADJUSTED basis (purchase price + " +
-    "improvements − depreciation), so even selling at your purchase price can owe this tax.",
+    "Depreciation recapture — at sale, the part of your gain equal to the depreciation you " +
+    "took is taxed at your ordinary income rates: capped at 25% for straight-line " +
+    "depreciation (§1250), uncapped for cost-segregation components (§1245). The rest is " +
+    "long-term capital gain at 0%, 15% or 20% depending on your income. Gain is measured " +
+    "against your ADJUSTED basis (purchase price + improvements − depreciation), so even " +
+    "selling at your purchase price can owe this tax.",
   ownerOccupied:
     "House-hack scenario where you live in one unit while renting the others. " +
     "Unlocks low down payments (3.5% FHA, 5% conventional) but you forgo that unit's rent.",

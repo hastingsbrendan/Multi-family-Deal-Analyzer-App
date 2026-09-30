@@ -605,8 +605,12 @@ function DealSummaryTab({deal, result, onUpdate}) {
           {/* Tax stack */}
           <div style={{marginTop:6,marginBottom:2,fontSize:9,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:"var(--muted)"}}>Tax on Sale</div>
           <KV label="Total Gain" value={FMT_USD(result.totalGainOnSale)}/>
-          <KV label="§1250 Recapture (25%)" value={FMT_USD(-result.recaptureTax)} color="var(--red)" tip={GLOSSARY.sec1250Recapture}/>
-          <KV label="LTCG (15%)" value={FMT_USD(-result.ltcgTax)} color="var(--red)"/>
+          {/* BACK-114: rates depend on income — recapture at ordinary rates (max 25% for
+              straight-line, uncapped for cost seg), gains at 0/15/20% */}
+          <KV label="Depreciation Recapture" value={FMT_USD(-result.recaptureTax)} color="var(--red)" tip={GLOSSARY.sec1250Recapture}/>
+          <KV label="Long-Term Capital Gains" value={FMT_USD(-result.ltcgTax)} color="var(--red)"/>
+          {result.niitTax>0&&<KV label="Net Investment Income Tax (3.8%)" value={FMT_USD(-result.niitTax)} color="var(--red)"/>}
+          {result.stateTaxOnSale>0&&<KV label="State Tax on Sale" value={FMT_USD(-result.stateTaxOnSale)} color="var(--red)"/>}
           {/* PAL carryforward benefit — deferred tax asset, not cash (both modes) */}
           {result.palTaxBenefit>0&&(
             <div style={{background:"rgba(245,158,11,0.07)",border:"1px solid rgba(245,158,11,0.25)",borderRadius:"var(--r-sm)",padding:"5px 8px",margin:"4px 0"}}>
@@ -615,7 +619,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
                 <span style={{fontSize:"var(--text-xs)",color:"var(--refi-amber)",fontWeight:700}}>+{FMT_USD(result.palTaxBenefit)}</span>
               </div>
               <div style={{fontSize:9,color:"var(--muted)",marginTop:2,lineHeight:1.4}}>
-                Deferred tax asset — reduces tax owed at sale, not additional cash proceeds. Releases {FMT_USD(result.finalPalCarryforward)} of accumulated suspended losses at your {Math.round(+deal?.assumptions?.taxBracket||22)}% bracket.
+                Deferred tax asset — reduces tax owed at sale, not additional cash proceeds. Releases {FMT_USD(result.finalPalCarryforward)} of accumulated suspended losses at your marginal federal rate.
               </div>
             </div>
           )}

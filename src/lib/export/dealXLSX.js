@@ -344,7 +344,7 @@ function exportDealXLSX(deal, user) {
     ['Selling Costs',           r.sellingCosts || 0,    USD,  false, false],
     ['Remaining Loan Balance',  r.exitLoanBalance,      USD,  false, false],
     ['Total Gain on Sale',      r.totalGainOnSale,      USD,  false, false],
-    ['Tax on Sale (Recapture + LTCG)', r.capitalGainsTax, USD, false, false],
+    ['Tax on Sale (recapture, gains, NIIT, state)', r.capitalGainsTax, USD, false, false],
     ['Net Sale Proceeds',       r.netProceeds,          USD,  true,  false],
     ['Cumulative Cash Flows',   cumCF,                  USD,  false, false],
     ['Total Return',            r.netProceeds + cumCF,  USD,  true,  true],

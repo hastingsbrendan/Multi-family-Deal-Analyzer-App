@@ -213,14 +213,17 @@ describe('exit taxes use adjusted basis and selling costs', () => {
   test('zero appreciation still triggers depreciation recapture', () => {
     // 5 yrs of straight-line dep on 80% of 400k = 11,636.36/yr → 58,181.82 total.
     // Sale at purchase price: amount realized 400k − basis (400k − 58,181.82)
-    // → gain = 58,181.82, all of it §1250 recapture taxed at 25%.
+    // → gain = 58,181.82, all of it unrecaptured §1250 gain.
+    // BACK-114: taxed at ordinary rates (max 25%) on top of 100k other income:
+    //   83,900→105,700 @22% = 4,796; 105,700→142,081.82 @24% = 8,731.64 → 13,527.64
+    //   (was a flat 25% = 14,545.45). MAGI 158k < 200k → no NIIT; no state.
     const r = calcDeal(accDeal({ appreciationRate: 0, holdPeriod: 5 }));
     const dep = r.cumulativeDepreciationTaken;
     expect(dep).toBeCloseTo(58181.82, 0);
     expect(r.totalGainOnSale).toBeCloseTo(dep, 0);
     expect(r.sec1250RecapturePortion).toBeCloseTo(dep, 0);
-    expect(r.recaptureTax).toBeCloseTo(dep * 0.25, 0);
-    expect(r.netTaxOnSale).toBeCloseTo(dep * 0.25, 0);
+    expect(r.recaptureTax).toBeCloseTo(13527.64, 0);
+    expect(r.netTaxOnSale).toBeCloseTo(13527.64, 0);
   });
 
   test('selling costs reduce net proceeds and the taxable gain', () => {
@@ -654,6 +657,60 @@ describe('federal tax on rental income', () => {
     const y = calcDeal(withIncome(150000, { state: 'CA' })).years[0];
     const expected = calcStateTax({ state: 'CA', magi: 150000, netRentalIncome: y.taxableAfterPal, filingStatus: 'single' }).totalTax;
     expect(y.totalStateTax).toBeCloseTo(expected, 2);
+  });
+});
+
+// ─── T. Taxes at sale (BACK-114 phase 2) ─────────────────────────────────────
+describe('taxes at sale', () => {
+  const units = (rent) => [
+    { rent, listedRent: 0, rentcastRent: 0 }, { rent, listedRent: 0, rentcastRent: 0 },
+    { rent: 0, listedRent: 0, rentcastRent: 0 }, { rent: 0, listedRent: 0, rentcastRent: 0 },
+  ];
+  const taxCfg = (over = {}) => ({ ...accDeal().assumptions.tax, ...over });
+
+  test('cost-seg depreciation is recaptured as §1245 (ordinary), straight-line as §1250', async () => {
+    const { federalTaxOnSale } = await import('../federalTaxEngine.js');
+    const r = calcDeal(accDeal({
+      appreciationRate: 4, holdPeriod: 7, units: units(3000),
+      tax: taxCfg({ enabled: true, costSegEnabled: true, paStatus: 're_professional', agi: 150000 }),
+    }));
+    const costSegDep = r.years.reduce((s, y) => s + y.cs5Depreciation + y.cs15Depreciation, 0);
+    expect(costSegDep).toBeGreaterThan(0);
+    expect(r.totalGainOnSale).toBeGreaterThan(r.cumulativeDepreciationTaken);
+    expect(r.sec1245RecapturePortion).toBeCloseTo(costSegDep, 0);
+    expect(r.sec1250RecapturePortion).toBeCloseTo(r.cumulativeDepreciationTaken - costSegDep, 0);
+    const fed = federalTaxOnSale({
+      otherIncome: 150000, filingStatus: 'single', niitApplies: false,
+      sec1245Gain: r.sec1245RecapturePortion, sec1250Gain: r.sec1250RecapturePortion, capitalGain: r.trueLTCGPortion,
+    });
+    expect(r.recaptureTax).toBeCloseTo(fed.tax1245 + fed.tax1250, 2);
+    expect(r.ltcgTax).toBeCloseTo(fed.taxLtcg, 2);
+  });
+
+  test('NIIT applies to high earners and not to real-estate professionals', () => {
+    const deal = (paStatus) => accDeal({ appreciationRate: 5, holdPeriod: 10, tax: taxCfg({ agi: 400000, paStatus }) });
+    expect(calcDeal(deal('active_participant')).niitTax).toBeGreaterThan(0);
+    expect(calcDeal(deal('re_professional')).niitTax).toBe(0);
+  });
+
+  test('state tax is charged on the gain', async () => {
+    const { calcStateTax } = await import('../taxEngine.js');
+    const ca = calcDeal(accDeal({ appreciationRate: 4, holdPeriod: 10, state: 'CA' }));
+    const expected = calcStateTax({ state: 'CA', magi: 100000, netRentalIncome: ca.totalGainOnSale, filingStatus: 'single' }).totalTax;
+    expect(ca.stateTaxOnSale).toBeCloseTo(expected, 2);
+    expect(ca.stateTaxOnSale).toBeGreaterThan(0);
+    expect(calcDeal(accDeal({ appreciationRate: 4, holdPeriod: 10 })).stateTaxOnSale).toBe(0);
+  });
+
+  test('net tax on sale = federal pieces + NIIT + state − released passive losses', () => {
+    const r = calcDeal(accDeal({ appreciationRate: 4, holdPeriod: 10, state: 'NY', tax: taxCfg({ agi: 300000 }) }));
+    expect(r.netTaxOnSale).toBeCloseTo(
+      Math.max(0, r.recaptureTax + r.ltcgTax + r.niitTax + r.stateTaxOnSale - r.palTaxBenefit), 2);
+  });
+
+  test('flat-rate override taxes recapture at the flat rate, capped at 25%', () => {
+    const r = calcDeal(accDeal({ appreciationRate: 0, holdPeriod: 5, federalTaxMethod: 'flat', taxBracket: 32 }));
+    expect(r.recaptureTax).toBeCloseTo(r.cumulativeDepreciationTaken * 0.25, 0);
   });
 });
 

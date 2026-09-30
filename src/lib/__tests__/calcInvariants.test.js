@@ -265,7 +265,8 @@ describe(`engine invariants (seed ${SEED}, ${N} deals)`, () => {
   });
 
   check('exit figures are non-negative where they must be', (r) => {
-    for (const k of ['exitLoanBalance', 'sellingCosts', 'netTaxOnSale', 'recaptureTax', 'ltcgTax', 'palTaxBenefit']) {
+    for (const k of ['exitLoanBalance', 'sellingCosts', 'netTaxOnSale', 'recaptureTax', 'ltcgTax', 'palTaxBenefit',
+                     'niitTax', 'stateTaxOnSale', 'sec1245RecapturePortion', 'sec1250RecapturePortion', 'trueLTCGPortion']) {
       if (r[k] < -0.01) return `${k} = ${r[k]}`;
     }
     return null;
@@ -299,6 +300,18 @@ describe(`engine invariants (seed ${SEED}, ${N} deals)`, () => {
     const spent = r.years.reduce((s, y) => s + (y.vaRemodelOutflow || 0), 0);
     const budget = a.valueAdd.enabled ? (+a.valueAdd.reModelCost || 0) : 0;
     return near(spent, budget) ? null : `spent ${spent} vs budget ${budget}`;
+  });
+
+  check('the gain splits exactly into §1245 + §1250 recapture + long-term gain', (r) => {
+    const parts = r.sec1245RecapturePortion + r.sec1250RecapturePortion + r.trueLTCGPortion;
+    if (!near(parts, r.totalGainOnSale)) return `parts ${parts} vs gain ${r.totalGainOnSale}`;
+    if (r.sec1245RecapturePortion + r.sec1250RecapturePortion > r.cumulativeDepreciationTaken + 0.01) return 'recapture exceeds depreciation taken';
+    return null;
+  });
+
+  check('net tax on sale = federal + NIIT + state − released passive losses', (r) => {
+    const expected = Math.max(0, r.recaptureTax + r.ltcgTax + r.niitTax + r.stateTaxOnSale - r.palTaxBenefit);
+    return near(r.netTaxOnSale, expected) ? null : `${r.netTaxOnSale} vs ${expected}`;
   });
 
   check('calcDeal is deterministic', (r, a, i) =>

@@ -68,7 +68,7 @@
 //
 import * as Sentry from '@sentry/react';
 import { calcStateTax } from './taxEngine.js';
-import { federalTaxOnIncome, marginalRate as federalMarginal, taxableBase } from './federalTaxEngine.js';
+import { federalTaxOnIncome, federalTaxOnSale, marginalRate as federalMarginal, taxableBase } from './federalTaxEngine.js';
 
 // ─── Tax & depreciation constants (IRC §168 / §469) ──────────────────────────
 const RESIDENTIAL_DEP_YEARS = 27.5; // IRC §168(c)(1) — residential rental property
@@ -309,8 +309,9 @@ function buildDealConfig(a) {
 }
 
 function calcExit(years, cfg, finalState) {
-  const {pp,holdYears,appRate,totalCash,totalCashWithVA,grossRentYear0,annualDebtService,baseExpenses,bracketRate,sellingCostPct,pmiAnnual,fedMarginalAtBase}=cfg;
-  const {finalPalCarryforward,cumulativeDepreciationTaken}=finalState;
+  const {pp,holdYears,appRate,totalCash,totalCashWithVA,grossRentYear0,annualDebtService,baseExpenses,bracketRate,sellingCostPct,pmiAnnual,fedMarginalAtBase,
+    agi,filingStatus,paStatus,federalMethod,stateCode,localTaxRate}=cfg;
+  const {finalPalCarryforward,cumulativeDepreciationTaken,cumulative1245Taken=0}=finalState;
   const exitValue=years[holdYears-1]?.propertyValue||pp*Math.pow(1+appRate,holdYears);
   const exitLoanBalance=years[holdYears-1]?.balance||0;
   // Amount realized nets out selling costs (agent commission + seller closing)
@@ -323,14 +324,28 @@ function calcExit(years, cfg, finalState) {
   const vaDrawsPaid=years.reduce((s,y)=>s+(y.vaRemodelOutflow||0),0);
   const adjustedBasis=pp+vaDrawsPaid-cumulativeDepreciationTaken;
   const totalGainOnSale=Math.max(0,amountRealized-adjustedBasis);
-  const sec1250RecapturePortion=Math.min(cumulativeDepreciationTaken,totalGainOnSale);
-  const trueLTCGPortion=Math.max(0,totalGainOnSale-sec1250RecapturePortion);
-  const recaptureTax=sec1250RecapturePortion*0.25;
-  const ltcgTax=trueLTCGPortion*0.15;
+  // BACK-114 phase 2: split the gain the way the IRS taxes it — cost-seg recapture
+  // (§1245, ordinary rates), straight-line recapture (unrecaptured §1250, ordinary
+  // rates max 25%), then long-term gain (0/15/20%) — stacked on other income, plus
+  // NIIT and state tax. It used a flat 25% / 15% and no state tax at all.
+  const cost1245=Math.min(cumulative1245Taken,cumulativeDepreciationTaken);
+  const sec1245RecapturePortion=Math.min(cost1245,totalGainOnSale);
+  const sec1250RecapturePortion=Math.min(cumulativeDepreciationTaken-cost1245,totalGainOnSale-sec1245RecapturePortion);
+  const trueLTCGPortion=Math.max(0,totalGainOnSale-sec1245RecapturePortion-sec1250RecapturePortion);
+  const fedSale=federalTaxOnSale({
+    otherIncome:agi,filingStatus,
+    sec1245Gain:sec1245RecapturePortion,sec1250Gain:sec1250RecapturePortion,capitalGain:trueLTCGPortion,
+    // Real-estate professionals who materially participate are exempt from NIIT
+    niitApplies:paStatus!=='re_professional',
+    flatOrdinaryRate:federalMethod==='flat'?bracketRate:null,
+  });
+  const recaptureTax=fedSale.tax1245+fedSale.tax1250;
+  const ltcgTax=fedSale.taxLtcg, niitTax=fedSale.niit;
+  const stateTaxOnSale=calcStateTax({state:stateCode,magi:agi,netRentalIncome:totalGainOnSale,filingStatus,localTaxRate}).totalTax;
   // Suspended passive losses (basic or advanced mode) release on a fully-taxable
-  // disposition (§469(g)); modeled conservatively as offsetting sale taxes only.
-  const palTaxBenefit=Math.min(finalPalCarryforward*fedMarginalAtBase, recaptureTax+ltcgTax);
-  const netTaxOnSale=Math.max(0,recaptureTax+ltcgTax-palTaxBenefit);
+  // disposition (§469(g)); modeled conservatively as offsetting federal sale taxes only.
+  const palTaxBenefit=Math.min(finalPalCarryforward*fedMarginalAtBase, fedSale.total);
+  const netTaxOnSale=Math.max(0,fedSale.total+stateTaxOnSale-palTaxBenefit);
   const capitalGainsTax=netTaxOnSale;
   const netProceeds=amountRealized-exitLoanBalance-netTaxOnSale;
   // IRR: remodel draws are already timed inside years[].cashFlow (50/50 yr1-2),
@@ -342,8 +357,8 @@ function calcExit(years, cfg, finalState) {
   // numerator so the cost isn't double-counted.
   const equityMultiple=totalCashWithVA>0?(years.reduce((s,y)=>s+y.cashFlow,0)+vaDrawsPaid+netProceeds)/totalCashWithVA:0;
   const breakEvenOccupancy=grossRentYear0>0?(annualDebtService+baseExpenses+pmiAnnual)/grossRentYear0:0;
-  return {exitValue,exitLoanBalance,sellingCosts,adjustedBasis,totalGainOnSale,sec1250RecapturePortion,trueLTCGPortion,
-    recaptureTax,ltcgTax,palTaxBenefit,netTaxOnSale,capitalGainsTax,netProceeds,
+  return {exitValue,exitLoanBalance,sellingCosts,adjustedBasis,totalGainOnSale,sec1245RecapturePortion,sec1250RecapturePortion,trueLTCGPortion,
+    recaptureTax,ltcgTax,niitTax,stateTaxOnSale,palTaxBenefit,netTaxOnSale,capitalGainsTax,netProceeds,
     irr,equityMultiple,breakEvenOccupancy};
 }
 
@@ -360,7 +375,7 @@ function calcYear(yr, cfg, loopState) {
   const fedTaxOn=income=>federalMethod==='flat'
     ?{tax:income*bracketRate,marginalRate:bracketRate}
     :federalTaxOnIncome({otherIncome:agi,netIncome:income,filingStatus});
-  let {balance,currentMonthlyPayment,currentAnnualDebtService,refiCashOut,palCarryforward,basicPalCarryforward,cumulativeDepreciationTaken}=loopState;
+  let {balance,currentMonthlyPayment,currentAnnualDebtService,refiCashOut,palCarryforward,basicPalCarryforward,cumulativeDepreciationTaken,cumulative1245Taken=0}=loopState;
   let refiEvent=null;
   if(refiEnabled&&yr===refiYear){
     const pv=pp*Math.pow(1+appRate,yr-1), newLoanAmt=pv*refiLTV;
@@ -492,8 +507,10 @@ function calcYear(yr, cfg, loopState) {
   const vaImpliedValueLift=vaEnabled&&yr>=vaCompletionYr&&baseCapRate>0?(vaRentBump*(1-vacRate))/baseCapRate:0;
   const propertyValue=pp*Math.pow(1+appRate,yr)+vaImpliedValueLift;
   cumulativeDepreciationTaken+=taxAdvEnabled?totalDepreciation:annualDepreciation;
+  // Cost-seg components are §1245 property — recaptured at ordinary rates on sale
+  cumulative1245Taken+=taxAdvEnabled?(cs5DepProrated+cs15DepProrated):0;
   const yearData={yr,pmi:pmiThisYr,grossRent,ooRentDeduction:ooRentDeductionThisYr,rentAfterOO,vacancyLoss,egi,expenses,expBreakdown,noi,ooExpAddBack,debtService:debtServiceThisYr,cashFlow,monthlyCashFlow,incrementalCashFlow,cocReturn,capRate,dscr,dscrLenderView,principal,interest,balance:newBalance,depreciation:annualDepreciation,taxableIncome,qbi,taxEffect,afterTaxCashFlow,stateTax,localTax,totalStateTax,stateEffectiveRate,noTaxState,propertyValue,equity:propertyValue-newBalance,appreciationGain:propertyValue-pp,principalPaydown:cfg.loanAmt-newBalance,refiEvent,vaRemodelOutflow,vaRentLift:vaRentLiftThisYr,ooUtilities:ooUtilitiesThisYr,ooTaxProrateRatio,slDepreciation,cs5Depreciation:cs5DepProrated,cs15Depreciation:cs15DepProrated,totalDepreciation,taxableIncomeAdv,palAllowedLoss,taxableAfterPal,suspendedLossThisYr:taxAdvEnabled?suspendedLossThisYr:basicSuspendedThisYr,carryforwardUsedThisYr:taxAdvEnabled?carryforwardUsedThisYr:basicCarryUsedThisYr,cumulativeCarryforward,effectiveTaxIncAdv,qbiAdv,taxEffectAdv,taxBenefitFromCF,afterTaxCFAdv,federalMarginalRate};
-  return {yearData,loopState:{balance,currentMonthlyPayment,currentAnnualDebtService,refiCashOut,palCarryforward,basicPalCarryforward,cumulativeDepreciationTaken}};
+  return {yearData,loopState:{balance,currentMonthlyPayment,currentAnnualDebtService,refiCashOut,palCarryforward,basicPalCarryforward,cumulativeDepreciationTaken,cumulative1245Taken}};
 }
 
 function calcDeal(deal, { _isRecursive = false } = {}) {
@@ -527,7 +544,7 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     vaEnabled,vaCompletionYr,vaReModelCost,vaRentBump,
     totalCash,totalCashWithVA,taxAdvEnabled,refiEnabled,refiYear,appRate}=cfg;
   const years=[];
-  let ls={balance:loanAmt,currentMonthlyPayment:monthlyPayment,currentAnnualDebtService:annualDebtService,refiCashOut:0,palCarryforward:0,basicPalCarryforward:0,cumulativeDepreciationTaken:0};
+  let ls={balance:loanAmt,currentMonthlyPayment:monthlyPayment,currentAnnualDebtService:annualDebtService,refiCashOut:0,palCarryforward:0,basicPalCarryforward:0,cumulativeDepreciationTaken:0,cumulative1245Taken:0};
   for(let yr=1;yr<=holdYears;yr++){
     const result=calcYear(yr,cfg,ls);
     years.push(result.yearData);
@@ -535,9 +552,9 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
   }
   const refiCashOut=ls.refiCashOut;
   const finalPal=taxAdvEnabled?ls.palCarryforward:ls.basicPalCarryforward;
-  const exit=calcExit(years,cfg,{finalPalCarryforward:finalPal,cumulativeDepreciationTaken:ls.cumulativeDepreciationTaken});
-  const {exitValue,exitLoanBalance,sellingCosts,adjustedBasis,totalGainOnSale,sec1250RecapturePortion,trueLTCGPortion,
-    recaptureTax,ltcgTax,palTaxBenefit,netTaxOnSale,capitalGainsTax,netProceeds,
+  const exit=calcExit(years,cfg,{finalPalCarryforward:finalPal,cumulativeDepreciationTaken:ls.cumulativeDepreciationTaken,cumulative1245Taken:ls.cumulative1245Taken});
+  const {exitValue,exitLoanBalance,sellingCosts,adjustedBasis,totalGainOnSale,sec1245RecapturePortion,sec1250RecapturePortion,trueLTCGPortion,
+    recaptureTax,ltcgTax,niitTax,stateTaxOnSale,palTaxBenefit,netTaxOnSale,capitalGainsTax,netProceeds,
     irr,equityMultiple,breakEvenOccupancy}=exit;
   let irrWithoutVA=irr,irrWithVA=irr;
   if(vaEnabled){const d2=structuredClone(deal);d2.assumptions.valueAdd={...(a.valueAdd||{}),enabled:false};irrWithoutVA=calcDeal(d2,{_isRecursive:true}).irr;irrWithVA=irr;}
@@ -555,7 +572,7 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     return { applies: true, grossRentAllUnits, threshold75Pct, pitiAnnual, passes, delta };
   })();
 
-  return {totalCash:totalCashWithVA,totalCashBase:totalCash,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExpenses,baseExpBreakdown:baseExp,noi:years[0]?.noi||0,cocReturn:years[0]?.cocReturn||0,capRate:years[0]?.capRate||0,dscr:years[0]?.dscr||0,dscrLenderView:years[0]?.dscrLenderView||0,irr,equityMultiple,breakEvenOccupancy,exitValue,exitLoanBalance,sellingCosts,adjustedBasis,totalGainOnSale,sec1250RecapturePortion,trueLTCGPortion,recaptureTax,ltcgTax,palTaxBenefit,netTaxOnSale,netProceeds,capitalGainsTax,years,holdYears,refiCashOut,refiYear:refiEnabled?refiYear:null,vaEnabled,vaReModelCost,vaRentBump,vaCompletionYr,irrWithoutVA,irrWithVA,ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,taxAdvEnabled,finalPalCarryforward:finalPal,cumulativeDepreciationTaken:ls.cumulativeDepreciationTaken,fhaSelfSufficiency};
+  return {totalCash:totalCashWithVA,totalCashBase:totalCash,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExpenses,baseExpBreakdown:baseExp,noi:years[0]?.noi||0,cocReturn:years[0]?.cocReturn||0,capRate:years[0]?.capRate||0,dscr:years[0]?.dscr||0,dscrLenderView:years[0]?.dscrLenderView||0,irr,equityMultiple,breakEvenOccupancy,exitValue,exitLoanBalance,sellingCosts,adjustedBasis,totalGainOnSale,sec1245RecapturePortion,sec1250RecapturePortion,trueLTCGPortion,recaptureTax,ltcgTax,niitTax,stateTaxOnSale,palTaxBenefit,netTaxOnSale,netProceeds,capitalGainsTax,years,holdYears,refiCashOut,refiYear:refiEnabled?refiYear:null,vaEnabled,vaReModelCost,vaRentBump,vaCompletionYr,irrWithoutVA,irrWithVA,ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,taxAdvEnabled,finalPalCarryforward:finalPal,cumulativeDepreciationTaken:ls.cumulativeDepreciationTaken,fhaSelfSufficiency};
 }
 
 // ── BACK-805: Exit Year Scenario Analysis ─────────────────────────────────────

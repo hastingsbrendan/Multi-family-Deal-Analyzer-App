@@ -15,6 +15,7 @@ vi.mock('@sentry/react', () => ({
 }));
 
 const { calcDeal, calcExitScenarios } = await import('../lib/calc.js');
+const { federalTaxOnSale } = await import('../lib/federalTaxEngine.js');
 
 // ─── Fixture helpers ──────────────────────────────────────────────────────────
 // Returns a clean deal with deterministic outputs. Key defaults:
@@ -448,12 +449,15 @@ describe('calcDeal — exit analysis', () => {
 
   test('zero appreciation still owes depreciation recapture (adjusted basis)', () => {
     // Selling at the purchase price is NOT tax-free: depreciation taken reduces
-    // basis, so the gain equals the depreciation and is recaptured at 25% (§1250).
+    // basis, so the gain equals the depreciation and is recaptured as unrecaptured
+    // §1250 gain (ordinary rates, max 25% — BACK-114; was a flat 25%).
     // The old assertion (zero tax) encoded a bug — gain was measured against raw
     // purchase price instead of adjusted basis (2026-06 accuracy audit).
     const r = calcDeal(baseDeal({ appreciationRate: 0, holdPeriod: 5 }));
     expect(r.totalGainOnSale).toBeCloseTo(r.cumulativeDepreciationTaken, 0);
-    expect(r.netTaxOnSale).toBeCloseTo(r.cumulativeDepreciationTaken * 0.25, 0);
+    const expected = federalTaxOnSale({ otherIncome: 100000, filingStatus: 'single', sec1250Gain: r.cumulativeDepreciationTaken }).total;
+    expect(r.netTaxOnSale).toBeCloseTo(expected, 0);
+    expect(r.netTaxOnSale).toBeLessThan(r.cumulativeDepreciationTaken * 0.25);
   });
 });
 
