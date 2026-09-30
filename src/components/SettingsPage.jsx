@@ -15,8 +15,6 @@ const PUSH_FIELDS = [
   { key:'expenseGrowth',    section:'Income & Growth',    label:'Expense Growth % / yr' },
   { key:'appreciationRate', section:'Income & Growth',    label:'Appreciation % / yr' },
   { key:'taxBracket',       section:'Tax',                label:'Income Tax Bracket %' },
-  { key:'propertyTaxPct',   section:'Expense % Defaults', label:'Property Tax %' },
-  { key:'insurancePct',     section:'Expense % Defaults', label:'Insurance %' },
   { key:'maintenancePct',   section:'Expense % Defaults', label:'Maintenance %' },
   { key:'capexPct',         section:'Expense % Defaults', label:'CapEx %' },
   { key:'propertyMgmtPct',  section:'Expense % Defaults', label:'Property Mgmt %' },
@@ -217,10 +215,8 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
 
         <div style={card}>
           <div style={{fontWeight:700, fontSize:14, marginBottom:4}}>Expense Defaults (%)</div>
-          <div style={{fontSize:12, color:'var(--muted)', marginBottom:16}}>Used when expense mode is set to % of rent</div>
+          <div style={{fontSize:12, color:'var(--muted)', marginBottom:16}}>% of gross rent, used when an expense is set to % mode. Property tax and insurance are entered as $/yr on each deal.</div>
           <div style={row3}>
-            <div>{lbl('Property Tax %')}<input type="number" value={local.propertyTaxPct} onChange={e=>set('propertyTaxPct',+e.target.value)} style={iS} step={0.1}/></div>
-            <div>{lbl('Insurance %')}<input type="number" value={local.insurancePct} onChange={e=>set('insurancePct',+e.target.value)} style={iS} step={0.1}/></div>
             <div>{lbl('Maintenance %')}<input type="number" value={local.maintenancePct} onChange={e=>set('maintenancePct',+e.target.value)} style={iS} step={0.1}/></div>
             <div>{lbl('CapEx %')}<input type="number" value={local.capexPct} onChange={e=>set('capexPct',+e.target.value)} style={iS} step={0.1}/></div>
             <div>{lbl('Property Mgmt %')}<input type="number" value={local.propertyMgmtPct} onChange={e=>set('propertyMgmtPct',+e.target.value)} style={iS} step={0.1}/></div>

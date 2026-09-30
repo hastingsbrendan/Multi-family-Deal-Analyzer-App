@@ -293,11 +293,12 @@ function App() {
                   if (has('expenseGrowth'))    a.expenseGrowth    = newPrefs.expenseGrowth;
                   if (has('appreciationRate')) a.appreciationRate = newPrefs.appreciationRate;
                   if (has('taxBracket'))       a.taxBracket       = newPrefs.taxBracket;
-                  if (has('propertyTaxPct'))   a.propertyTaxPct   = newPrefs.propertyTaxPct;
-                  if (has('insurancePct'))     a.insurancePct     = newPrefs.insurancePct;
-                  if (has('maintenancePct'))   a.maintenancePct   = newPrefs.maintenancePct;
-                  if (has('capexPct'))         a.capexPct         = newPrefs.capexPct;
-                  if (has('propertyMgmtPct'))  a.propertyMgmtPct  = newPrefs.propertyMgmtPct;
+                  // Expense % values live in a.expenses — writing a.maintenancePct etc.
+                  // at the top level never reached the calc (2026-09 review)
+                  a.expenses = { ...(a.expenses||{}) };
+                  if (has('maintenancePct'))   a.expenses.maintenancePct   = newPrefs.maintenancePct;
+                  if (has('capexPct'))         a.expenses.capexPct         = newPrefs.capexPct;
+                  if (has('propertyMgmtPct'))  a.expenses.propertyMgmtPct  = newPrefs.propertyMgmtPct;
                   if (has('cc_title'))        cc.title        = newPrefs.closingCosts?.title;
                   if (has('cc_transferTax'))  cc.transferTax  = newPrefs.closingCosts?.transferTax;
                   if (has('cc_inspection'))   cc.inspection   = newPrefs.closingCosts?.inspection;

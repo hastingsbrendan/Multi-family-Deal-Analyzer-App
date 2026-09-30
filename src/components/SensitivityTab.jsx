@@ -32,27 +32,26 @@ const DEFAULT_SCENARIOS = {
 };
 
 // Apply scenario overrides to a deal to produce a modified copy for calc
-function applyScenario(deal, overrides) {
+export function applyScenario(deal, overrides) {
   const m = structuredClone(deal);
   const a = m.assumptions;
   if (overrides.rentDelta)         a.units = a.units.map(u => ({ ...u, rent: +u.rent * (1 + overrides.rentDelta/100) }));
   if (overrides.vacancyDelta)      a.vacancyRate = Math.max(0, +a.vacancyRate + overrides.vacancyDelta);
   if (overrides.appreciationDelta) a.appreciationRate = +a.appreciationRate + overrides.appreciationDelta;
   if (overrides.rateDelta)         a.interestRate = Math.max(0, +a.interestRate + overrides.rateDelta);
-  if (overrides.expenseDelta || overrides.propertyTaxDelta) {
-    const expModes = a.expenseModes || {};
-    // Apply expense delta to flat $ values; property tax delta applied separately
+  if ((overrides.expenseDelta || overrides.propertyTaxDelta) && a.expenses) {
+    // Expense percentages live in a.expenses (maintenancePct, …). Scaling top-level
+    // a.maintenancePct etc. — which deals don't use — made these sliders do nothing for
+    // % expenses (2026-09 review). Property tax and insurance are always $ amounts.
     if (overrides.expenseDelta) {
-      ['insurance','maintenance','capex','propertyMgmt','utilities'].forEach(k => {
-        if (a.expenses?.[k]) a.expenses[k] = +a.expenses[k] * (1 + overrides.expenseDelta/100);
-      });
-      ['insurancePct','maintenancePct','capexPct','propertyMgmtPct','utilitiesPct'].forEach(k => {
-        if (a[k]) a[k] = +a[k] * (1 + overrides.expenseDelta/100);
+      const f = 1 + overrides.expenseDelta/100;
+      ['insurance','maintenance','capex','propertyMgmt','utilities',
+       'maintenancePct','capexPct','propertyMgmtPct','utilitiesPct'].forEach(k => {
+        if (a.expenses[k]) a.expenses[k] = +a.expenses[k] * f;
       });
     }
-    if (overrides.propertyTaxDelta) {
-      if (a.expenses?.propertyTax) a.expenses.propertyTax = +a.expenses.propertyTax * (1 + overrides.propertyTaxDelta/100);
-      if (a.propertyTaxPct) a.propertyTaxPct = +a.propertyTaxPct * (1 + overrides.propertyTaxDelta/100);
+    if (overrides.propertyTaxDelta && a.expenses.propertyTax) {
+      a.expenses.propertyTax = +a.expenses.propertyTax * (1 + overrides.propertyTaxDelta/100);
     }
   }
   return m;

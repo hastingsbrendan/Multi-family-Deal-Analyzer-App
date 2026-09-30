@@ -459,16 +459,16 @@ describe('calcDeal — exit analysis', () => {
 
 // ─── 9. Expense modes (pct vs value) ─────────────────────────────────────────
 describe('calcDeal — expense modes', () => {
-  test('pct mode: propertyTax = rate% × grossRent', () => {
+  test('pct mode: maintenance = rate% × grossRent', () => {
     const r = calcDeal(baseDeal({
       expenseModes: {
-        propertyTax: 'pct', insurance: 'value', maintenance: 'value',
+        propertyTax: 'value', insurance: 'value', maintenance: 'pct',
         capex: 'value', propertyMgmt: 'value', utilities: 'value', hoa: 'value',
       },
       expenses: {
-        propertyTax: 0,    propertyTaxPct: 10,   // 10% of grossRentYear0
+        propertyTax: 0,    propertyTaxPct: 0,
         insurance: 0,      insurancePct: 0,
-        maintenance: 0,    maintenancePct: 0,
+        maintenance: 0,    maintenancePct: 10,   // 10% of grossRentYear0
         capex: 0,          capexPct: 0,
         propertyMgmt: 0,   propertyMgmtPct: 0,
         utilities: 0,      utilitiesPct: 0,
@@ -477,6 +477,26 @@ describe('calcDeal — expense modes', () => {
     }));
     // 10% of grossRentYear0 (43200) = 4320
     expect(r.baseExpenses).toBeCloseTo(4320, 0);
+  });
+
+  test('property tax uses its $ amount even when a saved deal says pct', () => {
+    // The UI only takes $/yr for property tax; a legacy "pct" mode must not override it
+    const r = calcDeal(baseDeal({
+      expenseModes: {
+        propertyTax: 'pct', insurance: 'value', maintenance: 'value',
+        capex: 'value', propertyMgmt: 'value', utilities: 'value', hoa: 'value',
+      },
+      expenses: {
+        propertyTax: 5000, propertyTaxPct: 10,
+        insurance: 0,      insurancePct: 0,
+        maintenance: 0,    maintenancePct: 0,
+        capex: 0,          capexPct: 0,
+        propertyMgmt: 0,   propertyMgmtPct: 0,
+        utilities: 0,      utilitiesPct: 0,
+        hoa: 0,            costSegFee: 0,
+      },
+    }));
+    expect(r.baseExpenses).toBeCloseTo(5000, 0);
   });
 
   test('propertyMgmt is zero when selfManage=true regardless of pct setting', () => {

@@ -218,12 +218,15 @@ describe('resolveExpenses', () => {
     const grossRent = 36000;
     const a = {
       expenseModes: { propertyTax: 'pct', insurance: 'pct', maintenance: 'pct', capex: 'pct', propertyMgmt: 'pct', utilities: 'value' },
-      expenses: { propertyTax: 0, propertyTaxPct: 10, insurance: 0, insurancePct: 5, maintenance: 0, maintenancePct: 5, capex: 0, capexPct: 5, propertyMgmt: 0, propertyMgmtPct: 8, utilities: 1200, utilitiesPct: 0 },
+      expenses: { propertyTax: 5000, propertyTaxPct: 10, insurance: 2000, insurancePct: 5, maintenance: 0, maintenancePct: 5, capex: 0, capexPct: 5, propertyMgmt: 0, propertyMgmtPct: 8, utilities: 1200, utilitiesPct: 0 },
       selfManage: false,
     };
     const exp = resolveExpenses(a, grossRent);
-    expect(exp.propertyTax).toBeCloseTo(3600, 0); // 10% of 36000
-    expect(exp.insurance).toBeCloseTo(1800, 0);    // 5% of 36000
+    // Property tax and insurance are always $/yr (their legacy pct mode is ignored)
+    expect(exp.propertyTax).toBe(5000);
+    expect(exp.insurance).toBe(2000);
+    expect(exp.maintenance).toBeCloseTo(1800, 0);   // 5% of 36000
+    expect(exp.propertyMgmt).toBeCloseTo(2880, 0);  // 8% of 36000
     expect(exp.utilities).toBe(1200);               // fixed value
     expect(exp.total).toBeGreaterThan(0);
   });

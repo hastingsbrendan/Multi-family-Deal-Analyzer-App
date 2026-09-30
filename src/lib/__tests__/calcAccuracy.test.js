@@ -573,6 +573,37 @@ describe('depreciation over long holds', () => {
   });
 });
 
+// ─── R. Property tax & insurance use the $ amount shown on screen ────────────
+// The UI only offers $/yr inputs for these two (Property Details / Financing), but
+// new deals defaulted them to "pct" mode and the insurance input never switched it
+// back, so the engine charged a tiny % of rent and ignored what users typed —
+// 16 of 17 affected deals had an ignored insurance premium (2026-09 review).
+describe('property tax and insurance', () => {
+  const legacyPct = () => ({ ...accDeal().assumptions.expenseModes, propertyTax: 'pct', insurance: 'pct' });
+
+  test('use the $ amount even when a saved deal is in pct mode', () => {
+    const r = calcDeal(accDeal({ expenseModes: legacyPct() }));
+    expect(r.baseExpBreakdown.propertyTax).toBeCloseTo(6000, 0);
+    expect(r.baseExpBreakdown.insurance).toBeCloseTo(1800, 0);
+  });
+
+  test('new deals start both in $ mode', () => {
+    const d = newDeal();
+    expect(d.assumptions.expenseModes.propertyTax).toBe('value');
+    expect(d.assumptions.expenseModes.insurance).toBe('value');
+  });
+
+  test('other expenses keep their % of rent mode', () => {
+    const r = calcDeal(accDeal({ expenseModes: { ...accDeal().assumptions.expenseModes, maintenance: 'pct' } }));
+    expect(r.baseExpBreakdown.maintenance).toBeCloseTo(43200 * 0.05, 0);
+  });
+
+  test('FHA self-sufficiency PITI uses the $ tax and insurance', () => {
+    const r = calcDeal(accDeal({ numUnits: 3, expenseModes: legacyPct() }));
+    expect(r.fhaSelfSufficiency.pitiAnnual).toBeCloseTo(r.annualDebtService + 6000 + 1800, 0);
+  });
+});
+
 // ─── Q. Smaller engine fixes ─────────────────────────────────────────────────
 describe('engine hygiene', () => {
   test('calcDeal does not write numUnits back into the deal it is given', () => {

@@ -85,20 +85,8 @@ function AssumptionsTab({deal,onChange}){
       {(()=>{
         // Comma-formatted integer inputs (sqft, lot)
 
-        // Property Tax mode toggle (mirrors Expenses section)
-        const ptMode = (a.expenseModes?.propertyTax) || "value";
-        const isPtPct = ptMode === "pct";
-        const togglePtMode = () => {
-          const d = structuredClone(deal);
-          if (!d.assumptions.expenseModes) d.assumptions.expenseModes = {};
-          d.assumptions.expenseModes.propertyTax = isPtPct ? "value" : "pct";
-          onChange(d);
-        };
-        const ptVal = isPtPct ? (a.expenses?.propertyTaxPct||"") : (a.expenses?.propertyTax||"");
-        const ptKey = isPtPct ? "expenses.propertyTaxPct" : "expenses.propertyTax";
-        const ptAnnual = isPtPct
-          ? null  // can't show annual without gross rent context
-          : (+a.expenses?.propertyTax||0);
+        // Property tax is always a $/yr amount (calc.js ignores any legacy "pct" mode)
+        const ptAnnual = +a.expenses?.propertyTax||0;
         return (
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 12px"}}>
             {/* Number of Units */}
@@ -219,10 +207,8 @@ function AssumptionsTab({deal,onChange}){
         const rate=(+a.interestRate||0)/100/12;
         const n=(+a.amortYears||30)*12;
         const pi=loanAmt>0&&rate>0?loanAmt*(rate*Math.pow(1+rate,n))/(Math.pow(1+rate,n)-1):loanAmt/n;
-        // Property tax: use dollar value directly, or % of gross rent yr0 estimate
-        const ptMode=(a.expenseModes?.propertyTax)||"value";
-        const grossRentEst=a.units.slice(0,a.numUnits).reduce((s,u)=>s+(+(u.rent||u.listedRent)||0),0)*12;
-        const annualPT=ptMode==="pct"?(grossRentEst*((+a.expenses?.propertyTaxPct||0)/100)):(+a.expenses?.propertyTax||0);
+        // Property tax and insurance are $/yr amounts — same figures calc.js uses
+        const annualPT=+a.expenses?.propertyTax||0;
         const monthlyTax=annualPT/12;
         const ins=(+a.expenses?.insurance||0)/12;
         const pmi=+a.pmi||0;

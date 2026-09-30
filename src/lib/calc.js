@@ -35,7 +35,9 @@
 // closingCosts          Itemized closing costs object (title, transferTax, etc.)
 // insuranceUpfront      True = first-year insurance premium paid at close (not monthly)
 // expenses              Operating expense values (USD or % depending on expenseModes)
-// expenseModes          Per-expense mode: "pct" (% of gross rent) | "value" (USD/yr)
+// expenseModes          Per-expense mode: "pct" (% of gross rent) | "value" (USD/yr).
+//                       propertyTax and insurance are always read as USD/yr — the UI has
+//                       no % input for them; legacy "pct" modes on those two are ignored
 //   .propertyTax        Annual property tax
 //   .insurance          Landlord insurance
 //   .maintenance        Routine maintenance/repairs
@@ -124,7 +126,7 @@ const newDeal = (prefs) => {
     numUnits: 2,
     beds: "", baths: "", yearBuilt: "", sqftTotal: "", lotSize: "", annualPropertyTax: "", expectedCloseDate: "",
     vacancyRate: p.vacancyRate, vacancySource: "",
-    expenseModes: { propertyTax:"pct", insurance:"pct", maintenance:"pct", capex:"pct", propertyMgmt:"pct", utilities:"value", hoa:"value", costSegFee:"value" },
+    expenseModes: { propertyTax:"value", insurance:"value", maintenance:"pct", capex:"pct", propertyMgmt:"pct", utilities:"value", hoa:"value", costSegFee:"value" },
     expenses: {
       propertyTax:6000, propertyTaxSource:"", propertyTaxPct: p.propertyTaxPct,
       insurance:1800, insuranceSource:"", insurancePct: p.insurancePct,
@@ -207,7 +209,11 @@ function resolveExpenses(a, grossRentYear0) {
   const modes = a.expenseModes || {};
   const val = (vk, pk) => (modes[vk]==="pct") ? grossRentYear0*((+a.expenses[pk]||0)/100) : (+a.expenses[vk]||0);
   const mgmt = a.selfManage ? 0 : val("propertyMgmt","propertyMgmtPct");
-  const pt=val("propertyTax","propertyTaxPct"), ins=val("insurance","insurancePct");
+  // Property tax and insurance are only ever entered as $/yr (Property Details /
+  // Financing). New deals defaulted them to "pct" mode and the insurance input never
+  // switched it back, so the engine charged a tiny % of rent and ignored the amounts
+  // users typed. Always use the $ figure shown on screen (2026-09 review).
+  const pt=+a.expenses?.propertyTax||0, ins=+a.expenses?.insurance||0;
   const maint=val("maintenance","maintenancePct"), capex=val("capex","capexPct"), util=val("utilities","utilitiesPct");
   const hoa=(+a.expenses?.hoa||0);
   return { propertyTax:pt, insurance:ins, maintenance:maint, capex, propertyMgmt:mgmt, utilities:util, hoa, costSegFee:0, total:pt+ins+maint+capex+mgmt+util+hoa };
