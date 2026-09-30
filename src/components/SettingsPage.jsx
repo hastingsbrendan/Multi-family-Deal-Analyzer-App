@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { DEFAULT_PREFS } from '../lib/calc';
-import { sbClient, authUpdatePassword, authUpdateProfile } from '../lib/constants';
+import { sbClient, SB_URL, authUpdatePassword, authUpdateProfile } from '../lib/constants';
 import Button from './ui/Button';
 import AppearanceTab from './SettingsPage/AppearanceTab';
 import GroupsTab from './SettingsPage/GroupsTab';
@@ -138,7 +138,7 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
     try {
       const { data: { session } } = await sbClient.auth.getSession();
       if (!session) throw new Error('No active session — please sign in again.');
-      const res  = await fetch('https://lxkwvayalxuoryuwxtsq.supabase.co/functions/v1/delete-account', {
+      const res  = await fetch(`${SB_URL}/functions/v1/delete-account`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
       });
