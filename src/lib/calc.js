@@ -68,7 +68,7 @@
 //
 import * as Sentry from '@sentry/react';
 import { calcStateTax } from './taxEngine.js';
-import { federalTaxOnIncome, federalTaxOnSale, marginalRate as federalMarginal, taxableBase } from './federalTaxEngine.js';
+import { federalTaxOnIncome, federalTaxOnSale, marginalRate as federalMarginal, taxableBase, SEC121_EXCLUSION } from './federalTaxEngine.js';
 
 // ─── Tax & depreciation constants (IRC §168 / §469) ──────────────────────────
 const RESIDENTIAL_DEP_YEARS = 27.5; // IRC §168(c)(1) — residential rental property
@@ -279,6 +279,10 @@ function buildDealConfig(a) {
   const bonusPct=csEnabled?Math.min(1,Math.max(0,(+taxCfg.bonusDepPct||100)/100)):0;
   const sec179=csEnabled?Math.min(+taxCfg.sec179Amount||0,cs5Val):0;
   const paStatus=taxCfg.paStatus||'active_participant';
+  // QBI (§199A) only applies if the rental rises to a trade or business (e.g. the
+  // 250-hour safe harbor) — opt-in, off by default (BACK-114). It used to apply to all
+  // positive rental income.
+  const qbiEligible=!!taxCfg.qbiEligible;
   // Household income from other sources (tax.agi) — one figure for the federal
   // brackets, state tax and the §469 phase-out. State tax used to default it to 0
   // while the phase-out defaulted to 100k (2026-09 review).
@@ -305,12 +309,12 @@ function buildDealConfig(a) {
     taxCfg,taxAdvEnabled,landPct,buildingVal,csEnabled,cs5Val,cs15Val,structureVal,
     bonusPct,sec179,paStatus,palAgi,
     numUnits,amortYears,bracketRate,stateCode,filingStatus,localTaxRate,agi,refiNewRateRaw,costSegFee,
-    federalMethod,fedMarginalAtBase};
+    federalMethod,fedMarginalAtBase,qbiEligible};
 }
 
 function calcExit(years, cfg, finalState) {
   const {pp,holdYears,appRate,totalCash,totalCashWithVA,grossRentYear0,annualDebtService,baseExpenses,bracketRate,sellingCostPct,pmiAnnual,fedMarginalAtBase,
-    agi,filingStatus,paStatus,federalMethod,stateCode,localTaxRate}=cfg;
+    agi,filingStatus,paStatus,federalMethod,stateCode,localTaxRate,ooEnabled,ooYears,numUnits}=cfg;
   const {finalPalCarryforward,cumulativeDepreciationTaken,cumulative1245Taken=0}=finalState;
   const exitValue=years[holdYears-1]?.propertyValue||pp*Math.pow(1+appRate,holdYears);
   const exitLoanBalance=years[holdYears-1]?.balance||0;
@@ -332,16 +336,26 @@ function calcExit(years, cfg, finalState) {
   const sec1245RecapturePortion=Math.min(cost1245,totalGainOnSale);
   const sec1250RecapturePortion=Math.min(cumulativeDepreciationTaken-cost1245,totalGainOnSale-sec1245RecapturePortion);
   const trueLTCGPortion=Math.max(0,totalGainOnSale-sec1245RecapturePortion-sec1250RecapturePortion);
+  // BACK-114 phase 3: §121 — a house hacker who lived in their unit for 2 of the 5
+  // years before the sale excludes that unit's share of the long-term gain, up to
+  // $250k single / $500k married. Depreciation recapture is never excluded. The owner
+  // moves in first, so later rental years fall under the "after last use" exception.
+  // States generally follow §121, so it also comes off the state tax base.
+  const livedYears=ooEnabled?Math.min(ooYears,holdYears):0;
+  const sec121Eligible=livedYears>=2&&holdYears-livedYears<=3;
+  const sec121Exclusion=sec121Eligible
+    ?Math.min(SEC121_EXCLUSION[filingStatus==='married'?'married':'single'],trueLTCGPortion/Math.max(1,numUnits))
+    :0;
   const fedSale=federalTaxOnSale({
     otherIncome:agi,filingStatus,
-    sec1245Gain:sec1245RecapturePortion,sec1250Gain:sec1250RecapturePortion,capitalGain:trueLTCGPortion,
+    sec1245Gain:sec1245RecapturePortion,sec1250Gain:sec1250RecapturePortion,capitalGain:trueLTCGPortion-sec121Exclusion,
     // Real-estate professionals who materially participate are exempt from NIIT
     niitApplies:paStatus!=='re_professional',
     flatOrdinaryRate:federalMethod==='flat'?bracketRate:null,
   });
   const recaptureTax=fedSale.tax1245+fedSale.tax1250;
   const ltcgTax=fedSale.taxLtcg, niitTax=fedSale.niit;
-  const stateTaxOnSale=calcStateTax({state:stateCode,magi:agi,netRentalIncome:totalGainOnSale,filingStatus,localTaxRate}).totalTax;
+  const stateTaxOnSale=calcStateTax({state:stateCode,magi:agi,netRentalIncome:totalGainOnSale-sec121Exclusion,filingStatus,localTaxRate}).totalTax;
   // Suspended passive losses (basic or advanced mode) release on a fully-taxable
   // disposition (§469(g)); modeled conservatively as offsetting federal sale taxes only.
   const palTaxBenefit=Math.min(finalPalCarryforward*fedMarginalAtBase, fedSale.total);
@@ -357,7 +371,7 @@ function calcExit(years, cfg, finalState) {
   // numerator so the cost isn't double-counted.
   const equityMultiple=totalCashWithVA>0?(years.reduce((s,y)=>s+y.cashFlow,0)+vaDrawsPaid+netProceeds)/totalCashWithVA:0;
   const breakEvenOccupancy=grossRentYear0>0?(annualDebtService+baseExpenses+pmiAnnual)/grossRentYear0:0;
-  return {exitValue,exitLoanBalance,sellingCosts,adjustedBasis,totalGainOnSale,sec1245RecapturePortion,sec1250RecapturePortion,trueLTCGPortion,
+  return {exitValue,exitLoanBalance,sellingCosts,adjustedBasis,totalGainOnSale,sec1245RecapturePortion,sec1250RecapturePortion,trueLTCGPortion,sec121Exclusion,
     recaptureTax,ltcgTax,niitTax,stateTaxOnSale,palTaxBenefit,netTaxOnSale,capitalGainsTax,netProceeds,
     irr,equityMultiple,breakEvenOccupancy};
 }
@@ -370,7 +384,7 @@ function calcYear(yr, cfg, loopState) {
     taxAdvEnabled,csEnabled,cs5Val,cs15Val,structureVal,
     bonusPct,sec179,paStatus,palAgi,
     numUnits,amortYears,bracketRate,stateCode,filingStatus,localTaxRate,agi,refiNewRateRaw,costSegFee,
-    federalMethod}=cfg;
+    federalMethod,qbiEligible}=cfg;
   // Federal tax on a year's taxable rental income (negative = allowed loss → saving)
   const fedTaxOn=income=>federalMethod==='flat'
     ?{tax:income*bracketRate,marginalRate:bracketRate}
@@ -451,7 +465,7 @@ function calcYear(yr, cfg, loopState) {
       basicPalCarryforward-=basicCarryUsedThisYr;taxableAfterPal=taxableIncome-basicCarryUsedThisYr;
     }
   }
-  const qbi=taxableAfterPal>0?taxableAfterPal*0.2:0, federalTaxable=taxableAfterPal-qbi;
+  const qbi=qbiEligible&&taxableAfterPal>0?taxableAfterPal*0.2:0, federalTaxable=taxableAfterPal-qbi;
   const fedBasic=fedTaxOn(federalTaxable), taxEffect=fedBasic.tax;
   let cs5Dep=0,cs15Dep=0;
   if(csEnabled){
@@ -486,10 +500,10 @@ function calcYear(yr, cfg, loopState) {
   }
   const effectiveTaxIncAdv=taxAdvEnabled?(taxableIncomeAdv>=0?taxableIncomeAdv-carryforwardUsedThisYr:-palAllowedLoss):taxableIncome;
   const cumulativeCarryforward=taxAdvEnabled?palCarryforward:basicPalCarryforward;
-  const qbiAdv=effectiveTaxIncAdv>0?effectiveTaxIncAdv*0.2:0;
+  const qbiAdv=qbiEligible&&effectiveTaxIncAdv>0?effectiveTaxIncAdv*0.2:0;
   const fedAdv=taxAdvEnabled?fedTaxOn(effectiveTaxIncAdv-qbiAdv):fedBasic, taxEffectAdv=fedAdv.tax;
   const federalMarginalRate=fedAdv.marginalRate;
-  const taxBenefitFromCF=taxAdvEnabled&&carryforwardUsedThisYr>0?carryforwardUsedThisYr*(1-0.2)*federalMarginalRate:0;
+  const taxBenefitFromCF=taxAdvEnabled&&carryforwardUsedThisYr>0?carryforwardUsedThisYr*(1-(qbiEligible?0.2:0))*federalMarginalRate:0;
   // State tax is levied on taxable rental income BEFORE QBI (a federal-only deduction
   // most states don't allow) and, in advanced mode, after cost-seg / bonus depreciation
   // and the advanced PAL rules. It used to use the basic-mode, post-QBI figure in every
@@ -553,7 +567,7 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
   const refiCashOut=ls.refiCashOut;
   const finalPal=taxAdvEnabled?ls.palCarryforward:ls.basicPalCarryforward;
   const exit=calcExit(years,cfg,{finalPalCarryforward:finalPal,cumulativeDepreciationTaken:ls.cumulativeDepreciationTaken,cumulative1245Taken:ls.cumulative1245Taken});
-  const {exitValue,exitLoanBalance,sellingCosts,adjustedBasis,totalGainOnSale,sec1245RecapturePortion,sec1250RecapturePortion,trueLTCGPortion,
+  const {exitValue,exitLoanBalance,sellingCosts,adjustedBasis,totalGainOnSale,sec1245RecapturePortion,sec1250RecapturePortion,trueLTCGPortion,sec121Exclusion,
     recaptureTax,ltcgTax,niitTax,stateTaxOnSale,palTaxBenefit,netTaxOnSale,capitalGainsTax,netProceeds,
     irr,equityMultiple,breakEvenOccupancy}=exit;
   let irrWithoutVA=irr,irrWithVA=irr;
@@ -572,7 +586,7 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     return { applies: true, grossRentAllUnits, threshold75Pct, pitiAnnual, passes, delta };
   })();
 
-  return {totalCash:totalCashWithVA,totalCashBase:totalCash,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExpenses,baseExpBreakdown:baseExp,noi:years[0]?.noi||0,cocReturn:years[0]?.cocReturn||0,capRate:years[0]?.capRate||0,dscr:years[0]?.dscr||0,dscrLenderView:years[0]?.dscrLenderView||0,irr,equityMultiple,breakEvenOccupancy,exitValue,exitLoanBalance,sellingCosts,adjustedBasis,totalGainOnSale,sec1245RecapturePortion,sec1250RecapturePortion,trueLTCGPortion,recaptureTax,ltcgTax,niitTax,stateTaxOnSale,palTaxBenefit,netTaxOnSale,netProceeds,capitalGainsTax,years,holdYears,refiCashOut,refiYear:refiEnabled?refiYear:null,vaEnabled,vaReModelCost,vaRentBump,vaCompletionYr,irrWithoutVA,irrWithVA,ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,taxAdvEnabled,finalPalCarryforward:finalPal,cumulativeDepreciationTaken:ls.cumulativeDepreciationTaken,fhaSelfSufficiency};
+  return {totalCash:totalCashWithVA,totalCashBase:totalCash,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExpenses,baseExpBreakdown:baseExp,noi:years[0]?.noi||0,cocReturn:years[0]?.cocReturn||0,capRate:years[0]?.capRate||0,dscr:years[0]?.dscr||0,dscrLenderView:years[0]?.dscrLenderView||0,irr,equityMultiple,breakEvenOccupancy,exitValue,exitLoanBalance,sellingCosts,adjustedBasis,totalGainOnSale,sec1245RecapturePortion,sec1250RecapturePortion,trueLTCGPortion,sec121Exclusion,recaptureTax,ltcgTax,niitTax,stateTaxOnSale,palTaxBenefit,netTaxOnSale,netProceeds,capitalGainsTax,years,holdYears,refiCashOut,refiYear:refiEnabled?refiYear:null,vaEnabled,vaReModelCost,vaRentBump,vaCompletionYr,irrWithoutVA,irrWithVA,ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,taxAdvEnabled,finalPalCarryforward:finalPal,cumulativeDepreciationTaken:ls.cumulativeDepreciationTaken,fhaSelfSufficiency};
 }
 
 // ── BACK-805: Exit Year Scenario Analysis ─────────────────────────────────────

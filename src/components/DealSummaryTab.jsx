@@ -605,6 +605,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
           {/* Tax stack */}
           <div style={{marginTop:6,marginBottom:2,fontSize:9,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:"var(--muted)"}}>Tax on Sale</div>
           <KV label="Total Gain" value={FMT_USD(result.totalGainOnSale)}/>
+          {result.sec121Exclusion>0&&<KV label="Home-Sale Exclusion (§121)" value={"−"+FMT_USD(result.sec121Exclusion)+" taxable"} color="var(--green)" tip={GLOSSARY.sec121}/>}
           {/* BACK-114: rates depend on income — recapture at ordinary rates (max 25% for
               straight-line, uncapped for cost seg), gains at 0/15/20% */}
           <KV label="Depreciation Recapture" value={FMT_USD(-result.recaptureTax)} color="var(--red)" tip={GLOSSARY.sec1250Recapture}/>

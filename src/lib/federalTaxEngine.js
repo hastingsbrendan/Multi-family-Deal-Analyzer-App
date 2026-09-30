@@ -44,6 +44,9 @@ export const NIIT_THRESHOLD = { single: 200000, married: 250000 };
 // ordinary rates, capped at 25%.
 export const UNRECAPTURED_1250_MAX_RATE = 0.25;
 
+// §121 exclusion of gain on a principal residence (statutory, not indexed)
+export const SEC121_EXCLUSION = { single: 250000, married: 500000 };
+
 const status = (s) => (s === 'married' ? 'married' : 'single');
 
 /** Federal tax on a given amount of taxable income. */

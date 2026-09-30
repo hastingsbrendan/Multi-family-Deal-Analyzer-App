@@ -109,7 +109,8 @@ export function generateDeals(seed, count) {
       bonusDepPct: pick([0, 40, 100]),
       sec179Amount: pick([0, 0, 25000]),
       paStatus: pick(['active_participant', 're_professional', 'passive']),
-      agi: pick([50000, 120000, 140000, 250000, 600000]),
+      agi: pick([0, 50000, 120000, 140000, 250000, 600000]),
+      qbiEligible: chance(0.3),
     };
     deals.push(d);
   }
@@ -230,7 +231,10 @@ describe(`engine invariants (seed ${SEED}, ${N} deals)`, () => {
     cfs[cfs.length - 1] += r.netProceeds;
     if (cfs[0] >= 0) return null;                      // no investment → IRR undefined, reported 0
     if (r.irr <= -0.999 || r.irr >= 9.99) return null; // total-loss / capped outcomes
-    const scale = cfs.reduce((s, c) => s + Math.abs(c), 0);
+    // Tolerance relative to the discounted terms actually summed: near −100% each term
+    // is multiplied by (1+irr)^−t (≈15^t at −93%), so float precision alone moves NPV
+    // by dollars even at the exact root.
+    const scale = cfs.reduce((s, c, t) => s + Math.abs(c / Math.pow(1 + r.irr, t)), 0);
     const v = npv(r.irr, cfs);
     return Math.abs(v) <= Math.max(1, scale * 1e-6) ? null : `npv(irr=${r.irr.toFixed(4)}) = ${v.toFixed(2)}`;
   });
@@ -307,6 +311,21 @@ describe(`engine invariants (seed ${SEED}, ${N} deals)`, () => {
     if (!near(parts, r.totalGainOnSale)) return `parts ${parts} vs gain ${r.totalGainOnSale}`;
     if (r.sec1245RecapturePortion + r.sec1250RecapturePortion > r.cumulativeDepreciationTaken + 0.01) return 'recapture exceeds depreciation taken';
     return null;
+  });
+
+  check('the §121 exclusion never exceeds the long-term gain or the cap', (r, a) => {
+    const cap = a.filingStatus === 'married' ? 500000 : 250000;
+    if (r.sec121Exclusion < 0 || r.sec121Exclusion > r.trueLTCGPortion + 0.01 || r.sec121Exclusion > cap + 0.01) {
+      return `exclusion ${r.sec121Exclusion} vs gain ${r.trueLTCGPortion}, cap ${cap}`;
+    }
+    if (!a.ownerOccupied && r.sec121Exclusion > 0) return 'exclusion on a non-owner-occupied deal';
+    return null;
+  });
+
+  check('QBI is zero unless the rental is marked as qualifying', (r, a) => {
+    if (a.tax.qbiEligible) return null;
+    const bad = r.years.find(y => y.qbi !== 0 || y.qbiAdv !== 0);
+    return bad ? `yr${bad.yr} qbi ${bad.qbi} / ${bad.qbiAdv}` : null;
   });
 
   check('net tax on sale = federal + NIIT + state − released passive losses', (r) => {

@@ -101,6 +101,12 @@ export const GLOSSARY = {
     "long-term capital gain at 0%, 15% or 20% depending on your income. Gain is measured " +
     "against your ADJUSTED basis (purchase price + improvements − depreciation), so even " +
     "selling at your purchase price can owe this tax.",
+  sec121:
+    "Home-sale exclusion (§121) — if you lived in your unit for at least 2 of the 5 years " +
+    "before selling, that unit's share of the long-term gain is tax-free up to $250,000 " +
+    "(single) or $500,000 (married). Depreciation recapture is never excluded, and the " +
+    "rented units' share of the gain is still taxed. Modeled as your unit's share of the " +
+    "units (e.g. 1 of 2 for a duplex); your CPA may allocate by square footage.",
   ownerOccupied:
     "House-hack scenario where you live in one unit while renting the others. " +
     "Unlocks low down payments (3.5% FHA, 5% conventional) but you forgo that unit's rent.",

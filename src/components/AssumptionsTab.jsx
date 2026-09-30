@@ -826,6 +826,13 @@ function AssumptionsTab({deal,onChange}){
               </div>
             )}
 
+            {/* QBI is opt-in (BACK-114) — most small rentals don't qualify */}
+            <label style={{display:"flex",alignItems:"flex-start",gap:8,cursor:"pointer",fontSize:"var(--text-sm)",color:"var(--text)",lineHeight:1.4}}>
+              <input type="checkbox" checked={!!a.tax?.qbiEligible} onChange={e=>upd("tax.qbiEligible",e.target.checked)}
+                style={{width:16,height:16,marginTop:2,accentColor:"var(--accent)",cursor:"pointer",flexShrink:0}}/>
+              <span>This rental qualifies for the 20% QBI deduction (§199A)<Tip text="Only rentals run as a trade or business qualify — typically 250+ hours a year of rental services (the IRS safe harbor). Most single small rentals don't. Leave this off unless your CPA confirms."/></span>
+            </label>
+
             {/* Local tax rate — only shown for states with meaningful local taxes */}
             {showLocalField && (
               <div>

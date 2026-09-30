@@ -302,7 +302,7 @@ function CashFlowTab({result,deal}){
 
               {/* Step 3: Effective taxable income after carryforward */}
               <R label="= Eff. Taxable Income" bold><Yr bold>{y=>FMT_USD(y.effectiveTaxIncAdv)}</Yr></R>
-              <R label="− QBI Deduction (20%)" color="red"><Yr color="red">{y=>y.effectiveTaxIncAdv>0?FMT_USD(y.qbiAdv):"—"}</Yr></R>
+              {deal?.assumptions?.tax?.qbiEligible&&<R label="− QBI Deduction (20%)" color="red"><Yr color="red">{y=>y.effectiveTaxIncAdv>0?FMT_USD(y.qbiAdv):"—"}</Yr></R>}
             </>
           ):(
             <>
@@ -322,7 +322,7 @@ function CashFlowTab({result,deal}){
                   <Yr bold>{y=>FMT_USD(y.taxableAfterPal??y.taxableIncome)}</Yr>
                 </R>
               )}
-              <R label="− QBI Deduction (20%)" color="red"><Yr color="red">{y=>(y.taxableAfterPal??y.taxableIncome)>0?FMT_USD(y.qbi):"—"}</Yr></R>
+              {deal?.assumptions?.tax?.qbiEligible&&<R label="− QBI Deduction (20%)" color="red"><Yr color="red">{y=>(y.taxableAfterPal??y.taxableIncome)>0?FMT_USD(y.qbi):"—"}</Yr></R>}
             </>
           )}
 

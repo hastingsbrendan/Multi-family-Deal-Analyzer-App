@@ -525,9 +525,10 @@ describe('IRR never reports 0% for a losing deal', () => {
 describe('state tax base', () => {
   test('is taxable rental income before the federal-only QBI deduction', async () => {
     const { calcStateTax } = await import('../taxEngine.js');
+    // QBI must be on for "before QBI" to be distinguishable (it is opt-in since BACK-114)
     const r = calcDeal(accDeal({
       state: 'CA',
-      tax: { ...accDeal().assumptions.tax, agi: 100000 },
+      tax: { ...accDeal().assumptions.tax, agi: 100000, qbiEligible: true },
       units: [
         { rent: 3000, listedRent: 0, rentcastRent: 0 },
         { rent: 3000, listedRent: 0, rentcastRent: 0 },
@@ -626,8 +627,10 @@ describe('federal tax on rental income', () => {
     const y = calcDeal(withIncome(180000)).years[0];
     const income = y.taxableAfterPal - y.qbi;
     expect(income).toBeGreaterThan(0);
-    expect(y.taxEffect).toBeCloseTo(federalTaxOnIncome({ otherIncome: 180000, netIncome: income, filingStatus: 'single' }).tax, 2);
-    expect(y.federalMarginalRate).toBe(0.24);
+    const fed = federalTaxOnIncome({ otherIncome: 180000, netIncome: income, filingStatus: 'single' });
+    expect(y.taxEffect).toBeCloseTo(fed.tax, 2);
+    expect(y.federalMarginalRate).toBe(fed.marginalRate);
+    expect(y.federalMarginalRate).toBeGreaterThan(0.22);
     // the old flat 22% would have under-taxed this household
     expect(y.taxEffect).toBeGreaterThan(income * 0.22);
   });
@@ -711,6 +714,72 @@ describe('taxes at sale', () => {
   test('flat-rate override taxes recapture at the flat rate, capped at 25%', () => {
     const r = calcDeal(accDeal({ appreciationRate: 0, holdPeriod: 5, federalTaxMethod: 'flat', taxBracket: 32 }));
     expect(r.recaptureTax).toBeCloseTo(r.cumulativeDepreciationTaken * 0.25, 0);
+  });
+});
+
+// ─── U. QBI opt-in and the §121 home-sale exclusion (BACK-114 phase 3) ────────
+describe('QBI deduction is opt-in', () => {
+  const units = [
+    { rent: 3500, listedRent: 0, rentcastRent: 0 }, { rent: 3500, listedRent: 0, rentcastRent: 0 },
+    { rent: 0, listedRent: 0, rentcastRent: 0 }, { rent: 0, listedRent: 0, rentcastRent: 0 },
+  ];
+  test('off by default — most small rentals do not qualify', () => {
+    const y = calcDeal(accDeal({ units })).years[0];
+    expect(y.taxableAfterPal).toBeGreaterThan(0);
+    expect(y.qbi).toBe(0);
+  });
+
+  test('20% of positive rental income when the rental qualifies', () => {
+    const y = calcDeal(accDeal({ units, tax: { ...accDeal().assumptions.tax, qbiEligible: true } })).years[0];
+    expect(y.qbi).toBeCloseTo(y.taxableAfterPal * 0.2, 6);
+  });
+
+  test('advanced mode follows the same switch', () => {
+    const off = calcDeal(accDeal({ units, tax: { ...accDeal().assumptions.tax, enabled: true } })).years[0];
+    const on = calcDeal(accDeal({ units, tax: { ...accDeal().assumptions.tax, enabled: true, qbiEligible: true } })).years[0];
+    expect(off.qbiAdv).toBe(0);
+    expect(on.qbiAdv).toBeGreaterThan(0);
+  });
+});
+
+describe('§121 home-sale exclusion for the unit you lived in', () => {
+  // Duplex, owner lives in one unit. Appreciation creates a real long-term gain.
+  const houseHack = (over = {}) => accDeal({
+    appreciationRate: 6, ownerOccupied: true, ownerUnit: 0, numUnits: 2, ...over,
+  });
+
+  test('lived there 2 years, sold 2 years after moving out → owner unit share excluded', () => {
+    const r = calcDeal(houseHack({ ownerOccupancyYears: 2, holdPeriod: 4 }));
+    expect(r.trueLTCGPortion).toBeGreaterThan(0);
+    // owner's unit is 1 of 2 → half the long-term gain (depreciation recapture never excluded)
+    expect(r.sec121Exclusion).toBeCloseTo(r.trueLTCGPortion / 2, 2);
+  });
+
+  test('the exclusion lowers capital gains tax', () => {
+    const withExcl = calcDeal(houseHack({ ownerOccupancyYears: 2, holdPeriod: 4 }));
+    const investor = calcDeal(houseHack({ ownerOccupied: false, holdPeriod: 4 }));
+    expect(withExcl.ltcgTax).toBeLessThan(investor.ltcgTax);
+  });
+
+  test('none if sold more than 3 years after moving out', () => {
+    expect(calcDeal(houseHack({ ownerOccupancyYears: 2, holdPeriod: 6 })).sec121Exclusion).toBe(0);
+  });
+
+  test('none if lived there less than 2 years', () => {
+    expect(calcDeal(houseHack({ ownerOccupancyYears: 1, holdPeriod: 3 })).sec121Exclusion).toBe(0);
+  });
+
+  test('capped at $250k single / $500k married', () => {
+    const big = { purchasePrice: 3000000, appreciationRate: 12, numUnits: 2, ownerOccupancyYears: 3, holdPeriod: 5 };
+    expect(calcDeal(houseHack(big)).sec121Exclusion).toBeCloseTo(250000, 2);
+    expect(calcDeal(houseHack({ ...big, filingStatus: 'married' })).sec121Exclusion).toBeCloseTo(500000, 2);
+  });
+
+  test('state tax is charged on the gain after the exclusion', async () => {
+    const { calcStateTax } = await import('../taxEngine.js');
+    const r = calcDeal(houseHack({ ownerOccupancyYears: 2, holdPeriod: 4, state: 'CA' }));
+    const expected = calcStateTax({ state: 'CA', magi: 100000, netRentalIncome: r.totalGainOnSale - r.sec121Exclusion, filingStatus: 'single' }).totalTax;
+    expect(r.stateTaxOnSale).toBeCloseTo(expected, 2);
   });
 });
 
