@@ -28,7 +28,10 @@ Deno.serve(async (req) => {
 
   const uid   = callerUser.id;
   const email = callerUser.email!;
-  const meta  = callerUser.user_metadata || {};
+  // Only trust stripe_customer_id from app_metadata (written by stripe-webhook with the
+  // service role). It was read from user_metadata, which users can edit: pointing it at
+  // another customer's id and deleting your own account cancelled their subscription.
+  const stripeCustomerId = callerUser.app_metadata?.stripe_customer_id;
 
   console.log('[delete-account] Starting deletion uid=' + uid);
 
@@ -40,20 +43,24 @@ Deno.serve(async (req) => {
     // 2. Remove from all groups
     await supabase.from('group_members').delete().eq('user_id', uid);
 
-    // 3. Cancel Stripe subscriptions
+    // 3. Cancel Stripe subscriptions if present
     const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
-    if (meta.stripe_customer_id && stripeKey) {
-      const listRes = await fetch(
-        'https://api.stripe.com/v1/subscriptions?customer=' + meta.stripe_customer_id + '&status=active',
-        { headers: { 'Authorization': 'Bearer ' + stripeKey } }
-      );
-      const listJson = await listRes.json();
-      for (const sub of (listJson.data || [])) {
-        await fetch('https://api.stripe.com/v1/subscriptions/' + sub.id, {
-          method: 'DELETE',
-          headers: { 'Authorization': 'Bearer ' + stripeKey },
-        });
-        console.log('[delete-account] Cancelled Stripe subscription ' + sub.id);
+    if (stripeCustomerId && stripeKey) {
+      try {
+        const listRes = await fetch(
+          'https://api.stripe.com/v1/subscriptions?customer=' + encodeURIComponent(stripeCustomerId) + '&status=active',
+          { headers: { 'Authorization': 'Bearer ' + stripeKey } }
+        );
+        const listJson = await listRes.json();
+        for (const sub of (listJson.data || [])) {
+          await fetch('https://api.stripe.com/v1/subscriptions/' + sub.id, {
+            method: 'DELETE',
+            headers: { 'Authorization': 'Bearer ' + stripeKey },
+          });
+          console.log('[delete-account] Cancelled subscription ' + sub.id);
+        }
+      } catch (stripeErr) {
+        console.warn('[delete-account] Stripe warning:', stripeErr);
       }
     }
 
@@ -61,7 +68,7 @@ Deno.serve(async (req) => {
     const { error: deleteErr } = await supabase.auth.admin.deleteUser(uid);
     if (deleteErr) throw new Error('Failed to delete auth user: ' + deleteErr.message);
 
-    // 5. Send confirmation email via Resend
+    // 5. Confirmation email via Resend
     const resendKey = Deno.env.get('RESEND_API_KEY');
     if (resendKey) {
       await fetch('https://api.resend.com/emails', {
@@ -71,15 +78,7 @@ Deno.serve(async (req) => {
           from: 'RentHack <noreply@renthack.io>',
           to: email,
           subject: 'Your RentHack account has been deleted',
-          html: `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:40px 24px">
-            <div style="font-size:22px;font-weight:900;margin-bottom:16px">Rent<span style="color:#0d9488">Hack</span></div>
-            <h2>Account deleted</h2>
-            <p style="color:#555;line-height:1.6">Your RentHack account and all associated data have been permanently deleted as requested.</p>
-            <p style="color:#555;line-height:1.6">This includes all your deal analyses, notes, and preferences.</p>
-            <p style="color:#555;line-height:1.6">You can always create a new account at <a href="https://renthack.io" style="color:#0d9488">renthack.io</a>.</p>
-            <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0"/>
-            <p style="font-size:12px;color:#999">If you did not request this deletion, contact <a href="mailto:support@renthack.io">support@renthack.io</a> immediately.</p>
-          </div>`,
+          html: '<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:40px 24px"><div style="font-size:22px;font-weight:900;margin-bottom:16px">Rent<span style="color:#0d9488">Hack</span></div><h2 style="margin-bottom:12px">Account deleted</h2><p style="color:#555;line-height:1.6">Your RentHack account and all associated data have been permanently deleted as requested.</p><p style="color:#555;line-height:1.6">This includes all your deal analyses, notes, and preferences.</p><p style="color:#555;line-height:1.6">You can always create a new account at <a href="https://renthack.io" style="color:#0d9488">renthack.io</a>.</p><hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0"/><p style="font-size:12px;color:#999">If you did not request this deletion, contact <a href="mailto:support@renthack.io">support@renthack.io</a> immediately.</p></div>',
         }),
       }).catch(e => console.warn('[delete-account] email warning:', e));
     }

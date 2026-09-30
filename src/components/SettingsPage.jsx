@@ -119,7 +119,7 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
     try {
       const blob = new Blob([JSON.stringify({
         exportedAt: new Date().toISOString(),
-        user: { email: user?.email, displayName: user?.user_metadata?.display_name || '', createdAt: user?.created_at, plan: user?.user_metadata?.plan || 'free' },
+        user: { email: user?.email, displayName: user?.user_metadata?.display_name || '', createdAt: user?.created_at, plan: user?.app_metadata?.plan || 'free' },
         deals: (deals || []).map(d => ({ ...d })),
       }, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);

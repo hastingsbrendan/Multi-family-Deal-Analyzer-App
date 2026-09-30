@@ -2,28 +2,25 @@ import React, { useEffect } from 'react';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { trackUpgradeGateHit } from '../lib/analytics';
 import Button from './ui/Button';
+import { sbClient } from '../lib/constants';
 
 // ─── Stripe Checkout redirect ─────────────────────────────────────────────────
 // Creates a Checkout Session via our Supabase Edge Function and redirects.
+// functions.invoke sends the session token, so the function identifies the buyer
+// server-side and stamps their user id on the Stripe session for the webhook.
 async function startCheckout(userEmail) {
-  const sbUrl = import.meta.env.VITE_SB_URL || 'https://lxkwvayalxuoryuwxtsq.supabase.co';
   try {
-    const resp = await fetch(
-      `${sbUrl}/functions/v1/stripe-checkout`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: userEmail,
-          price_id: 'price_1T8j9ARWpp7uVQEX1qENULX6',
-          success_url: window.location.origin + '/?upgraded=true',
-          cancel_url: window.location.href,
-        }),
-      }
-    );
-    const { url, error } = await resp.json();
-    if (error) throw new Error(error);
-    window.location.href = url;
+    const { data, error } = await sbClient.functions.invoke('stripe-checkout', {
+      body: {
+        email: userEmail,
+        price_id: 'price_1T8j9ARWpp7uVQEX1qENULX6',
+        success_url: window.location.origin + '/?upgraded=true',
+        cancel_url: window.location.href,
+      },
+    });
+    if (error) throw error;
+    if (!data?.url) throw new Error(data?.error || 'No checkout URL returned');
+    window.location.href = data.url;
   } catch (e) {
     alert('Could not start checkout. Please try again or contact support.');
     console.error('[RentHack] Checkout error:', e);

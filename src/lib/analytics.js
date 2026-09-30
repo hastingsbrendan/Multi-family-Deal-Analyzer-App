@@ -40,7 +40,7 @@ export function identifyUser(user) {
   if (!user) return;
   posthog.identify(user.id, {
     email: user.email,
-    plan: user.user_metadata?.plan || 'free',
+    plan: user.app_metadata?.plan || 'free',
     created_at: user.created_at,
   });
 }

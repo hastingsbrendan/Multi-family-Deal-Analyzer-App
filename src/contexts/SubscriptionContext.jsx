@@ -33,10 +33,13 @@ export const PLANS = {
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function computeTier(user) {
+// Plan and trial come from app_metadata, which only the service role can write
+// (stripe-webhook). user_metadata is editable by the user via auth.updateUser, so
+// reading these from it let anyone grant themselves Pro or an endless trial.
+export function computeTier(user) {
   if (!user) return 'locked';
-  if (user.user_metadata?.plan === 'pro') return 'pro';
-  const trialStart = user.user_metadata?.trial_started_at || user.created_at;
+  if (user.app_metadata?.plan === 'pro') return 'pro';
+  const trialStart = user.app_metadata?.trial_started_at || user.created_at;
   if (trialStart) {
     const elapsedDays = (Date.now() - new Date(trialStart).getTime()) / (1000 * 60 * 60 * 24);
     if (elapsedDays < TRIAL_DAYS) return 'trial';
@@ -44,10 +47,10 @@ function computeTier(user) {
   return 'locked';
 }
 
-function computeDaysLeft(user) {
+export function computeDaysLeft(user) {
   if (!user) return 0;
-  if (user.user_metadata?.plan === 'pro') return null;
-  const trialStart = user.user_metadata?.trial_started_at || user.created_at;
+  if (user.app_metadata?.plan === 'pro') return null;
+  const trialStart = user.app_metadata?.trial_started_at || user.created_at;
   if (!trialStart) return 0;
   const elapsedDays = (Date.now() - new Date(trialStart).getTime()) / (1000 * 60 * 60 * 24);
   return Math.max(0, Math.ceil(TRIAL_DAYS - elapsedDays));
