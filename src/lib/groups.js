@@ -56,16 +56,19 @@ async function sbCreateGroup(name, description) {
 async function sbInviteMember(groupId, email, role) {
   const { data: { user } } = await sbClient.auth.getUser();
   if (!user) throw new Error('Not authenticated');
-  const { data: profile } = await sbClient
-    .from('profiles').select('id').eq('email', email).maybeSingle();
-  if (!profile) {
+  // Exact-match lookup against auth.users (the verified sign-up email). Profiles
+  // are no longer readable across users, and profiles.email was user-editable.
+  const { data: inviteeId, error: lookupErr } = await sbClient
+    .rpc('find_user_id_by_email', { p_email: email });
+  if (lookupErr) throw lookupErr;
+  if (!inviteeId) {
     const { error } = await sbClient.from('group_invites_pending')
       .insert({ group_id: groupId, invited_email: email, role, invited_by: user.id });
     if (error) throw error;
     return { pending: true };
   }
   const { error } = await sbClient.from('group_members')
-    .insert({ group_id: groupId, user_id: profile.id, role, status: 'pending', invited_by: user.id });
+    .insert({ group_id: groupId, user_id: inviteeId, role, status: 'pending', invited_by: user.id });
   if (error) throw error;
   return { pending: false };
 }
