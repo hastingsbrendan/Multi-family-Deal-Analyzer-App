@@ -14,7 +14,7 @@ const PUSH_FIELDS = [
   { key:'rentGrowth',       section:'Income & Growth',    label:'Rent Growth % / yr' },
   { key:'expenseGrowth',    section:'Income & Growth',    label:'Expense Growth % / yr' },
   { key:'appreciationRate', section:'Income & Growth',    label:'Appreciation % / yr' },
-  { key:'taxBracket',       section:'Tax',                label:'Income Tax Bracket %' },
+  { key:'taxBracket',       section:'Tax',                label:'Flat Federal Rate % (flat-rate option only)' },
   { key:'maintenancePct',   section:'Expense % Defaults', label:'Maintenance %' },
   { key:'capexPct',         section:'Expense % Defaults', label:'CapEx %' },
   { key:'propertyMgmtPct',  section:'Expense % Defaults', label:'Property Mgmt %' },
@@ -208,7 +208,7 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
         <div style={card}>
           <div style={{fontWeight:700, fontSize:14, marginBottom:16}}>Tax</div>
           <div style={{maxWidth:180}}>
-            {lbl('Income Tax Bracket %')}
+            {lbl('Flat Federal Rate % (used only when a deal uses the flat-rate option)')}
             <input type="number" value={local.taxBracket} onChange={e=>set('taxBracket',+e.target.value)} style={iS} min={0} max={60}/>
           </div>
         </div>

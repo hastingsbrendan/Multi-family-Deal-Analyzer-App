@@ -119,8 +119,10 @@ describe('zero-value inputs are honored, not coerced to defaults', () => {
     expect(r.monthlyPayment).toBeCloseTo(1995.91, 1);
   });
 
-  test('0% tax bracket produces zero tax effect', () => {
-    const r = calcDeal(accDeal({ taxBracket: 0 }));
+  // The bracket % applies in the flat-rate override (BACK-114 made 2026 brackets the
+  // default); an entered 0% must still be honoured there, not coerced to 22%.
+  test('0% flat tax bracket produces zero tax effect', () => {
+    const r = calcDeal(accDeal({ taxBracket: 0, federalTaxMethod: 'flat' }));
     expect(r.years[0].taxEffect).toBeCloseTo(0, 6);
   });
 
@@ -601,6 +603,57 @@ describe('property tax and insurance', () => {
   test('FHA self-sufficiency PITI uses the $ tax and insurance', () => {
     const r = calcDeal(accDeal({ numUnits: 3, expenseModes: legacyPct() }));
     expect(r.fhaSelfSufficiency.pitiAnnual).toBeCloseTo(r.annualDebtService + 6000 + 1800, 0);
+  });
+});
+
+// ─── S. Federal tax from 2026 brackets (BACK-114 phase 1) ────────────────────
+// The engine multiplied taxable income by one user-picked bracket. It now stacks the
+// property's income on the household's other income (tax.agi) through the 2026
+// brackets and standard deduction; the flat bracket remains as an override.
+describe('federal tax on rental income', () => {
+  const units = (rent) => [
+    { rent, listedRent: 0, rentcastRent: 0 }, { rent, listedRent: 0, rentcastRent: 0 },
+    { rent: 0, listedRent: 0, rentcastRent: 0 }, { rent: 0, listedRent: 0, rentcastRent: 0 },
+  ];
+  const withIncome = (agi, extra = {}) =>
+    accDeal({ units: units(3500), tax: { ...accDeal().assumptions.tax, agi }, ...extra });
+
+  test('defaults to 2026 brackets stacked on other income', async () => {
+    const { federalTaxOnIncome } = await import('../federalTaxEngine.js');
+    const y = calcDeal(withIncome(180000)).years[0];
+    const income = y.taxableAfterPal - y.qbi;
+    expect(income).toBeGreaterThan(0);
+    expect(y.taxEffect).toBeCloseTo(federalTaxOnIncome({ otherIncome: 180000, netIncome: income, filingStatus: 'single' }).tax, 2);
+    expect(y.federalMarginalRate).toBe(0.24);
+    // the old flat 22% would have under-taxed this household
+    expect(y.taxEffect).toBeGreaterThan(income * 0.22);
+  });
+
+  test('the flat bracket is still available as an override', () => {
+    const y = calcDeal(withIncome(180000, { federalTaxMethod: 'flat', taxBracket: 22 })).years[0];
+    expect(y.taxEffect).toBeCloseTo((y.taxableAfterPal - y.qbi) * 0.22, 2);
+    expect(y.federalMarginalRate).toBe(0.22);
+  });
+
+  test('advanced mode uses the same brackets', async () => {
+    const { federalTaxOnIncome } = await import('../federalTaxEngine.js');
+    const y = calcDeal(withIncome(180000, { tax: { ...accDeal().assumptions.tax, agi: 180000, enabled: true } })).years[0];
+    const income = y.effectiveTaxIncAdv - y.qbiAdv;
+    expect(y.taxEffectAdv).toBeCloseTo(federalTaxOnIncome({ otherIncome: 180000, netIncome: income, filingStatus: 'single' }).tax, 2);
+  });
+
+  test('a low-income household with no other income pays no federal tax on a small profit', () => {
+    const y = calcDeal(accDeal({ units: units(2200), tax: { ...accDeal().assumptions.tax, agi: 0 } })).years[0];
+    expect(y.taxableAfterPal).toBeGreaterThan(0);
+    expect(y.taxableAfterPal).toBeLessThan(16100);
+    expect(y.taxEffect).toBe(0);
+  });
+
+  test('other income drives state tax the same way', async () => {
+    const { calcStateTax } = await import('../taxEngine.js');
+    const y = calcDeal(withIncome(150000, { state: 'CA' })).years[0];
+    const expected = calcStateTax({ state: 'CA', magi: 150000, netRentalIncome: y.taxableAfterPal, filingStatus: 'single' }).totalTax;
+    expect(y.totalStateTax).toBeCloseTo(expected, 2);
   });
 });
 

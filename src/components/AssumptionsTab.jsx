@@ -8,6 +8,7 @@ import FmtInt from './ui/FmtInt';
 import CollapsibleSection from './ui/CollapsibleSection';
 import PropertyLookupPanel from './AssumptionsTab/PropertyLookupPanel';
 import { getStateOptions } from '../lib/taxEngine';
+import { FEDERAL_TAX_YEAR } from '../lib/federalTaxEngine';
 
 function ExpenseInputRow({lbl, modeToggle, isItemPct, rawVal, onChange, mobile, tip}) {
   const [focused, setFocused] = useState(false);
@@ -724,7 +725,6 @@ function AssumptionsTab({deal,onChange}){
             <Col label="Expense Growth" value={a.expenseGrowth} path="expenseGrowth" suffix="%/yr" tip="Annual % increase in operating expenses (taxes, insurance, maintenance). Typically tracks inflation — 2–3%/yr is realistic."/>
             <Col label="Appreciation" value={a.appreciationRate} path="appreciationRate" suffix="%/yr" tip="Annual % increase in the property's value. Used to project your equity at sale. Conservative assumption: 3–4%/yr; be careful not to over-assume."/>
           </div>
-          <InputRow label="Federal Tax Bracket" value={a.taxBracket} onChange={v=>upd("taxBracket",v)} suffix="%" tip="Your marginal federal income tax rate. Used to estimate the tax benefit of mortgage interest and depreciation deductions."/>
           <InputRow label="Selling Costs" value={a.sellingCostPct??6} onChange={v=>upd("sellingCostPct",v)} suffix="% of sale" tip="Agent commissions plus seller-paid closing costs when you eventually sell — typically 6–8% of the sale price. Deducted from exit proceeds and from the taxable gain."/>
         </>);
       })()}
@@ -741,6 +741,7 @@ function AssumptionsTab({deal,onChange}){
           PA: { label:'PA local EIT', hint:'Philadelphia and many PA municipalities levy an Earned Income Tax (Philly: 3.75%).' },
           IN: { label:'IN county tax', hint:'Indiana counties levy a local income tax (0.5%–3.38% depending on county).' },
         };
+        const isFlatFederal = a.federalTaxMethod === 'flat';
         const showLocalField = !!(a.state && localTaxStates[a.state]);
         const localHint = localTaxStates[a.state];
         return(
@@ -782,6 +783,49 @@ function AssumptionsTab({deal,onChange}){
               </div>
             </div>
 
+            {/* Other income + federal method (BACK-114) — drives federal brackets, state
+                tax and the $25k passive-loss phase-out */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div>
+                <label style={{...lblSt,display:"flex",alignItems:"center"}}>Other household income<Tip text="Your household's taxable income from everything except this property — wages, business income, other investments. This property's income is added on top to find the tax brackets it falls into. Also used for the $25k passive-loss phase-out and state tax."/></label>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{color:"var(--muted)",fontSize:"var(--text-sm)"}}>$</span>
+                  <FmtInt value={a.tax?.agi ?? 100000} onChange={v=>upd("tax.agi",v)} placeholder="e.g. 120,000" style={{...fldSt,flex:1}}/>
+                </div>
+              </div>
+              <div>
+                <label style={lblSt}>Federal Tax</label>
+                <div style={{display:"flex",gap:0,height:38}}>
+                  {[['brackets',`${FEDERAL_TAX_YEAR} brackets`],['flat','Flat rate']].map(([val,lbl])=>{
+                    const on = (isFlatFederal ? 'flat' : 'brackets') === val;
+                    return (
+                      <button
+                        key={val}
+                        onClick={()=>upd('federalTaxMethod', val)}
+                        style={{
+                          flex:1,fontSize:"var(--text-sm)",fontWeight:600,cursor:"pointer",
+                          background: on ? "var(--accent)" : "var(--input-bg)",
+                          color:      on ? "#fff"         : "var(--muted)",
+                          border:"1.5px solid var(--border)",
+                          borderRadius: val==='brackets' ? "10px 0 0 10px" : "0 10px 10px 0",
+                          borderRight:  val==='brackets' ? "none" : "1.5px solid var(--border)",
+                          transition:"background 0.15s,color 0.15s",
+                        }}
+                      >{lbl}</button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            {isFlatFederal && (
+              <div>
+                <label style={{...lblSt,display:"flex",alignItems:"center"}}>Flat federal rate (%)<Tip text="A single federal rate applied to all of this property's taxable income. The bracket option is more accurate: it taxes each dollar at the rate it actually falls into."/></label>
+                <input type="number" step="1" min={0} max={60} value={a.taxBracket ?? ''} placeholder="22"
+                  onChange={e=>upd('taxBracket', e.target.value === '' ? '' : +e.target.value)}
+                  style={fldSt}/>
+              </div>
+            )}
+
             {/* Local tax rate — only shown for states with meaningful local taxes */}
             {showLocalField && (
               <div>
@@ -809,17 +853,14 @@ function AssumptionsTab({deal,onChange}){
               </div>
             )}
 
-            {/* State selected — show summary line */}
-            {a.state ? (
-              <div style={{fontSize:12,color:"var(--muted)",padding:"5px 0",borderTop:"1px solid var(--border-faint)"}}>
-                State tax will be calculated using the stacking method on top of your MAGI.
-                {!a.tax?.agi && <span style={{color:"var(--accent2)",fontWeight:600}}> Set your MAGI in the Advanced Tax section for accurate results.</span>}
-              </div>
-            ) : (
-              <div style={{fontSize:12,color:"var(--muted)",padding:"5px 0"}}>
-                Select your state to include state income tax in the after-tax cash flow analysis.
-              </div>
-            )}
+            <div style={{fontSize:12,color:"var(--muted)",padding:"5px 0",borderTop:"1px solid var(--border-faint)",lineHeight:1.5}}>
+              {isFlatFederal
+                ? `Federal tax uses a flat ${+a.taxBracket||0}% rate.`
+                : `Federal tax uses the ${FEDERAL_TAX_YEAR} brackets and standard deduction, with this property's income added on top of your other income.`}
+              {' '}{a.state
+                ? 'State tax is calculated the same way.'
+                : 'Select your state to include state income tax.'}
+            </div>
           </div>
         );
       })()}
@@ -923,7 +964,6 @@ function AssumptionsTab({deal,onChange}){
               {taxEnabled && (<>
                 {/* Core tax inputs */}
                 <InputRow label="Land Value %" value={tax.landValuePct||20} onChange={v=>upd("tax.landValuePct",v)} suffix="% of purchase price"/>
-                <InputRow label="Federal AGI" value={tax.agi||100000} onChange={v=>upd("tax.agi",v)} prefix="$"/>
                 {/* PAL Status */}
                 <div style={{display:isMobile?"block":"grid",gridTemplateColumns:"200px 1fr",gap:8,alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--border-faint)"}}>
                   <label style={{fontSize:"var(--text-sm)",color:"var(--muted)",fontWeight:500,display:"block",marginBottom:isMobile?4:0}}>Passive Activity Status</label>

@@ -68,6 +68,7 @@
 //
 import * as Sentry from '@sentry/react';
 import { calcStateTax } from './taxEngine.js';
+import { federalTaxOnIncome, marginalRate as federalMarginal, taxableBase } from './federalTaxEngine.js';
 
 // ─── Tax & depreciation constants (IRC §168 / §469) ──────────────────────────
 const RESIDENTIAL_DEP_YEARS = 27.5; // IRC §168(c)(1) — residential rental property
@@ -278,14 +279,22 @@ function buildDealConfig(a) {
   const bonusPct=csEnabled?Math.min(1,Math.max(0,(+taxCfg.bonusDepPct||100)/100)):0;
   const sec179=csEnabled?Math.min(+taxCfg.sec179Amount||0,cs5Val):0;
   const paStatus=taxCfg.paStatus||'active_participant';
-  const palAgi=+taxCfg.agi||100000;
+  // Household income from other sources (tax.agi) — one figure for the federal
+  // brackets, state tax and the §469 phase-out. State tax used to default it to 0
+  // while the phase-out defaulted to 100k (2026-09 review).
+  const otherIncome=numOr(taxCfg.agi,100000);
+  const palAgi=otherIncome;
   const numUnits=a.numUnits;
   const amortYears=+a.amortYears||30;
   const bracketRate=numOr(a.taxBracket,22)/100;
   const stateCode=a.state||'';
   const filingStatus=a.filingStatus||'single';
   const localTaxRate=+(a.localTaxRate||0);
-  const agi=+(a.tax?.agi||0);
+  const agi=otherIncome;
+  // BACK-114: 2026 federal brackets by default; the single user-picked bracket
+  // (taxBracket) remains available as an override
+  const federalMethod=a.federalTaxMethod==='flat'?'flat':'brackets';
+  const fedMarginalAtBase=federalMethod==='flat'?bracketRate:federalMarginal(taxableBase(otherIncome,filingStatus),filingStatus);
   const refiNewRateRaw=a.refi?.newRate;
   const costSegFee=+(taxCfg.costSegFee||0);
   return {pp,dpPct,dp,totalCash,loanAmt,rate,n,monthlyPayment,annualDebtService,grossRentYear0,pmiAnnual,sellingCostPct,
@@ -295,11 +304,12 @@ function buildDealConfig(a) {
     vaEnabled,vaCompletionYr,vaReModelCost,vaRentBump,totalCashWithVA,
     taxCfg,taxAdvEnabled,landPct,buildingVal,csEnabled,cs5Val,cs15Val,structureVal,
     bonusPct,sec179,paStatus,palAgi,
-    numUnits,amortYears,bracketRate,stateCode,filingStatus,localTaxRate,agi,refiNewRateRaw,costSegFee};
+    numUnits,amortYears,bracketRate,stateCode,filingStatus,localTaxRate,agi,refiNewRateRaw,costSegFee,
+    federalMethod,fedMarginalAtBase};
 }
 
 function calcExit(years, cfg, finalState) {
-  const {pp,holdYears,appRate,totalCash,totalCashWithVA,grossRentYear0,annualDebtService,baseExpenses,bracketRate,sellingCostPct,pmiAnnual}=cfg;
+  const {pp,holdYears,appRate,totalCash,totalCashWithVA,grossRentYear0,annualDebtService,baseExpenses,bracketRate,sellingCostPct,pmiAnnual,fedMarginalAtBase}=cfg;
   const {finalPalCarryforward,cumulativeDepreciationTaken}=finalState;
   const exitValue=years[holdYears-1]?.propertyValue||pp*Math.pow(1+appRate,holdYears);
   const exitLoanBalance=years[holdYears-1]?.balance||0;
@@ -319,7 +329,7 @@ function calcExit(years, cfg, finalState) {
   const ltcgTax=trueLTCGPortion*0.15;
   // Suspended passive losses (basic or advanced mode) release on a fully-taxable
   // disposition (§469(g)); modeled conservatively as offsetting sale taxes only.
-  const palTaxBenefit=Math.min(finalPalCarryforward*bracketRate, recaptureTax+ltcgTax);
+  const palTaxBenefit=Math.min(finalPalCarryforward*fedMarginalAtBase, recaptureTax+ltcgTax);
   const netTaxOnSale=Math.max(0,recaptureTax+ltcgTax-palTaxBenefit);
   const capitalGainsTax=netTaxOnSale;
   const netProceeds=amountRealized-exitLoanBalance-netTaxOnSale;
@@ -344,7 +354,12 @@ function calcYear(yr, cfg, loopState) {
     vaEnabled,vaCompletionYr,vaReModelCost,vaRentBump,totalCashWithVA,
     taxAdvEnabled,csEnabled,cs5Val,cs15Val,structureVal,
     bonusPct,sec179,paStatus,palAgi,
-    numUnits,amortYears,bracketRate,stateCode,filingStatus,localTaxRate,agi,refiNewRateRaw,costSegFee}=cfg;
+    numUnits,amortYears,bracketRate,stateCode,filingStatus,localTaxRate,agi,refiNewRateRaw,costSegFee,
+    federalMethod}=cfg;
+  // Federal tax on a year's taxable rental income (negative = allowed loss → saving)
+  const fedTaxOn=income=>federalMethod==='flat'
+    ?{tax:income*bracketRate,marginalRate:bracketRate}
+    :federalTaxOnIncome({otherIncome:agi,netIncome:income,filingStatus});
   let {balance,currentMonthlyPayment,currentAnnualDebtService,refiCashOut,palCarryforward,basicPalCarryforward,cumulativeDepreciationTaken}=loopState;
   let refiEvent=null;
   if(refiEnabled&&yr===refiYear){
@@ -422,7 +437,7 @@ function calcYear(yr, cfg, loopState) {
     }
   }
   const qbi=taxableAfterPal>0?taxableAfterPal*0.2:0, federalTaxable=taxableAfterPal-qbi;
-  const taxEffect=federalTaxable*bracketRate;
+  const fedBasic=fedTaxOn(federalTaxable), taxEffect=fedBasic.tax;
   let cs5Dep=0,cs15Dep=0;
   if(csEnabled){
     const cs5BonusBase=Math.max(0,cs5Val-sec179);
@@ -457,8 +472,9 @@ function calcYear(yr, cfg, loopState) {
   const effectiveTaxIncAdv=taxAdvEnabled?(taxableIncomeAdv>=0?taxableIncomeAdv-carryforwardUsedThisYr:-palAllowedLoss):taxableIncome;
   const cumulativeCarryforward=taxAdvEnabled?palCarryforward:basicPalCarryforward;
   const qbiAdv=effectiveTaxIncAdv>0?effectiveTaxIncAdv*0.2:0;
-  const taxEffectAdv=taxAdvEnabled?((effectiveTaxIncAdv-qbiAdv)*bracketRate):taxEffect;
-  const taxBenefitFromCF=taxAdvEnabled&&carryforwardUsedThisYr>0?carryforwardUsedThisYr*(1-0.2)*bracketRate:0;
+  const fedAdv=taxAdvEnabled?fedTaxOn(effectiveTaxIncAdv-qbiAdv):fedBasic, taxEffectAdv=fedAdv.tax;
+  const federalMarginalRate=fedAdv.marginalRate;
+  const taxBenefitFromCF=taxAdvEnabled&&carryforwardUsedThisYr>0?carryforwardUsedThisYr*(1-0.2)*federalMarginalRate:0;
   // State tax is levied on taxable rental income BEFORE QBI (a federal-only deduction
   // most states don't allow) and, in advanced mode, after cost-seg / bonus depreciation
   // and the advanced PAL rules. It used to use the basic-mode, post-QBI figure in every
@@ -476,7 +492,7 @@ function calcYear(yr, cfg, loopState) {
   const vaImpliedValueLift=vaEnabled&&yr>=vaCompletionYr&&baseCapRate>0?(vaRentBump*(1-vacRate))/baseCapRate:0;
   const propertyValue=pp*Math.pow(1+appRate,yr)+vaImpliedValueLift;
   cumulativeDepreciationTaken+=taxAdvEnabled?totalDepreciation:annualDepreciation;
-  const yearData={yr,pmi:pmiThisYr,grossRent,ooRentDeduction:ooRentDeductionThisYr,rentAfterOO,vacancyLoss,egi,expenses,expBreakdown,noi,ooExpAddBack,debtService:debtServiceThisYr,cashFlow,monthlyCashFlow,incrementalCashFlow,cocReturn,capRate,dscr,dscrLenderView,principal,interest,balance:newBalance,depreciation:annualDepreciation,taxableIncome,qbi,taxEffect,afterTaxCashFlow,stateTax,localTax,totalStateTax,stateEffectiveRate,noTaxState,propertyValue,equity:propertyValue-newBalance,appreciationGain:propertyValue-pp,principalPaydown:cfg.loanAmt-newBalance,refiEvent,vaRemodelOutflow,vaRentLift:vaRentLiftThisYr,ooUtilities:ooUtilitiesThisYr,ooTaxProrateRatio,slDepreciation,cs5Depreciation:cs5DepProrated,cs15Depreciation:cs15DepProrated,totalDepreciation,taxableIncomeAdv,palAllowedLoss,taxableAfterPal,suspendedLossThisYr:taxAdvEnabled?suspendedLossThisYr:basicSuspendedThisYr,carryforwardUsedThisYr:taxAdvEnabled?carryforwardUsedThisYr:basicCarryUsedThisYr,cumulativeCarryforward,effectiveTaxIncAdv,qbiAdv,taxEffectAdv,taxBenefitFromCF,afterTaxCFAdv};
+  const yearData={yr,pmi:pmiThisYr,grossRent,ooRentDeduction:ooRentDeductionThisYr,rentAfterOO,vacancyLoss,egi,expenses,expBreakdown,noi,ooExpAddBack,debtService:debtServiceThisYr,cashFlow,monthlyCashFlow,incrementalCashFlow,cocReturn,capRate,dscr,dscrLenderView,principal,interest,balance:newBalance,depreciation:annualDepreciation,taxableIncome,qbi,taxEffect,afterTaxCashFlow,stateTax,localTax,totalStateTax,stateEffectiveRate,noTaxState,propertyValue,equity:propertyValue-newBalance,appreciationGain:propertyValue-pp,principalPaydown:cfg.loanAmt-newBalance,refiEvent,vaRemodelOutflow,vaRentLift:vaRentLiftThisYr,ooUtilities:ooUtilitiesThisYr,ooTaxProrateRatio,slDepreciation,cs5Depreciation:cs5DepProrated,cs15Depreciation:cs15DepProrated,totalDepreciation,taxableIncomeAdv,palAllowedLoss,taxableAfterPal,suspendedLossThisYr:taxAdvEnabled?suspendedLossThisYr:basicSuspendedThisYr,carryforwardUsedThisYr:taxAdvEnabled?carryforwardUsedThisYr:basicCarryUsedThisYr,cumulativeCarryforward,effectiveTaxIncAdv,qbiAdv,taxEffectAdv,taxBenefitFromCF,afterTaxCFAdv,federalMarginalRate};
   return {yearData,loopState:{balance,currentMonthlyPayment,currentAnnualDebtService,refiCashOut,palCarryforward,basicPalCarryforward,cumulativeDepreciationTaken}};
 }
 

@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx-js-style';
 import { calcDeal } from '../calc';
+import { FEDERAL_TAX_YEAR } from '../federalTaxEngine';
 import { FMT_USD, FMT_PCT, STATUS_OPTIONS } from '../constants';
 import { COLORS } from './colors';
 
@@ -689,11 +690,18 @@ function exportDealXLSX(deal, user) {
   aRow('Total Annual Rent', r.grossRentYear0, USD);
 
   aHdr('GROWTH & ANALYSIS');
-  aRow('Vacancy Rate',          (+a.vacancyRate     || 5) / 100,  PCT1);
-  aRow('Rent Growth / yr',      (+a.rentGrowth      || 3) / 100,  PCT1);
-  aRow('Expense Growth / yr',   (+a.expenseGrowth   || 3) / 100,  PCT1);
-  aRow('Appreciation / yr',     (+a.appreciationRate || 4) / 100, PCT1);
-  aRow('Income Tax Bracket',    (+a.taxBracket      || 24) / 100, PCT1);
+  // Export the values actually used — `|| default` turned a real 0% into 5% / 3% / 4%
+  // and the tax bracket default (24%) didn't match the engine's (2026-09 review)
+  aRow('Vacancy Rate',          (+a.vacancyRate      || 0) / 100, PCT1);
+  aRow('Rent Growth / yr',      (+a.rentGrowth       || 0) / 100, PCT1);
+  aRow('Expense Growth / yr',   (+a.expenseGrowth    || 0) / 100, PCT1);
+  aRow('Appreciation / yr',     (+a.appreciationRate || 0) / 100, PCT1);
+  if (a.federalTaxMethod === 'flat') {
+    aRow('Federal Tax',         `Flat ${+a.taxBracket || 0}%`);
+  } else {
+    aRow('Federal Tax',         `${FEDERAL_TAX_YEAR} brackets (${a.filingStatus === 'married' ? 'married filing jointly' : 'single'})`);
+  }
+  aRow('Other Household Income', +(a.tax?.agi ?? 100000), USD);
 
   aHdr('ANNUAL EXPENSES');
   aRow('Property Tax',          expBrk.propertyTax  || 0, USD);

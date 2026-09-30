@@ -54,6 +54,10 @@
 // doubles the `single` brackets automatically.
 
 // ─── Filing status constants ──────────────────────────────────────────────────
+// Tax year the STATE_TAX_DATA brackets are for. federalTaxEngine.test.js fails once
+// the calendar passes it, as a reminder to refresh the data.
+export const STATE_TAX_YEAR = 2026;
+
 export const FILING_STATUSES = {
   SINGLE:  'single',
   MARRIED: 'married',
