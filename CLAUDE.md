@@ -95,7 +95,9 @@ src/
                        loadLocal, saveLocal, sbRead, sbWrite, sbWriteDeal, validateDealShape
     groups.js        — all group/comment Supabase functions (22 functions)
     loanEngine.js    — LOAN_CATALOG, runRecommendationEngine(), QUESTIONS, getQuestionFlow()
-    taxEngine.js     — calcStateTax(), STATE_TAX_DATA (50 states + DC, 2026 brackets)
+    taxEngine.js     — calcStateTax(), STATE_TAX_DATA (50 states + DC, 2026 brackets), STATE_TAX_YEAR
+    federalTaxEngine.js — 2026 federal brackets/SD, federalTaxOnIncome(), federalTaxOnSale() (§1245/§1250/LTCG/NIIT), SEC121_EXCLUSION
+    authGate.js      — readAuthIntent(), resolveAuthGate() for App's signed-out routing
     useCloudSync.js  — useCloudSync() hook, per-deal cloud sync
     hooks.js         — useIsMobile()
     floodZone.js     — FEMA flood zone lookup + county/MSA resolver
@@ -156,7 +158,7 @@ deal = {
 | Tier | Condition | Access |
 |------|-----------|--------|
 | `trial` | 14 days from `created_at` | Full |
-| `pro` | `user_metadata.plan === 'pro'` | Full |
+| `pro` | `app_metadata.plan === 'pro'` (service-role only; set by stripe-webhook — never read plan/trial from user-editable user_metadata) | Full |
 | `locked` | Post-trial, no paid plan | Gated features blocked |
 
 Gated features: `pdfExport`, `rentComps`, `sensitivity`, `sharing`
@@ -240,13 +242,13 @@ BACK-XXX sub-tasks:
 
 ## Product Backlog
 
-**Source of truth: `RentHack_Product_Backlog_v20.xlsx`** (project root). Do not duplicate the backlog in this file — read/edit the Excel directly.
+**Source of truth: `RentHack_Product_Backlog_v21.xlsx`** (project root). Do not duplicate the backlog in this file — read/edit the Excel directly.
 
 **Workflow when shipping a backlog item:**
 1. Find the row by ID in the `Product Backlog` sheet.
 2. Update its `Status` column to `Done (PROD)` (after merge to main) or `Done` (still on develop).
 3. Append a `◇ Build complete: ...` note to the `Acceptance Criteria / Build Notes` column with the file paths touched and a short summary of what was actually built.
-4. If shipping new work that didn't have an existing ID, append a new row using the next sequential `BACK-NNN` or `UX-NNN` number (highest in v20: BACK-108, UX-059).
+4. If shipping new work that didn't have an existing ID, append a new row using the next sequential `BACK-NNN` or `UX-NNN` number (highest in v21: BACK-120, UX-059).
 
 **Updating the Excel from a Claude session:**
 
@@ -292,6 +294,6 @@ App targets buyers and investors of 2–4 unit multifamily properties (expanding
 | Sentry DSN | `https://1427d8f17bc8fb78a755d240cdf1741f@o4511005787357184.ingest.us.sentry.io/4511005788930048` |
 | HUD USPS Crosswalk API token | Stored in Claude project memory (expires ~2036) |
 | RentHack Google Drive folder | `1yPTWxdM_kKSjkqGnVAUM_85URrQ3wEeR` |
-| Backlog Excel | `RentHack_Product_Backlog_v20.xlsx` (source of truth) — bump version on each update; upload to Drive manually |
+| Backlog Excel | `RentHack_Product_Backlog_v21.xlsx` (source of truth) — bump version on each update; upload to Drive manually |
 | Backlog updater | `Technical/update_backlog.py` — copies vN → vN+1, applies row updates and appends |
 | PostHog | Integrated via `src/lib/analytics.js` |
