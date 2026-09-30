@@ -3,3 +3,9 @@ dist/
 .env
 .env.local
 .DS_Store
+
+# Local working files: never commit (this repository is public)
+API Keys*
+*.docx
+*.xlsx
+.env.*.local
