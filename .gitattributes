@@ -1,0 +1,4 @@
+# Shell inside GitHub Actions workflows runs on Linux — CRLF would break it.
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sh  text eol=lf

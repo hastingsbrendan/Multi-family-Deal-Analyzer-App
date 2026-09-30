@@ -7,6 +7,7 @@ import { sbGetGroupDeals, sbShareDealToGroup, sbRemoveDealFromGroup, sbReorderGr
 import { useIsMobile, useOnlineStatus, lazyWithRetry } from '../lib/hooks';
 import { useCloudSync } from '../lib/useCloudSync';
 import { useAuth } from '../lib/useAuth';
+import { readAuthIntent, resolveAuthGate, consumeAuthIntent } from '../lib/authGate';
 import { useDeals } from '../lib/useDeals';
 import { TrialBanner } from './UpgradeModal';
 import { useSubscription } from '../contexts/SubscriptionContext';
@@ -33,6 +34,9 @@ const GuidedTour      = lazyWithRetry(() => import('./GuidedTour'));
 import { TOUR_STEPS } from './tourSteps';
 
 function App() {
+  // Read the landing-page CTA / auth-callback intent once, before anything below
+  // (showUpgradeSuccess, the hash-strip effect) can rewrite the URL. See lib/authGate.js.
+  const [authIntent, setAuthIntent] = useState(() => readAuthIntent(window.location.hash, window.location.search));
   const [dark, setDark] = useState(() => localStorage.getItem("rh_dark") === "true");
   const [showFeedback, setShowFeedback] = useState(false);
   const [showUpgradeSuccess, setShowUpgradeSuccess] = useState(() => {
@@ -205,6 +209,20 @@ function App() {
     if (updated._deal_id) sbWriteDeal(updated).catch(() => {});
   }, []);
 
+  // Auth gate side effects — kept out of render so re-renders can't change the outcome
+  const gate = resolveAuthGate({ authLoading, user, authIntent });
+  useEffect(() => {
+    // Clean the CTA hash from the URL. Callback hashes (#access_token, #type=recovery)
+    // are left for Supabase / AuthScreen to read.
+    if (authIntent === 'login' || authIntent === 'signup') {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }, [authIntent]);
+  useEffect(() => { setAuthIntent(i => consumeAuthIntent(i, user)); }, [user]);
+  useEffect(() => {
+    if (gate === 'redirect') window.location.replace('/landing.html');
+  }, [gate]);
+
   if (deals === null) {
     return (
       <div data-theme={theme}>
@@ -226,31 +244,13 @@ function App() {
     </div>
   );
   if (!user) {
-    // #app / #signup hash = user clicked a CTA on the landing page, go straight to auth
-    const wantsSignup = window.location.hash === '#signup';
-    const wantsApp    = window.location.hash === '#app' || wantsSignup;
-    if (wantsApp) {
-      window.history.replaceState(null, '', window.location.pathname + window.location.search);
-      return (
-        <div data-theme="dark" style={{minHeight:"100vh"}}>
-          <AuthScreen onAuth={setUser} initialMode={wantsSignup ? "signup" : "login"}/>
-        </div>
-      );
-    }
-    // Auth callback params (email verify, password reset) must NOT redirect to landing
-    const hasAuthParams = window.location.search.includes('code=') ||
-                          window.location.search.includes('type=') ||
-                          window.location.hash.includes('access_token') ||
-                          window.location.hash.includes('type=recovery');
-    if (hasAuthParams) {
-      return (
-        <div data-theme="dark" style={{minHeight:"100vh"}}>
-          <AuthScreen onAuth={setUser}/>
-        </div>
-      );
-    }
-    // No hash, no auth params = first visit, redirect to landing page
-    window.location.replace('/landing.html');
+    // #app / #signup = landing-page CTA; callback = email verify / password reset
+    if (gate === 'auth') return (
+      <div data-theme="dark" style={{minHeight:"100vh"}}>
+        <AuthScreen onAuth={setUser} initialMode={authIntent === 'signup' ? "signup" : authIntent === 'login' ? "login" : undefined}/>
+      </div>
+    );
+    // No intent = first visit; the redirect effect above sends them to the landing page
     return null;
   }
   if (showGroups) return (
