@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Button from './ui/Button';
+import { sbSubmitFeedback } from '../lib/constants';
 
 const CATEGORIES = ['Bug report', 'Feature request', 'General feedback', 'Question'];
 
@@ -12,18 +13,7 @@ export function FeedbackModal({ user, onClose }) {
     if (!message.trim()) return;
     setStatus('sending');
     try {
-      await fetch('https://lxkwvayalxuoryuwxtsq.supabase.co/functions/v1/submit-feedback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email:    user?.email || 'anonymous',
-          name:     user?.user_metadata?.display_name || '',
-          category,
-          message:  message.trim(),
-          url:      window.location.href,
-          ts:       new Date().toISOString(),
-        }),
-      });
+      await sbSubmitFeedback({ user, category, message, url: window.location.href });
       setStatus('done');
     } catch (e) {
       console.error('[FeedbackModal]', e);

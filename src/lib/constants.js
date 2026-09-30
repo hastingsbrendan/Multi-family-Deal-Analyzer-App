@@ -181,6 +181,26 @@ const authUpdatePassword  = (newPw)      => sbClient.auth.updateUser({ password:
 const authUpdateProfile   = (meta)       => sbClient.auth.updateUser({ data: meta });
 const authGetSession      = ()           => sbClient.auth.getSession();
 
+// Feedback goes through the submit-feedback edge function, which has verify_jwt on.
+// functions.invoke attaches the session JWT; the old raw fetch sent none, got a 401,
+// and the modal still showed "Thanks" because it never checked the response.
+async function sbSubmitFeedback({ user, category, message, url }) {
+  const { error } = await sbClient.functions.invoke('submit-feedback', {
+    body: {
+      email:    user?.email || 'anonymous',
+      name:     user?.user_metadata?.display_name || '',
+      category,
+      message:  message.trim(),
+      url,
+      ts:       new Date().toISOString(),
+    },
+  });
+  if (error) {
+    Sentry.captureException(error, { tags: { feature: 'feedback' } });
+    throw error;
+  }
+}
+
 // Upload photo to Supabase Storage — path scoped to user folder
 async function sbUploadPhoto(dealId, file, context) {
   const { data: { user } } = await sbClient.auth.getUser();
@@ -230,4 +250,4 @@ const mapsUrl = (addr) => addr ? `https://maps.google.com/?q=${encodeURIComponen
 // RENTCAST_KEY and the Geocoding REST API key are now server-side only (Cloudflare env vars).
 const GMAPS_KEY = import.meta.env.VITE_GMAPS_KEY;
 
-export { IS_PROD, STORAGE_KEY, GMAPS_KEY, SB_URL, SB_ANON_KEY, SB_BUCKET, sbClient, loadLocal, saveLocal, validateDealShape, sbRead, sbWrite, sbWriteDeal, sbDeleteDeal, sbWritePrefs, sbUploadPhoto, sbDeletePhoto, authSignInWithGoogle, authSignUp, authSignIn, authSignOut, authResetPassword, authUpdatePassword, authUpdateProfile, authGetSession, STATUS_OPTIONS, STATUS_COLORS, STATUS_BG_VARS, FMT_USD, FMT_PCT, FMT_X, mapsUrl };
+export { IS_PROD, STORAGE_KEY, GMAPS_KEY, SB_URL, SB_ANON_KEY, SB_BUCKET, sbClient, loadLocal, saveLocal, validateDealShape, sbRead, sbWrite, sbWriteDeal, sbDeleteDeal, sbWritePrefs, sbUploadPhoto, sbDeletePhoto, authSignInWithGoogle, authSignUp, authSignIn, authSignOut, authResetPassword, authUpdatePassword, authUpdateProfile, authGetSession, sbSubmitFeedback, STATUS_OPTIONS, STATUS_COLORS, STATUS_BG_VARS, FMT_USD, FMT_PCT, FMT_X, mapsUrl };

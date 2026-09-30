@@ -10,7 +10,9 @@ const supabase = createClient(
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'content-type',
+  // Must allow the headers supabase-js functions.invoke sends, or the browser's
+  // CORS preflight fails. Matches the deployed version (v3).
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 Deno.serve(async (req) => {
