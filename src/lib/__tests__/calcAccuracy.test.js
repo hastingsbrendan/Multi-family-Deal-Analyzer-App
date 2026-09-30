@@ -322,7 +322,9 @@ describe('basic mode respects §469 passive activity loss limits', () => {
 
 // ─── G. IRR guardrails ────────────────────────────────────────────────────────
 describe('IRR solver guardrails', () => {
-  test('IRR is finite and within [−99%, 1000%] for an extreme money-losing deal', () => {
+  // Lower bound is −100%: a deal that never returns cash now reports a total loss
+  // (−1) instead of falling through to 0% (2026-09 review).
+  test('IRR is finite and within [−100%, 1000%] for an extreme money-losing deal', () => {
     const r = calcDeal(accDeal({
       purchasePrice: 2000000,
       units: [
@@ -334,7 +336,7 @@ describe('IRR solver guardrails', () => {
       holdPeriod: 30,
     }));
     expect(Number.isFinite(r.irr)).toBe(true);
-    expect(r.irr).toBeGreaterThanOrEqual(-0.99);
+    expect(r.irr).toBeGreaterThanOrEqual(-1);
     expect(r.irr).toBeLessThanOrEqual(10);
   });
 
@@ -387,5 +389,207 @@ describe('value-add draw timing', () => {
     }));
     expect(r.years[0].vaRemodelOutflow).toBeCloseTo(20000, 0);
     expect(r.years[1].vaRemodelOutflow).toBeCloseTo(20000, 0);
+  });
+});
+
+// ═══ 2026-09 review — confirmed engine bugs (each reproduced before fixing) ═══
+
+// ─── J. Loan-limit shortfall is paid in cash ─────────────────────────────────
+describe('loan limit shortfall', () => {
+  test('a binding loan limit adds the shortfall to cash invested', () => {
+    const r = calcDeal(accDeal({ loanLimit: 250000 }));
+    expect(r.loanAmt).toBeCloseTo(250000, 0);
+    // 100k down + the 50k the lender will not fund
+    expect(r.totalCash).toBeCloseTo(150000, 0);
+  });
+
+  test('a non-binding loan limit changes nothing', () => {
+    const r = calcDeal(accDeal({ loanLimit: 500000 }));
+    expect(r.loanAmt).toBeCloseTo(300000, 0);
+    expect(r.totalCash).toBeCloseTo(100000, 0);
+  });
+});
+
+// ─── K. Seller concessions offset closing costs only ─────────────────────────
+describe('seller concessions', () => {
+  const cc = (title) => ({ title, transferTax: 0, inspection: 0, attorney: 0, lenderFees: 0, discountPoints: 0, appraisal: 0, creditReport: 0 });
+
+  test('reduce cash to close but not the loan', () => {
+    const r = calcDeal(accDeal({ closingCosts: cc(10000), sellerConcessions: 6000 }));
+    expect(r.loanAmt).toBeCloseTo(300000, 0);
+    expect(r.totalCash).toBeCloseTo(100000 + 10000 - 6000, 0);
+  });
+
+  test('are capped at closing costs (a seller credit cannot come back as cash)', () => {
+    const r = calcDeal(accDeal({ closingCosts: cc(5000), sellerConcessions: 12000 }));
+    expect(r.loanAmt).toBeCloseTo(300000, 0);
+    expect(r.totalCash).toBeCloseTo(100000, 0);
+  });
+
+  test('sources equal uses: loan + cash + credit = price + closing costs', () => {
+    const r = calcDeal(accDeal({ closingCosts: cc(9000), sellerConcessions: 4000 }));
+    expect(r.loanAmt + r.totalCash + 4000).toBeCloseTo(400000 + 9000, 0);
+  });
+});
+
+// ─── L. Loan paid off inside the hold period ─────────────────────────────────
+describe('loan payoff before the end of the hold', () => {
+  const r = calcDeal(accDeal({ amortYears: 15, holdPeriod: 20 }));
+
+  test('balance never goes negative', () => {
+    r.years.forEach(y => expect(y.balance).toBeGreaterThanOrEqual(-0.01));
+  });
+
+  test('after payoff there is no interest and no debt service', () => {
+    for (const y of r.years.slice(15)) {
+      expect(y.balance).toBeCloseTo(0, 2);
+      expect(y.interest).toBeCloseTo(0, 2);
+      expect(y.debtService).toBeCloseTo(0, 2);
+      expect(y.cashFlow).toBeCloseTo(y.noi, 2);
+    }
+  });
+
+  test('the final year of payments still pays the full year', () => {
+    expect(r.years[14].debtService).toBeCloseTo(r.annualDebtService, 0);
+    expect(r.years[14].balance).toBeCloseTo(0, 0);
+  });
+
+  test('sale proceeds are not inflated by a negative balance', () => {
+    expect(r.exitLoanBalance).toBeCloseTo(0, 2);
+  });
+});
+
+// ─── M. Refinance into a smaller loan requires cash in ───────────────────────
+describe('refinance smaller than the existing balance', () => {
+  // Year-1 refi at 50% LTV of the 400k value → new loan 200k vs 300k balance
+  const r = calcDeal(accDeal({ refi: { enabled: true, year: 1, newRate: 6, newLTV: 50 } }));
+  const base = calcDeal(accDeal());
+
+  test('the owner brings the difference to closing', () => {
+    expect(r.years[0].refiEvent.cashOut).toBeCloseTo(-100000, 0);
+    expect(r.years[0].cashFlow).toBeLessThan(base.years[0].cashFlow - 90000);
+  });
+
+  test('the balance restarts at the new loan amount', () => {
+    expect(r.years[0].balance).toBeLessThan(200000);
+    expect(r.years[0].balance).toBeGreaterThan(190000);
+  });
+});
+
+describe('PMI after a refinance', () => {
+  // 5% down → PMI applies; refi in year 2
+  const withRefi = (newLTV) => calcDeal(accDeal({
+    downPaymentPct: 5, pmi: 100, holdPeriod: 5,
+    refi: { enabled: true, year: 2, newRate: 6, newLTV },
+  }));
+
+  test('is removed when the new loan is at or below 80% LTV', () => {
+    expect(withRefi(75).years[2].pmi).toBe(0);
+  });
+
+  test('continues when the new loan is above 80% LTV', () => {
+    expect(withRefi(90).years[2].pmi).toBeCloseTo(1200, 0);
+  });
+});
+
+// ─── N. IRR for money-losing deals ───────────────────────────────────────────
+describe('IRR never reports 0% for a losing deal', () => {
+  const lowRent = (rent) => [
+    { rent, listedRent: 0, rentcastRent: 0 },
+    { rent, listedRent: 0, rentcastRent: 0 },
+    { rent: 0, listedRent: 0, rentcastRent: 0 },
+    { rent: 0, listedRent: 0, rentcastRent: 0 },
+  ];
+
+  test('a deal that never returns any cash is −100%', () => {
+    const r = calcDeal(accDeal({ appreciationRate: -20, units: lowRent(500) }));
+    expect(r.netProceeds).toBeLessThan(0);
+    expect(r.irr).toBe(-1);
+  });
+
+  test('a deal that returns some cash but loses money has a negative IRR that zeroes NPV', () => {
+    const r = calcDeal(accDeal({ units: lowRent(900) }));
+    expect(r.irr).toBeLessThan(0);
+    const cfs = [-r.totalCash, ...r.years.map(y => y.cashFlow)];
+    cfs[cfs.length - 1] += r.netProceeds;
+    expect(Math.abs(npv(r.irr, cfs))).toBeLessThan(1);
+  });
+});
+
+// ─── O. State tax base ───────────────────────────────────────────────────────
+describe('state tax base', () => {
+  test('is taxable rental income before the federal-only QBI deduction', async () => {
+    const { calcStateTax } = await import('../taxEngine.js');
+    const r = calcDeal(accDeal({
+      state: 'CA',
+      tax: { ...accDeal().assumptions.tax, agi: 100000 },
+      units: [
+        { rent: 3000, listedRent: 0, rentcastRent: 0 },
+        { rent: 3000, listedRent: 0, rentcastRent: 0 },
+        { rent: 0, listedRent: 0, rentcastRent: 0 },
+        { rent: 0, listedRent: 0, rentcastRent: 0 },
+      ],
+    }));
+    const y = r.years[0];
+    expect(y.taxableAfterPal).toBeGreaterThan(0);
+    const tax = (income) => calcStateTax({ state: 'CA', magi: 100000, netRentalIncome: income, filingStatus: 'single' }).totalTax;
+    expect(y.totalStateTax).toBeCloseTo(tax(y.taxableAfterPal), 2);
+    // The old base (after QBI) gives a materially different answer, so this test
+    // distinguishes the fix from the bug
+    expect(Math.abs(tax(y.taxableAfterPal) - tax(y.taxableAfterPal - y.qbi))).toBeGreaterThan(100);
+  });
+
+  test('in advanced mode, a cost-seg loss means no state tax', () => {
+    // Rents high enough that the deal is profitable for tax purposes without cost seg
+    const profitable = {
+      state: 'CA',
+      units: [
+        { rent: 3000, listedRent: 0, rentcastRent: 0 },
+        { rent: 3000, listedRent: 0, rentcastRent: 0 },
+        { rent: 0, listedRent: 0, rentcastRent: 0 },
+        { rent: 0, listedRent: 0, rentcastRent: 0 },
+      ],
+    };
+    const adv = (costSegEnabled) => ({ enabled: true, landValuePct: 20, costSegEnabled, costSeg5YrPct: 15,
+      costSeg15YrPct: 10, bonusDepPct: 100, sec179Amount: 0, paStatus: 're_professional', agi: 180000 });
+
+    const noCostSeg = calcDeal(accDeal({ ...profitable, tax: adv(false) }));
+    expect(noCostSeg.years[0].effectiveTaxIncAdv).toBeGreaterThan(0);
+    expect(noCostSeg.years[0].totalStateTax).toBeGreaterThan(0);
+
+    const withCostSeg = calcDeal(accDeal({ ...profitable, tax: adv(true) }));
+    expect(withCostSeg.years[0].effectiveTaxIncAdv).toBeLessThan(0);
+    expect(withCostSeg.years[0].totalStateTax).toBe(0);
+  });
+});
+
+// ─── P. Depreciation stops at the depreciable basis ──────────────────────────
+describe('depreciation over long holds', () => {
+  test('cumulative straight-line depreciation never exceeds the building basis', () => {
+    const r = calcDeal(accDeal({ holdPeriod: 30 }));
+    expect(r.cumulativeDepreciationTaken).toBeCloseTo(400000 * 0.8, 0);
+    expect(r.years[27].depreciation).toBeCloseTo(400000 * 0.8 / 27.5 / 2, 0); // half of year 28
+    expect(r.years[28].depreciation).toBe(0);
+  });
+});
+
+// ─── Q. Smaller engine fixes ─────────────────────────────────────────────────
+describe('engine hygiene', () => {
+  test('calcDeal does not write numUnits back into the deal it is given', () => {
+    const d = accDeal(); delete d.assumptions.numUnits;
+    calcDeal(d);
+    expect(d.assumptions.numUnits).toBeUndefined();
+  });
+
+  test('calcSensitivity logs one Sentry breadcrumb, not one per scenario', async () => {
+    const Sentry = await import('@sentry/react');
+    Sentry.addBreadcrumb.mockClear();
+    calcSensitivity(accDeal());
+    expect(Sentry.addBreadcrumb).toHaveBeenCalledTimes(1);
+  });
+
+  test('break-even occupancy includes PMI', () => {
+    const r = calcDeal(accDeal({ pmi: 100 }));
+    expect(r.breakEvenOccupancy).toBeCloseTo((r.annualDebtService + r.baseExpenses + 1200) / r.grossRentYear0, 6);
   });
 });

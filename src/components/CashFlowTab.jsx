@@ -175,7 +175,7 @@ function CashFlowTab({result,deal}){
             <td style={tdL(false,false)}>Debt Service</td>
             {visibleYears.map(y=>(<td key={y.yr} style={tdR(false,"red")}>{y.refiEvent&&<div style={{fontSize:8,fontWeight:800,color:"var(--refi-amber)"}}>↻ Refi</div>}{FMT_USD(y.debtService)}</td>))}
           </tr>
-          {result.refiYear&&(<tr><td style={{...tdL(false,true),color:"var(--refi-amber)"}}>↳ Cash-Out (Yr {result.refiYear})</td>{visibleYears.map(y=>(<td key={y.yr} style={{...tdR(!!y.refiEvent,null),color:y.refiEvent?"var(--refi-amber)":"var(--muted)"}}>{y.refiEvent?FMT_USD(y.refiEvent.cashOut):"—"}</td>))}</tr>)}
+          {result.refiYear&&(<tr><td style={{...tdL(false,true),color:"var(--refi-amber)"}}>{result.refiCashOut<0?"↳ Cash In at Refi":"↳ Cash-Out"} (Yr {result.refiYear})</td>{visibleYears.map(y=>(<td key={y.yr} style={{...tdR(!!y.refiEvent,null),color:y.refiEvent?"var(--refi-amber)":"var(--muted)"}}>{y.refiEvent?FMT_USD(y.refiEvent.cashOut):"—"}</td>))}</tr>)}
 
           {/* PMI / MIP — financing cost, shown until 78%-LTV cancellation */}
           {result.years.some(y=>y.pmi>0)&&(

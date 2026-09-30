@@ -495,12 +495,14 @@ describe('calcDeal — expense modes', () => {
     expect(r.baseExpenses).toBeCloseTo(12120 + 2400, 0);
   });
 
-  test('seller concessions reduce totalCash and loan amount', () => {
-    const r = calcDeal(baseDeal({ sellerConcessions: 10000 }));
-    // loanAmt = pp - dp - sellerConcessions = 400000 - 100000 - 10000 = 290000
-    expect(r.loanAmt).toBeCloseTo(290000, 0);
-    // totalCash = dp + closingCosts - sellerConcessions = 100000 - 10000 = 90000
-    expect(r.totalCash).toBeCloseTo(90000, 0);
+  test('seller concessions offset closing costs, not the loan', () => {
+    // Concessions are a credit toward closing costs (capped at them). The old
+    // expectation also cut the loan by the same 10k, counting the credit twice.
+    const cc = { title: 12000, transferTax: 0, inspection: 0, attorney: 0, lenderFees: 0, discountPoints: 0, appraisal: 0, creditReport: 0 };
+    const r = calcDeal(baseDeal({ closingCosts: cc, sellerConcessions: 10000 }));
+    expect(r.loanAmt).toBeCloseTo(300000, 0);
+    // totalCash = dp + closingCosts - sellerConcessions = 100000 + 12000 - 10000
+    expect(r.totalCash).toBeCloseTo(102000, 0);
   });
 });
 

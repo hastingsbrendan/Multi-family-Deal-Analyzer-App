@@ -211,7 +211,7 @@ function AssumptionsTab({deal,onChange}){
         // Honor a legitimate 0% down (VA) — blank/undefined falls back to 25%
         const dpPct=((a.downPaymentPct==null||a.downPaymentPct==='')?25:(+a.downPaymentPct||0))/100;
         const dp=pp>0?pp*dpPct:(+a.downPaymentDollar||0);
-        const naturalLoan=Math.max(0, pp-dp-(+a.sellerConcessions||0));
+        const naturalLoan=Math.max(0, pp-dp); // concessions offset closing costs, not the loan (matches calc.js)
         const loanLimit=+a.loanLimit||0;
         const loanAmt=loanLimit>0?Math.min(naturalLoan,loanLimit):naturalLoan;
         const loanCapActive=loanLimit>0&&naturalLoan>loanLimit;
@@ -298,7 +298,7 @@ function AssumptionsTab({deal,onChange}){
             const pp = +a.purchasePrice || 0;
             const dpPct = +a.downPaymentPct || 0;
             const dpDollar = pp > 0 ? Math.round(pp * dpPct / 100) : (+a.downPaymentDollar || 0);
-            const natLoan = Math.max(0, pp - dpDollar - (+a.sellerConcessions||0));
+            const natLoan = Math.max(0, pp - dpDollar); // concessions offset closing costs, not the loan (matches calc.js)
             const loanLimitVal = +a.loanLimit || 0;
             const loanAmtVal = loanLimitVal > 0 ? Math.min(natLoan, loanLimitVal) : natLoan;
             const capActive = loanLimitVal > 0 && natLoan > loanLimitVal;
