@@ -1,0 +1,21 @@
+# Supabase CLI config. Only the per-function settings are used here; they must match
+# how each function authenticates, or `supabase functions deploy` will silently flip them.
+project_id = "lxkwvayalxuoryuwxtsq"
+
+# Stripe calls this with only a stripe-signature header (no Supabase JWT). The function
+# verifies that signature itself, so the gateway JWT check must stay off — with it on,
+# every Stripe event was rejected with 401 and no payment ever upgraded anyone.
+[functions.stripe-webhook]
+verify_jwt = false
+
+# Called from UpgradeModal; authenticates the caller in code when a token is sent.
+[functions.stripe-checkout]
+verify_jwt = false
+
+# Called via sbClient.functions.invoke, which attaches the session JWT.
+[functions.submit-feedback]
+verify_jwt = true
+
+# Called with the user's access token; the function re-checks it with auth.getUser.
+[functions.delete-account]
+verify_jwt = true
