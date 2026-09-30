@@ -70,7 +70,7 @@ export const LOAN_CATALOG = {
     downPaymentInv: null, // Not available for non-OO investment
     maxDTI: 57,
     loanLimits2026: { standard: { '1unit':541287,'2unit':693050,'3unit':837700,'4unit':1041125 }, highCost: { note: 'High-cost ceiling: $1,249,125 (1-unit)' } },
-    mi: 'Upfront MIP 1.75% + Annual MIP 0.55–0.85% — does NOT cancel for most borrowers',
+    mi: 'Upfront MIP 1.75% + annual MIP (0.50–0.55% for most loans since HUD\'s 2023 cut; 0.70–0.75% on larger loans) — does NOT cancel for most borrowers',
     rate: 'Slightly above conventional (0–0.25%)',
     ratePremium: 0.15,
     renovation: false,
@@ -92,7 +92,7 @@ export const LOAN_CATALOG = {
     whoItsFor: 'First-time buyers and those with lower credit scores who want to "house hack" — live in one unit and rent the others to offset your mortgage.',
     notEligible: ['investor'],
     borderlineWarnings: {
-      credit: 'Credit scores 580–619 require 10% down instead of 3.5%. Scores under 580 are ineligible.',
+      credit: 'FHA allows 3.5% down from a 580 score (10% down from 500–579), but many lenders set their own higher minimum, often 620. Compare a few lenders.',
     },
   },
 
@@ -427,6 +427,10 @@ export const LOAN_CATALOG = {
 // Scoring: 0 = ineligible, 1–3 = possible with caveats, 4–5 = strong match
 // Returns: { recommended: loanType, scores: { loanType: { score, warnings, reasons } } }
 
+// HUD allows FHA at 580+ with 3.5% down; a 620 minimum is a common lender overlay,
+// not an FHA rule — say so instead of treating it as a requirement.
+const FHA_LENDER_OVERLAY_NOTE = 'FHA itself accepts a 580 score at 3.5% down, but many lenders set their own minimum of 620. Compare a few lenders before assuming you don\'t qualify.';
+
 export function runRecommendationEngine(answers, deal) {
   const {
     ownerOccupied,    // boolean
@@ -558,14 +562,20 @@ export function runRecommendationEngine(answers, deal) {
     if (!ownerOccupied)          { score = 0; reasons.push('FHA requires owner-occupancy'); }
     else if (isFHAJumbo)         { score = 0; reasons.push(`Your loan amount ($${Math.round(loanAmt).toLocaleString()}) exceeds the FHA ${numUnits}-unit limit ($${fhaLim.toLocaleString()}). To use FHA, you would need at least ${minDownToConformFHA}% down ($${Math.round(purchasePrice * minDownToConformFHA / 100).toLocaleString()}).`); }
     else {
-      if (creditMidpoint < 580)  { score = 0; reasons.push('FHA requires minimum 580 credit score'); }
-      else if (creditMidpoint < 620) {
-        score = Math.min(score, 3);
-        warnings.push('Credit scores 580–619 require 10% down instead of 3.5%. Scores below 580 are ineligible.');
+      // HUD Handbook 4000.1: 580+ → 3.5% down; 500–579 → 10% down; below 500 ineligible.
+      // A 620 floor is a common lender overlay, not an FHA rule.
+      if (creditMidpoint < 580) {
         if (downPct < 10) {
+          score = 0;
+          reasons.push(`With a score below 580, FHA requires at least 10% down (and a score of 500+). You indicated ${downPct}%.`);
+        } else {
           score = Math.min(score, 2);
-          warnings.push(`With credit in the 580–619 range, FHA requires 10% down. You indicated ${downPct}% — you'd need to increase your down payment or improve your credit to 620+.`);
+          warnings.push('FHA allows scores of 500–579 with at least 10% down; below 500 is ineligible. Few lenders go this low, so expect to shop around.');
         }
+      }
+      else if (creditMidpoint < 620) {
+        score = Math.min(score, 4);
+        warnings.push(FHA_LENDER_OVERLAY_NOTE);
       }
       if (creditMidpoint >= 620 && creditMidpoint < 660) {
         score = Math.min(score, 4);
@@ -638,8 +648,12 @@ export function runRecommendationEngine(answers, deal) {
     if (!ownerOccupied)    { score = 0; reasons.push('FHA 203(k) requires owner-occupancy'); }
     if (!needsRenovation)  { score = 0; reasons.push('FHA 203(k) is designed for properties needing renovation'); }
     if (isFHAJumbo)        { score = 0; reasons.push('Purchase price exceeds FHA loan limits'); }
-    if (creditMidpoint < 580) { score = 0; reasons.push('Minimum 580 credit score required'); }
-    else if (creditMidpoint < 620) { score = Math.min(score, 3); warnings.push('Credit 580–619 requires 10% down'); }
+    // Same HUD tiers as standard FHA
+    if (creditMidpoint < 580) {
+      if (downPct < 10) { score = 0; reasons.push('With a score below 580, FHA 203(k) requires at least 10% down (and a score of 500+)'); }
+      else { score = Math.min(score, 2); warnings.push('FHA allows scores of 500–579 with at least 10% down; few 203(k) lenders go this low.'); }
+    }
+    else if (creditMidpoint < 620) { score = Math.min(score, 3); warnings.push(FHA_LENDER_OVERLAY_NOTE); }
 
     scores[LOAN_TYPES.FHA_203K] = { score, warnings, reasons };
   }
@@ -835,8 +849,8 @@ export const QUESTIONS = {
     subtext: 'A rough range is fine. This determines which loan programs you qualify for and at what cost.',
     type: 'choice',
     options: [
-      { value: '< 580',   label: 'Below 580',  icon: '⚠️', desc: 'Limited options' },
-      { value: '580-619', label: '580–619',     icon: '🟡', desc: 'FHA eligible (10% down)' },
+      { value: '< 580',   label: 'Below 580',  icon: '⚠️', desc: 'FHA possible with 10% down (500+)' },
+      { value: '580-619', label: '580–619',     icon: '🟡', desc: 'FHA eligible (3.5% down)' },
       { value: '620-659', label: '620–659',     icon: '🟡', desc: 'Most loans available with rate hits' },
       { value: '660-699', label: '660–699',     icon: '🟢', desc: 'Good — standard qualification' },
       { value: '700-739', label: '700–739',     icon: '🟢', desc: 'Very good — better rates' },
