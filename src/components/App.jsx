@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import * as Sentry from '@sentry/react';
 import { trackDealOpened, trackPDFExported, trackCSVExported } from '../lib/analytics';
 import { iSty } from './ui/InputRow';
-import { sbClient, sbWriteDeal, sbDeleteDeal, sbWritePrefs } from '../lib/constants';
+import { sbClient, sbDeleteDeal, sbWritePrefs } from '../lib/constants';
 import { DEFAULT_PREFS, newDeal } from '../lib/calc';
 import { sbGetGroupDeals, sbShareDealToGroup, sbRemoveDealFromGroup, sbReorderGroupDeals } from '../lib/groups';
 import { useIsMobile, useOnlineStatus, lazyWithRetry } from '../lib/hooks';
@@ -9,10 +10,12 @@ import { useCloudSync } from '../lib/useCloudSync';
 import { useAuth } from '../lib/useAuth';
 import { readAuthIntent, resolveAuthGate, consumeAuthIntent } from '../lib/authGate';
 import { useDeals } from '../lib/useDeals';
+import { useGroupDealSync } from '../lib/useGroupDealSync';
 import { TrialBanner } from './UpgradeModal';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { FeedbackModal } from './FeedbackModal';
 import UndoToast from './ui/UndoToast';
+import SyncConflictBanner from './SyncConflictBanner';
 import Pill from './ui/Pill';
 import Spinner from './ui/Spinner';
 import DisclaimerModal from './DisclaimerModal';
@@ -69,7 +72,8 @@ function App() {
   const { tier } = useSubscription();
 
   // useCloudSync first (no user dep at call site — user is passed as reactive value)
-  const { deals, setDeals, syncStatus, syncError, lastSyncedAt, forceRefresh, setLastCloudUpdate, markDealDirty } = useCloudSync(user, isOnline);
+  const { deals, setDeals, loadDeals, syncStatus, syncError, lastSyncedAt, forceRefresh, setLastCloudUpdate,
+          conflicts, keepMine, loadTheirs, forgetDeal } = useCloudSync(user, isOnline);
 
   // One-time sync toast for new users
   useEffect(() => {
@@ -86,7 +90,7 @@ function App() {
   }, [syncStatus, user, syncToastShown]);
 
   // useAuth second — takes setUser/setDeals/setLastCloudUpdate, returns handleSignOut
-  const { handleSignOut } = useAuth({ setUser, setAuthLoading, setDeals, setLastCloudUpdate, setPrefs });
+  const { handleSignOut } = useAuth({ setUser, setAuthLoading, setDeals, loadDeals, setLastCloudUpdate, setPrefs });
 
   // When user signs out, clear all UI state
   useEffect(() => {
@@ -116,7 +120,11 @@ function App() {
     };
   }, [profileMenuOpen]);
 
-  const { addDeal: _addDeal, addSampleDeal: _addSampleDeal, updateDeal, deleteDeal, reorderDeals } = useDeals({ prefs, setDeals, markDealDirty });
+  const { addDeal: _addDeal, addSampleDeal: _addSampleDeal, updateDeal, deleteDeal, reorderDeals } = useDeals({ prefs, setDeals, forgetDeal });
+
+  // Saves edits made inside a group view — lets Editors save deals they don't own (BACK-121).
+  const canEditGroupDeals = !!activeGroup && activeGroup.role !== 'Viewer';
+  const groupSync = useGroupDealSync({ groupDeals, setGroupDeals, canEdit: canEditGroupDeals, isOnline });
   const addDeal = useCallback(() => _addDeal(setActiveDealId), [_addDeal, setActiveDealId]);
   const addSampleDeal = useCallback(() => {
     _addSampleDeal(setActiveDealId);
@@ -181,7 +189,8 @@ function App() {
   // Load group deals when switching to a group context
   useEffect(() => {
     if (!activeGroup) return;
-    sbGetGroupDeals(activeGroup.id).then(d => setGroupDeals(d || []));
+    groupSync.loadGroupDeals(() => sbGetGroupDeals(activeGroup.id).then(d => d || []))
+      .catch(e => Sentry.captureException(e, { tags: { origin: 'App.loadGroupDeals' } }));
   }, [activeGroup?.id]);
 
   // Group deal operations — ref-based A2 schema
@@ -195,6 +204,7 @@ function App() {
   const deleteGroupDeal = useCallback((id) => {
     const deal = (groupDeals||[]).find(d => d.id === id);
     if (deal?._deal_id) sbRemoveDealFromGroup(deal._deal_id, activeGroup.id).catch(() => {});
+    groupSync.forgetDeal(id);
     setGroupDeals(prev => prev.filter(d => d.id !== id));
   }, [groupDeals, activeGroup?.id]);
 
@@ -204,10 +214,12 @@ function App() {
     if (orderedIds.length && activeGroup) sbReorderGroupDeals(activeGroup.id, orderedIds).catch(() => {});
   }, [activeGroup?.id]);
 
+  // useGroupDealSync saves the change. Viewers' edits aren't applied (the deal shows
+  // "View Only"); the database would refuse them anyway.
   const updateGroupDeal = useCallback((updated) => {
+    if (!canEditGroupDeals) return;
     setGroupDeals(prev => prev.map(d => d.id === updated.id ? updated : d));
-    if (updated._deal_id) sbWriteDeal(updated).catch(() => {});
-  }, []);
+  }, [canEditGroupDeals]);
 
   // Auth gate side effects — kept out of render so re-renders can't change the outcome
   const gate = resolveAuthGate({ authLoading, user, authIntent });
@@ -231,10 +243,14 @@ function App() {
     );
   }
 
-  const syncBadge = syncStatus==="saving"  ? { label:"Syncing…",       color:"var(--refi-amber)" }
-                  : syncStatus==="saved"   ? { label:"✓ Synced",       color:"var(--green)" }
-                  : syncStatus==="offline" ? { label:"📵 Offline",      color:"#8b949e" }
-                  : syncStatus==="error"   ? { label:"⚠ Sync error",   color:"var(--red)", detail:syncError }
+  // In a group view, group saves drive the badge whenever they're doing something.
+  const badgeStatus = activeGroup && groupSync.status !== "idle" ? groupSync.status : syncStatus;
+  const badgeError  = activeGroup && groupSync.status !== "idle" ? groupSync.error  : syncError;
+  const syncBadge = badgeStatus==="saving"  ? { label:"Syncing…",       color:"var(--refi-amber)" }
+                  : badgeStatus==="saved"   ? { label:"✓ Synced",       color:"var(--green)" }
+                  : badgeStatus==="offline" ? { label:"📵 Offline",      color:"#8b949e" }
+                  : badgeStatus==="error"   ? { label:"⚠ Sync error",   color:"var(--red)", detail:badgeError }
+                  : badgeStatus==="conflict"? { label:"⚠ Needs review", color:"var(--accent2)" }
                   : null;
 
   // Auth gate
@@ -524,6 +540,9 @@ function App() {
         }
         {tourActive && <Suspense fallback={null}><GuidedTour step={tourStep} onNext={tourNext} onBack={tourBack} onClose={closeTour}/></Suspense>}
         {showFeedback && <FeedbackModal user={user} onClose={()=>setShowFeedback(false)}/>}
+        {conflicts.length > 0
+          ? <SyncConflictBanner conflicts={conflicts} deals={deals} onKeepMine={keepMine} onLoadTheirs={loadTheirs}/>
+          : <SyncConflictBanner conflicts={groupSync.conflicts} deals={groupDeals} onKeepMine={groupSync.keepMine} onLoadTheirs={groupSync.loadTheirs}/>}
         {showShareModal && (
           <Suspense fallback={null}>
             <ShareDealModal

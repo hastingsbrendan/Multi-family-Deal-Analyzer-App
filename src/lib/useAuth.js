@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useRef } from 'react';
 import * as Sentry from '@sentry/react';
-import { sbClient, loadLocal, saveLocal, sbRead, sbWrite, authGetSession, authSignOut } from './constants';
+import { sbClient, loadLocal, saveLocal, sbRead, authGetSession, authSignOut } from './constants';
 import { createSampleDeal, DEFAULT_PREFS } from './calc';
 import {
   identifyUser, resetAnalyticsUser,
@@ -16,11 +16,12 @@ import {
  * @param {Function} deps.setUser            - App.jsx user state setter
  * @param {Function} deps.setAuthLoading     - App.jsx authLoading setter
  * @param {Function} deps.setDeals           - from useCloudSync
+ * @param {Function} deps.loadDeals          - from useCloudSync; sets deals already in the cloud (no write-back)
  * @param {Function} deps.setLastCloudUpdate - from useCloudSync
  * @param {Function} deps.setPrefs           - App.jsx prefs setter
  * @returns {{ handleSignOut }}
  */
-export function useAuth({ setUser, setAuthLoading, setDeals, setLastCloudUpdate, setPrefs }) {
+export function useAuth({ setUser, setAuthLoading, setDeals, loadDeals, setLastCloudUpdate, setPrefs }) {
   const hasBootstrappedRef = useRef(false);
 
   // Bootstrap: pull authoritative cloud state, fall back to localStorage on failure.
@@ -37,7 +38,7 @@ export function useAuth({ setUser, setAuthLoading, setDeals, setLastCloudUpdate,
     Sentry.setUser({ id: u.id, email: u.email });
     identifyUser(u);
     sbRead()
-        .then(({ data: cloudDeals, prefs: cloudPrefs, updated_at }) => {
+        .then(({ data: cloudDeals, versions, prefs: cloudPrefs, updated_at }) => {
           setLastCloudUpdate(updated_at);
           const resolvedPrefs = (loadPrefs && cloudPrefs)
             ? { ...DEFAULT_PREFS, ...cloudPrefs }
@@ -46,14 +47,15 @@ export function useAuth({ setUser, setAuthLoading, setDeals, setLastCloudUpdate,
             setPrefs({ ...DEFAULT_PREFS, ...cloudPrefs });
           }
           if (cloudDeals.length > 0) {
-            setDeals(cloudDeals);
+            loadDeals(cloudDeals, versions);
             saveLocal(cloudDeals, u.id);
           } else {
-            // DB has no deals — check localStorage, then fall back to a sample deal
+            // DB has no deals — check localStorage, then fall back to a sample deal.
+            // Plain setDeals: the sync effect sees these as unsaved and inserts each
+            // one once (a separate write here used to insert them a second time).
             const local = loadLocal(u.id);
             if (local.length > 0) {
               setDeals(local);
-              sbWrite(local).catch(e => Sentry.captureException(e, { tags: { origin: 'useAuth.sbWrite.bootstrap' } }));
             } else {
               // First login with no deals anywhere — create a sample deal so the
               // user lands on a populated portfolio instead of a blank canvas.
@@ -61,7 +63,6 @@ export function useAuth({ setUser, setAuthLoading, setDeals, setLastCloudUpdate,
               const initialDeals = [sample];
               setDeals(initialDeals);
               saveLocal(initialDeals, u.id);
-              sbWrite(initialDeals).catch(e => Sentry.captureException(e, { tags: { origin: 'useAuth.sbWrite.sample' } }));
               trackDealCreated(sample.id);
             }
           }
@@ -69,11 +70,13 @@ export function useAuth({ setUser, setAuthLoading, setDeals, setLastCloudUpdate,
         .catch(e => {
           // sbRead failed — fall back to localStorage so the app isn't stuck on the
           // loading screen. Deals may be stale but are better than nothing.
+          // Loaded as already-saved: without cloud versions, writing them back could
+          // overwrite newer edits from another device.
           const local = loadLocal(u.id);
-          setDeals(local.length > 0 ? local : []);
+          loadDeals(local.length > 0 ? local : []);
           Sentry.captureException(e, { tags: { origin: 'useAuth.sbRead' } });
         });
-  }, [setDeals, setLastCloudUpdate, setPrefs]);
+  }, [setDeals, loadDeals, setLastCloudUpdate, setPrefs]);
 
   useEffect(() => {
     authGetSession().then(({ data: { session } }) => {

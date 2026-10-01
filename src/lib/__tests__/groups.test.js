@@ -36,7 +36,7 @@ vi.mock('../constants', () => {
 import {
   sbGetMyGroups, sbGetPendingInvites, sbCreateGroup, sbInviteMember,
   sbRespondToInvite, sbLeaveGroup, sbGetGroupMembers, sbUpdateMemberRole,
-  sbRemoveMember, sbGetGroupDeals, sbShareDealToGroup, sbRemoveDealFromGroup,
+  sbRemoveMember, sbGetGroupDeals, sbShareDealToGroup, sbSaveSharedDeal, sbRemoveDealFromGroup,
   sbReorderGroupDeals, sbGetComments, sbPostComment, sbDeleteComment, sbEditComment,
 } from '../groups';
 
@@ -184,6 +184,60 @@ describe('sbGetGroupDeals / sbReorderGroupDeals', () => {
     setResults([{ data: null, error: null }, { data: null, error: null }]);
     await sbReorderGroupDeals('g1', ['deal-a', 'deal-b']);
     expect(log().length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('sbGetGroupDeals versions', () => {
+  it("keeps each row's updated_at as _version", async () => {
+    setResults([
+      { data: [{ deal_id: 'uuid-1', owner_user_id: 'o', shared_by: 'o', shared_at: 't', sort_order: 1 }], error: null },
+      { data: [{ deal_id: 'uuid-1', deal_data: { id: 'd1', address: 'x' }, user_id: 'o', updated_at: 'v7' }], error: null },
+    ]);
+    const [d] = await sbGetGroupDeals('g1');
+    expect(d).toMatchObject({ id: 'd1', _deal_id: 'uuid-1', _owner_user_id: 'o', _version: 'v7' });
+  });
+});
+
+// BACK-121 — group-view edits save through the save_shared_deal function (Editors can't
+// UPDATE deals they don't own under RLS), on top of the version they loaded.
+describe('sbSaveSharedDeal', () => {
+  const D = { id: 'd1', address: '12 Oak', assumptions: { units: [] },
+    _deal_id: 'uuid-1', _owner_user_id: 'owner', _shared_at: 't', _sort_order: 3, _version: 'v1' };
+
+  it('calls save_shared_deal with the version, without group-only fields', async () => {
+    setResults([{ data: { status: 'saved', version: 'v2' }, error: null }]);
+    const r = await sbSaveSharedDeal(D, 'uuid-1', 'v1');
+    expect(r).toEqual({ status: 'saved', dealId: 'uuid-1', version: 'v2' });
+    const call = log()[0];
+    expect(call.rpc).toBe('save_shared_deal');
+    expect(call.args.p_deal_id).toBe('uuid-1');
+    expect(call.args.p_expected).toBe('v1');
+    expect(call.args.p_deal_data).toEqual({ id: 'd1', address: '12 Oak', assumptions: { units: [] } });
+    expect(log().some(e => e.table === 'deals')).toBe(false); // never a direct write
+  });
+
+  it("a conflict returns the cloud copy with this copy's group fields", async () => {
+    setResults([{ data: { status: 'conflict', theirs: { id: 'd1', address: 'theirs' }, version: 'v9' }, error: null }]);
+    const r = await sbSaveSharedDeal(D, 'uuid-1', 'v1');
+    expect(r.status).toBe('conflict');
+    expect(r.version).toBe('v9');
+    expect(r.theirs).toMatchObject({ address: 'theirs', _deal_id: 'uuid-1', _owner_user_id: 'owner', _sort_order: 3 });
+  });
+
+  it('deleted elsewhere → theirs null', async () => {
+    setResults([{ data: { status: 'conflict', theirs: null, version: null }, error: null }]);
+    expect(await sbSaveSharedDeal(D, 'uuid-1', 'v1')).toEqual({ status: 'conflict', theirs: null, version: null });
+  });
+
+  it('no known version is sent as null (the function then returns the current copy)', async () => {
+    setResults([{ data: { status: 'conflict', theirs: { id: 'd1' }, version: 'v1' }, error: null }]);
+    await sbSaveSharedDeal(D, 'uuid-1', undefined);
+    expect(log()[0].args.p_expected).toBeNull();
+  });
+
+  it('a refusal (e.g. Viewer) throws instead of being swallowed', async () => {
+    setResults([{ data: null, error: { message: 'not allowed to edit this deal' } }]);
+    await expect(sbSaveSharedDeal(D, 'uuid-1', 'v1')).rejects.toThrow('not allowed');
   });
 });
 

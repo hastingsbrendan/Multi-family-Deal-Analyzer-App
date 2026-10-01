@@ -123,7 +123,8 @@ async function sbRemoveMember(groupId, memberId) {
 /**
  * Loads all deals shared into a group, sorted by `sort_order`.
  * Fetches ref rows first, then joins the actual deal data from the owner's `deals` table.
- * @returns {Promise<Array<deal & {_deal_id, _owner_user_id, _shared_at, _sort_order}>>}
+ * `_version` is the row's updated_at — edits save on top of it (BACK-121).
+ * @returns {Promise<Array<deal & {_deal_id, _owner_user_id, _shared_at, _sort_order, _version}>>}
  */
 async function sbGetGroupDeals(groupId) {
   const { data: refs, error: refsErr } = await sbClient
@@ -150,6 +151,7 @@ async function sbGetGroupDeals(groupId) {
         _owner_user_id: row.user_id,
         _shared_at: ref.shared_at,
         _sort_order: ref.sort_order,
+        _version: row.updated_at,
       };
     })
     .filter(Boolean);
@@ -175,6 +177,35 @@ async function sbShareDealToGroup(deal, groupId) {
   }, { onConflict: 'group_id,deal_id' });
   if (error) throw error;
   return { ...deal, _deal_id: dealId };
+}
+
+// Fields that describe a deal's place in a group view — never saved into deal_data.
+const GROUP_ONLY_FIELDS = ['_deal_id', '_owner_user_id', '_shared_at', '_sort_order', '_version'];
+
+/**
+ * Saves an edit made in a group view (BACK-121). Goes through the save_shared_deal
+ * function because deals are only updatable by their owner under RLS; the function also
+ * lets the group's active Owners/Editors save, never changes ownership, and only saves on
+ * top of `expectedVersion`. Same contract as sbSaveDeal so the sync engine can drive it:
+ * @returns {Promise<{status:'saved', dealId, version} | {status:'conflict', theirs, version}>}
+ *   theirs keeps this copy's group fields, so it drops straight back into group state.
+ */
+async function sbSaveSharedDeal(deal, dealId, expectedVersion) {
+  const data = { ...deal };
+  GROUP_ONLY_FIELDS.forEach(k => delete data[k]);
+  const { data: r, error } = await sbClient.rpc('save_shared_deal', {
+    p_deal_id: dealId,
+    p_deal_data: data,
+    p_expected: expectedVersion ?? null,
+  });
+  if (error) throw new Error(`SaveSharedDeal: ${error.message}`);
+  if (r?.status === 'saved') return { status: 'saved', dealId, version: r.version };
+  const groupFields = Object.fromEntries(GROUP_ONLY_FIELDS.filter(k => k in deal).map(k => [k, deal[k]]));
+  return {
+    status: 'conflict',
+    theirs: r?.theirs ? { ...r.theirs, ...groupFields, _deal_id: dealId } : null,
+    version: r?.version ?? null,
+  };
 }
 
 /** Removes a deal from a group by deleting the ref row. The deal itself is not affected. */
@@ -250,6 +281,6 @@ async function sbEditComment(commentId, body) {
 export {
   sbGetMyGroups, sbGetPendingInvites, sbCreateGroup, sbInviteMember,
   sbRespondToInvite, sbLeaveGroup, sbGetGroupMembers, sbUpdateMemberRole,
-  sbRemoveMember, sbGetGroupDeals, sbShareDealToGroup, sbRemoveDealFromGroup,
+  sbRemoveMember, sbGetGroupDeals, sbShareDealToGroup, sbSaveSharedDeal, sbRemoveDealFromGroup,
   sbReorderGroupDeals, sbGetComments, sbPostComment, sbDeleteComment, sbEditComment
 };
