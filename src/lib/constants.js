@@ -96,56 +96,66 @@ async function sbRead() {
     return d;
   });
   const latestAt = data?.[0]?.updated_at || prefsRow?.updated_at || null;
+  // Each row's updated_at is its version: saves are only allowed on top of it (BACK-117).
+  const versions = Object.fromEntries((data || []).map(row => [row.deal_id, row.updated_at]));
   const latency = Date.now() - t0;
   Sentry.addBreadcrumb({ category: 'db', message: 'sbRead', data: { deals: deals.length, latency, updated_at: latestAt }, level: 'info' });
   if (deals.length === 0 && data !== null) {
     Sentry.addBreadcrumb({ category: 'db', message: 'sbRead returned 0 deals — may fall through to local', level: 'warning' });
   }
-  return { data: deals, prefs: prefsRow?.prefs || null, updated_at: latestAt };
+  return { data: deals, versions, prefs: prefsRow?.prefs || null, updated_at: latestAt };
 }
 
-// Write ALL deals for user — upserts each deal as an individual row
-// Uses deal._deal_id (uuid) as stable key; assigns new uuid on first write
-async function sbWrite(deals) {
-  const user = await currentUser();
-  if (!user) throw new Error("Not authenticated");
-  if (!Array.isArray(deals) || deals.length === 0) return; // never wipe DB with empty array
-  // Safety: refuse to write if every deal is missing an address (likely corrupt state)
-  const validDeals = deals.filter(d => d && (d.address || d.purchasePrice));
-  if (validDeals.length === 0) return;
-  const now = new Date().toISOString();
-  const rows = deals.map(deal => ({
-    user_id: user.id,
-    deal_id: deal._deal_id || undefined,  // let DB gen_random_uuid if missing
-    deal_data: deal,
-    updated_at: now,
-  }));
-  Sentry.addBreadcrumb({ category: 'db', message: 'sbWrite', data: { deals: rows.length }, level: 'info' });
-  const { error } = await sbClient.from("deals")
-    .upsert(rows, { onConflict: "deal_id", ignoreDuplicates: false });
-  if (error) throw new Error(`Write: ${error.message}`);
-}
-
-// Upsert a single deal row — used for granular saves (preferred over full sbWrite)
-async function sbWriteDeal(deal) {
+// Save one deal row (BACK-117). With expectedVersion, the update only applies if the
+// row's updated_at still equals it — otherwise another device or tab saved since we
+// loaded, and we return the cloud copy instead of overwriting it.
+// Without expectedVersion (new deal, or a deal whose cloud row we never read) it upserts.
+// Returns { status:'saved', dealId, version } | { status:'conflict', theirs, version }
+// (theirs/version null when the row was deleted elsewhere).
+async function sbSaveDeal(deal, dealId, expectedVersion) {
   const user = await currentUser();
   if (!user) throw new Error("Not authenticated");
   // Validate before persisting — catches drift between in-memory shape and what
   // we'd round-trip through the cloud. Logs to Sentry but does not block the write.
-  validateDealShape(deal, 'sbWriteDeal');
+  validateDealShape(deal, 'sbSaveDeal');
+  // The DB trigger stamps updated_at itself (device clocks differ); sent as well so
+  // versions still advance if the trigger is missing.
   const now = new Date().toISOString();
-  const row = {
-    user_id: user.id,
-    deal_data: deal,
-    updated_at: now,
-    ...(deal._deal_id ? { deal_id: deal._deal_id } : {}),
-  };
+
+  if (dealId && expectedVersion) {
+    const { data, error } = await sbClient.from("deals")
+      .update({ deal_data: deal, updated_at: now })
+      .eq("deal_id", dealId)
+      .eq("user_id", user.id)
+      .eq("updated_at", expectedVersion)
+      .select("deal_id, updated_at");
+    if (error) throw new Error(`SaveDeal: ${error.message}`);
+    if (data?.length === 1) return { status: 'saved', dealId, version: data[0].updated_at };
+
+    const { data: row, error: readErr } = await sbClient.from("deals")
+      .select("deal_id, deal_data, updated_at")
+      .eq("deal_id", dealId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (readErr) throw new Error(`SaveDeal: ${readErr.message}`);
+    const theirs = row ? { ...row.deal_data, _deal_id: row.deal_id } : null;
+    if (theirs) validateDealShape(theirs, 'sbSaveDeal.conflict');
+    return { status: 'conflict', theirs, version: row?.updated_at ?? null };
+  }
+
   const { data, error } = await sbClient.from("deals")
-    .upsert(row, { onConflict: "deal_id" })
-    .select("deal_id")
+    .upsert({ user_id: user.id, deal_data: deal, updated_at: now, ...(dealId ? { deal_id: dealId } : {}) },
+            { onConflict: "deal_id" })
+    .select("deal_id, updated_at")
     .single();
-  if (error) throw new Error(`WriteDeal: ${error.message}`);
-  return data?.deal_id;  // return the uuid so caller can store it on the deal
+  if (error) throw new Error(`SaveDeal: ${error.message}`);
+  return { status: 'saved', dealId: data.deal_id, version: data.updated_at };
+}
+
+// Unconditional upsert, returning the deal uuid — group views (share, group-deal edits),
+// which don't track versions. The owner's own sync then sees the change as a conflict.
+async function sbWriteDeal(deal) {
+  return (await sbSaveDeal(deal, deal._deal_id)).dealId;
 }
 
 // Delete a single deal row by deal_id uuid
@@ -261,4 +271,4 @@ const mapsUrl = (addr) => addr ? `https://maps.google.com/?q=${encodeURIComponen
 // RENTCAST_KEY and the Geocoding REST API key are now server-side only (Cloudflare env vars).
 const GMAPS_KEY = import.meta.env.VITE_GMAPS_KEY;
 
-export { IS_PROD, STORAGE_KEY, GMAPS_KEY, SB_URL, SB_ANON_KEY, SB_BUCKET, sbClient, loadLocal, saveLocal, validateDealShape, sbRead, sbWrite, sbWriteDeal, sbDeleteDeal, sbWritePrefs, sbUploadPhoto, sbDeletePhoto, authSignInWithGoogle, authSignUp, authSignIn, authSignOut, authResetPassword, authUpdatePassword, authUpdateProfile, authGetSession, sbSubmitFeedback, STATUS_OPTIONS, STATUS_COLORS, STATUS_BG_VARS, FMT_USD, FMT_PCT, FMT_X, mapsUrl };
+export { IS_PROD, STORAGE_KEY, GMAPS_KEY, SB_URL, SB_ANON_KEY, SB_BUCKET, sbClient, loadLocal, saveLocal, validateDealShape, sbRead, sbSaveDeal, sbWriteDeal, sbDeleteDeal, sbWritePrefs, sbUploadPhoto, sbDeletePhoto, authSignInWithGoogle, authSignUp, authSignIn, authSignOut, authResetPassword, authUpdatePassword, authUpdateProfile, authGetSession, sbSubmitFeedback, STATUS_OPTIONS, STATUS_COLORS, STATUS_BG_VARS, FMT_USD, FMT_PCT, FMT_X, mapsUrl };

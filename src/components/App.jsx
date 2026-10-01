@@ -13,6 +13,7 @@ import { TrialBanner } from './UpgradeModal';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { FeedbackModal } from './FeedbackModal';
 import UndoToast from './ui/UndoToast';
+import SyncConflictBanner from './SyncConflictBanner';
 import Pill from './ui/Pill';
 import Spinner from './ui/Spinner';
 import DisclaimerModal from './DisclaimerModal';
@@ -69,7 +70,8 @@ function App() {
   const { tier } = useSubscription();
 
   // useCloudSync first (no user dep at call site — user is passed as reactive value)
-  const { deals, setDeals, syncStatus, syncError, lastSyncedAt, forceRefresh, setLastCloudUpdate, markDealDirty } = useCloudSync(user, isOnline);
+  const { deals, setDeals, loadDeals, syncStatus, syncError, lastSyncedAt, forceRefresh, setLastCloudUpdate,
+          conflicts, keepMine, loadTheirs, forgetDeal } = useCloudSync(user, isOnline);
 
   // One-time sync toast for new users
   useEffect(() => {
@@ -86,7 +88,7 @@ function App() {
   }, [syncStatus, user, syncToastShown]);
 
   // useAuth second — takes setUser/setDeals/setLastCloudUpdate, returns handleSignOut
-  const { handleSignOut } = useAuth({ setUser, setAuthLoading, setDeals, setLastCloudUpdate, setPrefs });
+  const { handleSignOut } = useAuth({ setUser, setAuthLoading, setDeals, loadDeals, setLastCloudUpdate, setPrefs });
 
   // When user signs out, clear all UI state
   useEffect(() => {
@@ -115,7 +117,7 @@ function App() {
     };
   }, [profileMenuOpen]);
 
-  const { addDeal: _addDeal, addSampleDeal: _addSampleDeal, updateDeal, deleteDeal, reorderDeals } = useDeals({ prefs, setDeals, markDealDirty });
+  const { addDeal: _addDeal, addSampleDeal: _addSampleDeal, updateDeal, deleteDeal, reorderDeals } = useDeals({ prefs, setDeals, forgetDeal });
   const addDeal = useCallback(() => _addDeal(setActiveDealId), [_addDeal, setActiveDealId]);
   const addSampleDeal = useCallback(() => {
     _addSampleDeal(setActiveDealId);
@@ -234,6 +236,7 @@ function App() {
                   : syncStatus==="saved"   ? { label:"✓ Synced",       color:"var(--green)" }
                   : syncStatus==="offline" ? { label:"📵 Offline",      color:"#8b949e" }
                   : syncStatus==="error"   ? { label:"⚠ Sync error",   color:"var(--red)", detail:syncError }
+                  : syncStatus==="conflict"? { label:"⚠ Needs review", color:"var(--accent2)" }
                   : null;
 
   // Auth gate
@@ -523,6 +526,7 @@ function App() {
         }
         {tourActive && <Suspense fallback={null}><GuidedTour step={tourStep} onNext={tourNext} onBack={tourBack} onClose={closeTour}/></Suspense>}
         {showFeedback && <FeedbackModal user={user} onClose={()=>setShowFeedback(false)}/>}
+        <SyncConflictBanner conflicts={conflicts} deals={deals} onKeepMine={keepMine} onLoadTheirs={loadTheirs}/>
         {showShareModal && (
           <Suspense fallback={null}>
             <ShareDealModal
