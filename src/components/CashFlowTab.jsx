@@ -175,7 +175,7 @@ function CashFlowTab({result,deal}){
             <td style={tdL(false,false)}>Debt Service</td>
             {visibleYears.map(y=>(<td key={y.yr} style={tdR(false,"red")}>{y.refiEvent&&<div style={{fontSize:8,fontWeight:800,color:"var(--refi-amber)"}}>↻ Refi</div>}{FMT_USD(y.debtService)}</td>))}
           </tr>
-          {result.refiYear&&(<tr><td style={{...tdL(false,true),color:"var(--refi-amber)"}}>↳ Cash-Out (Yr {result.refiYear})</td>{visibleYears.map(y=>(<td key={y.yr} style={{...tdR(!!y.refiEvent,null),color:y.refiEvent?"var(--refi-amber)":"var(--muted)"}}>{y.refiEvent?FMT_USD(y.refiEvent.cashOut):"—"}</td>))}</tr>)}
+          {result.refiYear&&(<tr><td style={{...tdL(false,true),color:"var(--refi-amber)"}}>{result.refiCashOut<0?"↳ Cash In at Refi":"↳ Cash-Out"} (Yr {result.refiYear})</td>{visibleYears.map(y=>(<td key={y.yr} style={{...tdR(!!y.refiEvent,null),color:y.refiEvent?"var(--refi-amber)":"var(--muted)"}}>{y.refiEvent?FMT_USD(y.refiEvent.cashOut):"—"}</td>))}</tr>)}
 
           {/* PMI / MIP — financing cost, shown until 78%-LTV cancellation */}
           {result.years.some(y=>y.pmi>0)&&(
@@ -302,7 +302,7 @@ function CashFlowTab({result,deal}){
 
               {/* Step 3: Effective taxable income after carryforward */}
               <R label="= Eff. Taxable Income" bold><Yr bold>{y=>FMT_USD(y.effectiveTaxIncAdv)}</Yr></R>
-              <R label="− QBI Deduction (20%)" color="red"><Yr color="red">{y=>y.effectiveTaxIncAdv>0?FMT_USD(y.qbiAdv):"—"}</Yr></R>
+              {deal?.assumptions?.tax?.qbiEligible&&<R label="− QBI Deduction (20%)" color="red"><Yr color="red">{y=>y.effectiveTaxIncAdv>0?FMT_USD(y.qbiAdv):"—"}</Yr></R>}
             </>
           ):(
             <>
@@ -322,7 +322,7 @@ function CashFlowTab({result,deal}){
                   <Yr bold>{y=>FMT_USD(y.taxableAfterPal??y.taxableIncome)}</Yr>
                 </R>
               )}
-              <R label="− QBI Deduction (20%)" color="red"><Yr color="red">{y=>(y.taxableAfterPal??y.taxableIncome)>0?FMT_USD(y.qbi):"—"}</Yr></R>
+              {deal?.assumptions?.tax?.qbiEligible&&<R label="− QBI Deduction (20%)" color="red"><Yr color="red">{y=>(y.taxableAfterPal??y.taxableIncome)>0?FMT_USD(y.qbi):"—"}</Yr></R>}
             </>
           )}
 

@@ -24,6 +24,10 @@ vi.mock('../constants', () => {
     sbClient: {
       auth: { getUser: async () => ({ data: { user: { id: 'user-123', email: 'u@x.com' } } }) },
       from: makeQuery,
+      rpc: (fn, args) => {
+        globalThis.__queryLog.push({ rpc: fn, args, calls: [] });
+        return Promise.resolve(next());
+      },
     },
     sbWriteDeal: async (deal) => deal._deal_id || 'new-uuid',
   };
@@ -104,12 +108,31 @@ describe('sbInviteMember', () => {
 
   it('inserts membership when user exists', async () => {
     setResults([
-      { data: { id: 'profile-99' }, error: null },
+      { data: 'user-99', error: null },
       { data: null, error: null },
     ]);
     const r = await sbInviteMember('g1', 'existing@x.com', 'Viewer');
     expect(r.pending).toBe(false);
     expect(log()[1].table).toBe('group_members');
+    const insert = log()[1].calls.find(c => c[0] === 'insert');
+    expect(insert[1].user_id).toBe('user-99');
+  });
+
+  // Lookup goes through find_user_id_by_email (matches auth.users' verified email)
+  // instead of reading profiles.email, which users could previously overwrite to
+  // intercept invites — and which RLS no longer exposes to other users.
+  it('looks the invitee up via the find_user_id_by_email RPC, not profiles', async () => {
+    setResults([{ data: null, error: null }, { data: null, error: null }]);
+    await sbInviteMember('g1', 'someone@x.com', 'Viewer');
+    expect(log()[0].rpc).toBe('find_user_id_by_email');
+    expect(log()[0].args).toEqual({ p_email: 'someone@x.com' });
+    expect(log().some(e => e.table === 'profiles')).toBe(false);
+  });
+
+  it('throws when the lookup fails instead of silently creating a pending invite', async () => {
+    setResults([{ data: null, error: { message: 'permission denied' } }]);
+    await expect(sbInviteMember('g1', 'someone@x.com', 'Viewer')).rejects.toBeTruthy();
+    expect(log().length).toBe(1);
   });
 });
 

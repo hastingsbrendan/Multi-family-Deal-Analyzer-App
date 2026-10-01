@@ -108,6 +108,47 @@ describe('runRecommendationEngine — investor conventional', () => {
   });
 });
 
+// ─── FHA credit rule (HUD Handbook 4000.1) ─────────────────────────────────
+// 580+ → 3.5% down; 500–579 → 10% down; below 500 ineligible. A 620 minimum is a
+// common lender overlay, not an FHA rule. The engine used to require 10% down at
+// 580–619 and rule out everything below 580 (2026-09 review).
+describe('runRecommendationEngine — FHA credit tiers', () => {
+  const fha = (answers) => runRecommendationEngine({ ...baseAnswers, ...answers }, baseDeal).scores[LOAN_TYPES.FHA];
+  const mentions10Down = (s) => [...s.warnings, ...s.reasons].some(t => /10% down/.test(t));
+
+  test('580–619 qualifies at 3.5% down with no 10%-down requirement', () => {
+    const s = fha({ creditRange: '580-619', downPct: 3.5 });
+    expect(s.score).toBeGreaterThan(0);
+    expect(mentions10Down(s)).toBe(false);
+  });
+
+  test('below 580 with at least 10% down is still an FHA option', () => {
+    const s = fha({ creditRange: '< 580', downPct: 10 });
+    expect(s.score).toBeGreaterThan(0);
+    expect(mentions10Down(s)).toBe(true);
+  });
+
+  test('below 580 with under 10% down is ineligible, and says why', () => {
+    const s = fha({ creditRange: '< 580', downPct: 5 });
+    expect(s.score).toBe(0);
+    expect(mentions10Down(s)).toBe(true);
+  });
+
+  test('FHA 203(k) follows the same tiers', () => {
+    const s = runRecommendationEngine(
+      { ...baseAnswers, creditRange: '580-619', downPct: 3.5, needsRenovation: true }, baseDeal,
+    ).scores[LOAN_TYPES.FHA_203K];
+    expect(s.score).toBeGreaterThan(0);
+    expect(mentions10Down(s)).toBe(false);
+  });
+
+  test('credit question describes 580–619 as 3.5% down', () => {
+    const opts = Object.values(QUESTIONS).find(q => q.options?.some(o => o.value === '580-619')).options;
+    expect(opts.find(o => o.value === '580-619').desc).not.toMatch(/10%/);
+    expect(opts.find(o => o.value === '< 580').desc).toMatch(/10%/);
+  });
+});
+
 // ─── Credit < 580 ──────────────────────────────────────────────────────────
 
 describe('runRecommendationEngine — very low credit', () => {

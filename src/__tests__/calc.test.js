@@ -15,6 +15,7 @@ vi.mock('@sentry/react', () => ({
 }));
 
 const { calcDeal, calcExitScenarios } = await import('../lib/calc.js');
+const { federalTaxOnSale } = await import('../lib/federalTaxEngine.js');
 
 // ─── Fixture helpers ──────────────────────────────────────────────────────────
 // Returns a clean deal with deterministic outputs. Key defaults:
@@ -448,27 +449,30 @@ describe('calcDeal — exit analysis', () => {
 
   test('zero appreciation still owes depreciation recapture (adjusted basis)', () => {
     // Selling at the purchase price is NOT tax-free: depreciation taken reduces
-    // basis, so the gain equals the depreciation and is recaptured at 25% (§1250).
+    // basis, so the gain equals the depreciation and is recaptured as unrecaptured
+    // §1250 gain (ordinary rates, max 25% — BACK-114; was a flat 25%).
     // The old assertion (zero tax) encoded a bug — gain was measured against raw
     // purchase price instead of adjusted basis (2026-06 accuracy audit).
     const r = calcDeal(baseDeal({ appreciationRate: 0, holdPeriod: 5 }));
     expect(r.totalGainOnSale).toBeCloseTo(r.cumulativeDepreciationTaken, 0);
-    expect(r.netTaxOnSale).toBeCloseTo(r.cumulativeDepreciationTaken * 0.25, 0);
+    const expected = federalTaxOnSale({ otherIncome: 100000, filingStatus: 'single', sec1250Gain: r.cumulativeDepreciationTaken }).total;
+    expect(r.netTaxOnSale).toBeCloseTo(expected, 0);
+    expect(r.netTaxOnSale).toBeLessThan(r.cumulativeDepreciationTaken * 0.25);
   });
 });
 
 // ─── 9. Expense modes (pct vs value) ─────────────────────────────────────────
 describe('calcDeal — expense modes', () => {
-  test('pct mode: propertyTax = rate% × grossRent', () => {
+  test('pct mode: maintenance = rate% × grossRent', () => {
     const r = calcDeal(baseDeal({
       expenseModes: {
-        propertyTax: 'pct', insurance: 'value', maintenance: 'value',
+        propertyTax: 'value', insurance: 'value', maintenance: 'pct',
         capex: 'value', propertyMgmt: 'value', utilities: 'value', hoa: 'value',
       },
       expenses: {
-        propertyTax: 0,    propertyTaxPct: 10,   // 10% of grossRentYear0
+        propertyTax: 0,    propertyTaxPct: 0,
         insurance: 0,      insurancePct: 0,
-        maintenance: 0,    maintenancePct: 0,
+        maintenance: 0,    maintenancePct: 10,   // 10% of grossRentYear0
         capex: 0,          capexPct: 0,
         propertyMgmt: 0,   propertyMgmtPct: 0,
         utilities: 0,      utilitiesPct: 0,
@@ -477,6 +481,26 @@ describe('calcDeal — expense modes', () => {
     }));
     // 10% of grossRentYear0 (43200) = 4320
     expect(r.baseExpenses).toBeCloseTo(4320, 0);
+  });
+
+  test('property tax uses its $ amount even when a saved deal says pct', () => {
+    // The UI only takes $/yr for property tax; a legacy "pct" mode must not override it
+    const r = calcDeal(baseDeal({
+      expenseModes: {
+        propertyTax: 'pct', insurance: 'value', maintenance: 'value',
+        capex: 'value', propertyMgmt: 'value', utilities: 'value', hoa: 'value',
+      },
+      expenses: {
+        propertyTax: 5000, propertyTaxPct: 10,
+        insurance: 0,      insurancePct: 0,
+        maintenance: 0,    maintenancePct: 0,
+        capex: 0,          capexPct: 0,
+        propertyMgmt: 0,   propertyMgmtPct: 0,
+        utilities: 0,      utilitiesPct: 0,
+        hoa: 0,            costSegFee: 0,
+      },
+    }));
+    expect(r.baseExpenses).toBeCloseTo(5000, 0);
   });
 
   test('propertyMgmt is zero when selfManage=true regardless of pct setting', () => {
@@ -495,12 +519,14 @@ describe('calcDeal — expense modes', () => {
     expect(r.baseExpenses).toBeCloseTo(12120 + 2400, 0);
   });
 
-  test('seller concessions reduce totalCash and loan amount', () => {
-    const r = calcDeal(baseDeal({ sellerConcessions: 10000 }));
-    // loanAmt = pp - dp - sellerConcessions = 400000 - 100000 - 10000 = 290000
-    expect(r.loanAmt).toBeCloseTo(290000, 0);
-    // totalCash = dp + closingCosts - sellerConcessions = 100000 - 10000 = 90000
-    expect(r.totalCash).toBeCloseTo(90000, 0);
+  test('seller concessions offset closing costs, not the loan', () => {
+    // Concessions are a credit toward closing costs (capped at them). The old
+    // expectation also cut the loan by the same 10k, counting the credit twice.
+    const cc = { title: 12000, transferTax: 0, inspection: 0, attorney: 0, lenderFees: 0, discountPoints: 0, appraisal: 0, creditReport: 0 };
+    const r = calcDeal(baseDeal({ closingCosts: cc, sellerConcessions: 10000 }));
+    expect(r.loanAmt).toBeCloseTo(300000, 0);
+    // totalCash = dp + closingCosts - sellerConcessions = 100000 + 12000 - 10000
+    expect(r.totalCash).toBeCloseTo(102000, 0);
   });
 });
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { DEFAULT_PREFS } from '../lib/calc';
-import { sbClient, authUpdatePassword, authUpdateProfile } from '../lib/constants';
+import { sbClient, SB_URL, authUpdatePassword, authUpdateProfile } from '../lib/constants';
 import Button from './ui/Button';
 import AppearanceTab from './SettingsPage/AppearanceTab';
 import GroupsTab from './SettingsPage/GroupsTab';
@@ -14,9 +14,7 @@ const PUSH_FIELDS = [
   { key:'rentGrowth',       section:'Income & Growth',    label:'Rent Growth % / yr' },
   { key:'expenseGrowth',    section:'Income & Growth',    label:'Expense Growth % / yr' },
   { key:'appreciationRate', section:'Income & Growth',    label:'Appreciation % / yr' },
-  { key:'taxBracket',       section:'Tax',                label:'Income Tax Bracket %' },
-  { key:'propertyTaxPct',   section:'Expense % Defaults', label:'Property Tax %' },
-  { key:'insurancePct',     section:'Expense % Defaults', label:'Insurance %' },
+  { key:'taxBracket',       section:'Tax',                label:'Flat Federal Rate % (flat-rate option only)' },
   { key:'maintenancePct',   section:'Expense % Defaults', label:'Maintenance %' },
   { key:'capexPct',         section:'Expense % Defaults', label:'CapEx %' },
   { key:'propertyMgmtPct',  section:'Expense % Defaults', label:'Property Mgmt %' },
@@ -119,7 +117,7 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
     try {
       const blob = new Blob([JSON.stringify({
         exportedAt: new Date().toISOString(),
-        user: { email: user?.email, displayName: user?.user_metadata?.display_name || '', createdAt: user?.created_at, plan: user?.user_metadata?.plan || 'free' },
+        user: { email: user?.email, displayName: user?.user_metadata?.display_name || '', createdAt: user?.created_at, plan: user?.app_metadata?.plan || 'free' },
         deals: (deals || []).map(d => ({ ...d })),
       }, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -138,7 +136,7 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
     try {
       const { data: { session } } = await sbClient.auth.getSession();
       if (!session) throw new Error('No active session — please sign in again.');
-      const res  = await fetch('https://lxkwvayalxuoryuwxtsq.supabase.co/functions/v1/delete-account', {
+      const res  = await fetch(`${SB_URL}/functions/v1/delete-account`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
       });
@@ -210,17 +208,15 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
         <div style={card}>
           <div style={{fontWeight:700, fontSize:14, marginBottom:16}}>Tax</div>
           <div style={{maxWidth:180}}>
-            {lbl('Income Tax Bracket %')}
+            {lbl('Flat Federal Rate % (used only when a deal uses the flat-rate option)')}
             <input type="number" value={local.taxBracket} onChange={e=>set('taxBracket',+e.target.value)} style={iS} min={0} max={60}/>
           </div>
         </div>
 
         <div style={card}>
           <div style={{fontWeight:700, fontSize:14, marginBottom:4}}>Expense Defaults (%)</div>
-          <div style={{fontSize:12, color:'var(--muted)', marginBottom:16}}>Used when expense mode is set to % of rent</div>
+          <div style={{fontSize:12, color:'var(--muted)', marginBottom:16}}>% of gross rent, used when an expense is set to % mode. Property tax and insurance are entered as $/yr on each deal.</div>
           <div style={row3}>
-            <div>{lbl('Property Tax %')}<input type="number" value={local.propertyTaxPct} onChange={e=>set('propertyTaxPct',+e.target.value)} style={iS} step={0.1}/></div>
-            <div>{lbl('Insurance %')}<input type="number" value={local.insurancePct} onChange={e=>set('insurancePct',+e.target.value)} style={iS} step={0.1}/></div>
             <div>{lbl('Maintenance %')}<input type="number" value={local.maintenancePct} onChange={e=>set('maintenancePct',+e.target.value)} style={iS} step={0.1}/></div>
             <div>{lbl('CapEx %')}<input type="number" value={local.capexPct} onChange={e=>set('capexPct',+e.target.value)} style={iS} step={0.1}/></div>
             <div>{lbl('Property Mgmt %')}<input type="number" value={local.propertyMgmtPct} onChange={e=>set('propertyMgmtPct',+e.target.value)} style={iS} step={0.1}/></div>

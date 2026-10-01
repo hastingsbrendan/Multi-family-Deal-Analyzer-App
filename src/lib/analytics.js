@@ -13,46 +13,61 @@
  *   export_*     — PDF / CSV exports
  */
 
-import posthog from 'posthog-js';
-
 const PH_KEY  = 'phc_HCMLaGNmXT6cri4clmC1zs1WLF9y3F873ZXg1IH2GRJ';
 const PH_HOST = 'https://us.i.posthog.com';
 
-let initialized = false;
+// posthog-js is ~300 kB of source and isn't needed to draw the app, so it loads in
+// its own chunk after startup instead of in the main bundle every visitor downloads
+// (it grew by ~138 kB going 1.360 → 1.435; BACK-119). Calls made before it arrives
+// are queued and replayed in order.
+let posthog = null;
+let loading = null;
+const pending = [];
+
+function withPosthog(fn) {
+  if (posthog) fn(posthog);
+  else pending.push(fn);
+}
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 export function initAnalytics() {
-  if (initialized) return;
-  posthog.init(PH_KEY, {
-    api_host: PH_HOST,
-    capture_pageview: true,
-    capture_pageleave: true,
-    autocapture: false,          // manual only — keeps event stream clean
-    persistence: 'localStorage', // survives session without cookies
-    loaded: () => { initialized = true; },
-  });
+  if (loading) return loading;
+  loading = import('posthog-js')
+    .then(({ default: ph }) => {
+      ph.init(PH_KEY, {
+        api_host: PH_HOST,
+        capture_pageview: true,
+        capture_pageleave: true,
+        autocapture: false,          // manual only — keeps event stream clean
+        persistence: 'localStorage', // survives session without cookies
+      });
+      posthog = ph;
+      pending.splice(0).forEach(fn => fn(ph));
+    })
+    .catch(err => console.warn('[analytics] PostHog failed to load', err));
+  return loading;
 }
 
 // ─── Identity ─────────────────────────────────────────────────────────────────
 
 export function identifyUser(user) {
   if (!user) return;
-  posthog.identify(user.id, {
+  withPosthog(ph => ph.identify(user.id, {
     email: user.email,
-    plan: user.user_metadata?.plan || 'free',
+    plan: user.app_metadata?.plan || 'free',
     created_at: user.created_at,
-  });
+  }));
 }
 
 export function resetAnalyticsUser() {
-  posthog.reset();
+  withPosthog(ph => ph.reset());
 }
 
 // ─── Generic event helper ─────────────────────────────────────────────────────
 
 export function track(event, props = {}) {
-  posthog.capture(event, props);
+  withPosthog(ph => ph.capture(event, props));
 }
 
 // ─── Convenience wrappers (named events) ──────────────────────────────────────

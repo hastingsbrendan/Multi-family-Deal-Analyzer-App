@@ -8,6 +8,7 @@ import FmtInt from './ui/FmtInt';
 import CollapsibleSection from './ui/CollapsibleSection';
 import PropertyLookupPanel from './AssumptionsTab/PropertyLookupPanel';
 import { getStateOptions } from '../lib/taxEngine';
+import { FEDERAL_TAX_YEAR } from '../lib/federalTaxEngine';
 
 function ExpenseInputRow({lbl, modeToggle, isItemPct, rawVal, onChange, mobile, tip}) {
   const [focused, setFocused] = useState(false);
@@ -85,20 +86,8 @@ function AssumptionsTab({deal,onChange}){
       {(()=>{
         // Comma-formatted integer inputs (sqft, lot)
 
-        // Property Tax mode toggle (mirrors Expenses section)
-        const ptMode = (a.expenseModes?.propertyTax) || "value";
-        const isPtPct = ptMode === "pct";
-        const togglePtMode = () => {
-          const d = structuredClone(deal);
-          if (!d.assumptions.expenseModes) d.assumptions.expenseModes = {};
-          d.assumptions.expenseModes.propertyTax = isPtPct ? "value" : "pct";
-          onChange(d);
-        };
-        const ptVal = isPtPct ? (a.expenses?.propertyTaxPct||"") : (a.expenses?.propertyTax||"");
-        const ptKey = isPtPct ? "expenses.propertyTaxPct" : "expenses.propertyTax";
-        const ptAnnual = isPtPct
-          ? null  // can't show annual without gross rent context
-          : (+a.expenses?.propertyTax||0);
+        // Property tax is always a $/yr amount (calc.js ignores any legacy "pct" mode)
+        const ptAnnual = +a.expenses?.propertyTax||0;
         return (
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 12px"}}>
             {/* Number of Units */}
@@ -211,7 +200,7 @@ function AssumptionsTab({deal,onChange}){
         // Honor a legitimate 0% down (VA) — blank/undefined falls back to 25%
         const dpPct=((a.downPaymentPct==null||a.downPaymentPct==='')?25:(+a.downPaymentPct||0))/100;
         const dp=pp>0?pp*dpPct:(+a.downPaymentDollar||0);
-        const naturalLoan=Math.max(0, pp-dp-(+a.sellerConcessions||0));
+        const naturalLoan=Math.max(0, pp-dp); // concessions offset closing costs, not the loan (matches calc.js)
         const loanLimit=+a.loanLimit||0;
         const loanAmt=loanLimit>0?Math.min(naturalLoan,loanLimit):naturalLoan;
         const loanCapActive=loanLimit>0&&naturalLoan>loanLimit;
@@ -219,10 +208,8 @@ function AssumptionsTab({deal,onChange}){
         const rate=(+a.interestRate||0)/100/12;
         const n=(+a.amortYears||30)*12;
         const pi=loanAmt>0&&rate>0?loanAmt*(rate*Math.pow(1+rate,n))/(Math.pow(1+rate,n)-1):loanAmt/n;
-        // Property tax: use dollar value directly, or % of gross rent yr0 estimate
-        const ptMode=(a.expenseModes?.propertyTax)||"value";
-        const grossRentEst=a.units.slice(0,a.numUnits).reduce((s,u)=>s+(+(u.rent||u.listedRent)||0),0)*12;
-        const annualPT=ptMode==="pct"?(grossRentEst*((+a.expenses?.propertyTaxPct||0)/100)):(+a.expenses?.propertyTax||0);
+        // Property tax and insurance are $/yr amounts — same figures calc.js uses
+        const annualPT=+a.expenses?.propertyTax||0;
         const monthlyTax=annualPT/12;
         const ins=(+a.expenses?.insurance||0)/12;
         const pmi=+a.pmi||0;
@@ -298,7 +285,7 @@ function AssumptionsTab({deal,onChange}){
             const pp = +a.purchasePrice || 0;
             const dpPct = +a.downPaymentPct || 0;
             const dpDollar = pp > 0 ? Math.round(pp * dpPct / 100) : (+a.downPaymentDollar || 0);
-            const natLoan = Math.max(0, pp - dpDollar - (+a.sellerConcessions||0));
+            const natLoan = Math.max(0, pp - dpDollar); // concessions offset closing costs, not the loan (matches calc.js)
             const loanLimitVal = +a.loanLimit || 0;
             const loanAmtVal = loanLimitVal > 0 ? Math.min(natLoan, loanLimitVal) : natLoan;
             const capActive = loanLimitVal > 0 && natLoan > loanLimitVal;
@@ -738,7 +725,6 @@ function AssumptionsTab({deal,onChange}){
             <Col label="Expense Growth" value={a.expenseGrowth} path="expenseGrowth" suffix="%/yr" tip="Annual % increase in operating expenses (taxes, insurance, maintenance). Typically tracks inflation — 2–3%/yr is realistic."/>
             <Col label="Appreciation" value={a.appreciationRate} path="appreciationRate" suffix="%/yr" tip="Annual % increase in the property's value. Used to project your equity at sale. Conservative assumption: 3–4%/yr; be careful not to over-assume."/>
           </div>
-          <InputRow label="Federal Tax Bracket" value={a.taxBracket} onChange={v=>upd("taxBracket",v)} suffix="%" tip="Your marginal federal income tax rate. Used to estimate the tax benefit of mortgage interest and depreciation deductions."/>
           <InputRow label="Selling Costs" value={a.sellingCostPct??6} onChange={v=>upd("sellingCostPct",v)} suffix="% of sale" tip="Agent commissions plus seller-paid closing costs when you eventually sell — typically 6–8% of the sale price. Deducted from exit proceeds and from the taxable gain."/>
         </>);
       })()}
@@ -755,6 +741,7 @@ function AssumptionsTab({deal,onChange}){
           PA: { label:'PA local EIT', hint:'Philadelphia and many PA municipalities levy an Earned Income Tax (Philly: 3.75%).' },
           IN: { label:'IN county tax', hint:'Indiana counties levy a local income tax (0.5%–3.38% depending on county).' },
         };
+        const isFlatFederal = a.federalTaxMethod === 'flat';
         const showLocalField = !!(a.state && localTaxStates[a.state]);
         const localHint = localTaxStates[a.state];
         return(
@@ -796,6 +783,56 @@ function AssumptionsTab({deal,onChange}){
               </div>
             </div>
 
+            {/* Other income + federal method (BACK-114) — drives federal brackets, state
+                tax and the $25k passive-loss phase-out */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div>
+                <label style={{...lblSt,display:"flex",alignItems:"center"}}>Other household income<Tip text="Your household's taxable income from everything except this property — wages, business income, other investments. This property's income is added on top to find the tax brackets it falls into. Also used for the $25k passive-loss phase-out and state tax."/></label>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{color:"var(--muted)",fontSize:"var(--text-sm)"}}>$</span>
+                  <FmtInt value={a.tax?.agi ?? 100000} onChange={v=>upd("tax.agi",v)} placeholder="e.g. 120,000" style={{...fldSt,flex:1}}/>
+                </div>
+              </div>
+              <div>
+                <label style={lblSt}>Federal Tax</label>
+                <div style={{display:"flex",gap:0,height:38}}>
+                  {[['brackets',`${FEDERAL_TAX_YEAR} brackets`],['flat','Flat rate']].map(([val,lbl])=>{
+                    const on = (isFlatFederal ? 'flat' : 'brackets') === val;
+                    return (
+                      <button
+                        key={val}
+                        onClick={()=>upd('federalTaxMethod', val)}
+                        style={{
+                          flex:1,fontSize:"var(--text-sm)",fontWeight:600,cursor:"pointer",
+                          background: on ? "var(--accent)" : "var(--input-bg)",
+                          color:      on ? "#fff"         : "var(--muted)",
+                          border:"1.5px solid var(--border)",
+                          borderRadius: val==='brackets' ? "10px 0 0 10px" : "0 10px 10px 0",
+                          borderRight:  val==='brackets' ? "none" : "1.5px solid var(--border)",
+                          transition:"background 0.15s,color 0.15s",
+                        }}
+                      >{lbl}</button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            {isFlatFederal && (
+              <div>
+                <label style={{...lblSt,display:"flex",alignItems:"center"}}>Flat federal rate (%)<Tip text="A single federal rate applied to all of this property's taxable income. The bracket option is more accurate: it taxes each dollar at the rate it actually falls into."/></label>
+                <input type="number" step="1" min={0} max={60} value={a.taxBracket ?? ''} placeholder="22"
+                  onChange={e=>upd('taxBracket', e.target.value === '' ? '' : +e.target.value)}
+                  style={fldSt}/>
+              </div>
+            )}
+
+            {/* QBI is opt-in (BACK-114) — most small rentals don't qualify */}
+            <label style={{display:"flex",alignItems:"flex-start",gap:8,cursor:"pointer",fontSize:"var(--text-sm)",color:"var(--text)",lineHeight:1.4}}>
+              <input type="checkbox" checked={!!a.tax?.qbiEligible} onChange={e=>upd("tax.qbiEligible",e.target.checked)}
+                style={{width:16,height:16,marginTop:2,accentColor:"var(--accent)",cursor:"pointer",flexShrink:0}}/>
+              <span>This rental qualifies for the 20% QBI deduction (§199A)<Tip text="Only rentals run as a trade or business qualify — typically 250+ hours a year of rental services (the IRS safe harbor). Most single small rentals don't. Leave this off unless your CPA confirms."/></span>
+            </label>
+
             {/* Local tax rate — only shown for states with meaningful local taxes */}
             {showLocalField && (
               <div>
@@ -823,17 +860,14 @@ function AssumptionsTab({deal,onChange}){
               </div>
             )}
 
-            {/* State selected — show summary line */}
-            {a.state ? (
-              <div style={{fontSize:12,color:"var(--muted)",padding:"5px 0",borderTop:"1px solid var(--border-faint)"}}>
-                State tax will be calculated using the stacking method on top of your MAGI.
-                {!a.tax?.agi && <span style={{color:"var(--accent2)",fontWeight:600}}> Set your MAGI in the Advanced Tax section for accurate results.</span>}
-              </div>
-            ) : (
-              <div style={{fontSize:12,color:"var(--muted)",padding:"5px 0"}}>
-                Select your state to include state income tax in the after-tax cash flow analysis.
-              </div>
-            )}
+            <div style={{fontSize:12,color:"var(--muted)",padding:"5px 0",borderTop:"1px solid var(--border-faint)",lineHeight:1.5}}>
+              {isFlatFederal
+                ? `Federal tax uses a flat ${+a.taxBracket||0}% rate.`
+                : `Federal tax uses the ${FEDERAL_TAX_YEAR} brackets and standard deduction, with this property's income added on top of your other income.`}
+              {' '}{a.state
+                ? 'State tax is calculated the same way.'
+                : 'Select your state to include state income tax.'}
+            </div>
           </div>
         );
       })()}
@@ -937,7 +971,6 @@ function AssumptionsTab({deal,onChange}){
               {taxEnabled && (<>
                 {/* Core tax inputs */}
                 <InputRow label="Land Value %" value={tax.landValuePct||20} onChange={v=>upd("tax.landValuePct",v)} suffix="% of purchase price"/>
-                <InputRow label="Federal AGI" value={tax.agi||100000} onChange={v=>upd("tax.agi",v)} prefix="$"/>
                 {/* PAL Status */}
                 <div style={{display:isMobile?"block":"grid",gridTemplateColumns:"200px 1fr",gap:8,alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--border-faint)"}}>
                   <label style={{fontSize:"var(--text-sm)",color:"var(--muted)",fontWeight:500,display:"block",marginBottom:isMobile?4:0}}>Passive Activity Status</label>

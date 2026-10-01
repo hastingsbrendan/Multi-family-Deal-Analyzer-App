@@ -119,8 +119,10 @@ describe('zero-value inputs are honored, not coerced to defaults', () => {
     expect(r.monthlyPayment).toBeCloseTo(1995.91, 1);
   });
 
-  test('0% tax bracket produces zero tax effect', () => {
-    const r = calcDeal(accDeal({ taxBracket: 0 }));
+  // The bracket % applies in the flat-rate override (BACK-114 made 2026 brackets the
+  // default); an entered 0% must still be honoured there, not coerced to 22%.
+  test('0% flat tax bracket produces zero tax effect', () => {
+    const r = calcDeal(accDeal({ taxBracket: 0, federalTaxMethod: 'flat' }));
     expect(r.years[0].taxEffect).toBeCloseTo(0, 6);
   });
 
@@ -211,14 +213,17 @@ describe('exit taxes use adjusted basis and selling costs', () => {
   test('zero appreciation still triggers depreciation recapture', () => {
     // 5 yrs of straight-line dep on 80% of 400k = 11,636.36/yr → 58,181.82 total.
     // Sale at purchase price: amount realized 400k − basis (400k − 58,181.82)
-    // → gain = 58,181.82, all of it §1250 recapture taxed at 25%.
+    // → gain = 58,181.82, all of it unrecaptured §1250 gain.
+    // BACK-114: taxed at ordinary rates (max 25%) on top of 100k other income:
+    //   83,900→105,700 @22% = 4,796; 105,700→142,081.82 @24% = 8,731.64 → 13,527.64
+    //   (was a flat 25% = 14,545.45). MAGI 158k < 200k → no NIIT; no state.
     const r = calcDeal(accDeal({ appreciationRate: 0, holdPeriod: 5 }));
     const dep = r.cumulativeDepreciationTaken;
     expect(dep).toBeCloseTo(58181.82, 0);
     expect(r.totalGainOnSale).toBeCloseTo(dep, 0);
     expect(r.sec1250RecapturePortion).toBeCloseTo(dep, 0);
-    expect(r.recaptureTax).toBeCloseTo(dep * 0.25, 0);
-    expect(r.netTaxOnSale).toBeCloseTo(dep * 0.25, 0);
+    expect(r.recaptureTax).toBeCloseTo(13527.64, 0);
+    expect(r.netTaxOnSale).toBeCloseTo(13527.64, 0);
   });
 
   test('selling costs reduce net proceeds and the taxable gain', () => {
@@ -322,7 +327,9 @@ describe('basic mode respects §469 passive activity loss limits', () => {
 
 // ─── G. IRR guardrails ────────────────────────────────────────────────────────
 describe('IRR solver guardrails', () => {
-  test('IRR is finite and within [−99%, 1000%] for an extreme money-losing deal', () => {
+  // Lower bound is −100%: a deal that never returns cash now reports a total loss
+  // (−1) instead of falling through to 0% (2026-09 review).
+  test('IRR is finite and within [−100%, 1000%] for an extreme money-losing deal', () => {
     const r = calcDeal(accDeal({
       purchasePrice: 2000000,
       units: [
@@ -334,7 +341,7 @@ describe('IRR solver guardrails', () => {
       holdPeriod: 30,
     }));
     expect(Number.isFinite(r.irr)).toBe(true);
-    expect(r.irr).toBeGreaterThanOrEqual(-0.99);
+    expect(r.irr).toBeGreaterThanOrEqual(-1);
     expect(r.irr).toBeLessThanOrEqual(10);
   });
 
@@ -387,5 +394,412 @@ describe('value-add draw timing', () => {
     }));
     expect(r.years[0].vaRemodelOutflow).toBeCloseTo(20000, 0);
     expect(r.years[1].vaRemodelOutflow).toBeCloseTo(20000, 0);
+  });
+});
+
+// ═══ 2026-09 review — confirmed engine bugs (each reproduced before fixing) ═══
+
+// ─── J. Loan-limit shortfall is paid in cash ─────────────────────────────────
+describe('loan limit shortfall', () => {
+  test('a binding loan limit adds the shortfall to cash invested', () => {
+    const r = calcDeal(accDeal({ loanLimit: 250000 }));
+    expect(r.loanAmt).toBeCloseTo(250000, 0);
+    // 100k down + the 50k the lender will not fund
+    expect(r.totalCash).toBeCloseTo(150000, 0);
+  });
+
+  test('a non-binding loan limit changes nothing', () => {
+    const r = calcDeal(accDeal({ loanLimit: 500000 }));
+    expect(r.loanAmt).toBeCloseTo(300000, 0);
+    expect(r.totalCash).toBeCloseTo(100000, 0);
+  });
+});
+
+// ─── K. Seller concessions offset closing costs only ─────────────────────────
+describe('seller concessions', () => {
+  const cc = (title) => ({ title, transferTax: 0, inspection: 0, attorney: 0, lenderFees: 0, discountPoints: 0, appraisal: 0, creditReport: 0 });
+
+  test('reduce cash to close but not the loan', () => {
+    const r = calcDeal(accDeal({ closingCosts: cc(10000), sellerConcessions: 6000 }));
+    expect(r.loanAmt).toBeCloseTo(300000, 0);
+    expect(r.totalCash).toBeCloseTo(100000 + 10000 - 6000, 0);
+  });
+
+  test('are capped at closing costs (a seller credit cannot come back as cash)', () => {
+    const r = calcDeal(accDeal({ closingCosts: cc(5000), sellerConcessions: 12000 }));
+    expect(r.loanAmt).toBeCloseTo(300000, 0);
+    expect(r.totalCash).toBeCloseTo(100000, 0);
+  });
+
+  test('sources equal uses: loan + cash + credit = price + closing costs', () => {
+    const r = calcDeal(accDeal({ closingCosts: cc(9000), sellerConcessions: 4000 }));
+    expect(r.loanAmt + r.totalCash + 4000).toBeCloseTo(400000 + 9000, 0);
+  });
+});
+
+// ─── L. Loan paid off inside the hold period ─────────────────────────────────
+describe('loan payoff before the end of the hold', () => {
+  const r = calcDeal(accDeal({ amortYears: 15, holdPeriod: 20 }));
+
+  test('balance never goes negative', () => {
+    r.years.forEach(y => expect(y.balance).toBeGreaterThanOrEqual(-0.01));
+  });
+
+  test('after payoff there is no interest and no debt service', () => {
+    for (const y of r.years.slice(15)) {
+      expect(y.balance).toBeCloseTo(0, 2);
+      expect(y.interest).toBeCloseTo(0, 2);
+      expect(y.debtService).toBeCloseTo(0, 2);
+      expect(y.cashFlow).toBeCloseTo(y.noi, 2);
+    }
+  });
+
+  test('the final year of payments still pays the full year', () => {
+    expect(r.years[14].debtService).toBeCloseTo(r.annualDebtService, 0);
+    expect(r.years[14].balance).toBeCloseTo(0, 0);
+  });
+
+  test('sale proceeds are not inflated by a negative balance', () => {
+    expect(r.exitLoanBalance).toBeCloseTo(0, 2);
+  });
+});
+
+// ─── M. Refinance into a smaller loan requires cash in ───────────────────────
+describe('refinance smaller than the existing balance', () => {
+  // Year-1 refi at 50% LTV of the 400k value → new loan 200k vs 300k balance
+  const r = calcDeal(accDeal({ refi: { enabled: true, year: 1, newRate: 6, newLTV: 50 } }));
+  const base = calcDeal(accDeal());
+
+  test('the owner brings the difference to closing', () => {
+    expect(r.years[0].refiEvent.cashOut).toBeCloseTo(-100000, 0);
+    expect(r.years[0].cashFlow).toBeLessThan(base.years[0].cashFlow - 90000);
+  });
+
+  test('the balance restarts at the new loan amount', () => {
+    expect(r.years[0].balance).toBeLessThan(200000);
+    expect(r.years[0].balance).toBeGreaterThan(190000);
+  });
+});
+
+describe('PMI after a refinance', () => {
+  // 5% down → PMI applies; refi in year 2
+  const withRefi = (newLTV) => calcDeal(accDeal({
+    downPaymentPct: 5, pmi: 100, holdPeriod: 5,
+    refi: { enabled: true, year: 2, newRate: 6, newLTV },
+  }));
+
+  test('is removed when the new loan is at or below 80% LTV', () => {
+    expect(withRefi(75).years[2].pmi).toBe(0);
+  });
+
+  test('continues when the new loan is above 80% LTV', () => {
+    expect(withRefi(90).years[2].pmi).toBeCloseTo(1200, 0);
+  });
+});
+
+// ─── N. IRR for money-losing deals ───────────────────────────────────────────
+describe('IRR never reports 0% for a losing deal', () => {
+  const lowRent = (rent) => [
+    { rent, listedRent: 0, rentcastRent: 0 },
+    { rent, listedRent: 0, rentcastRent: 0 },
+    { rent: 0, listedRent: 0, rentcastRent: 0 },
+    { rent: 0, listedRent: 0, rentcastRent: 0 },
+  ];
+
+  test('a deal that never returns any cash is −100%', () => {
+    const r = calcDeal(accDeal({ appreciationRate: -20, units: lowRent(500) }));
+    expect(r.netProceeds).toBeLessThan(0);
+    expect(r.irr).toBe(-1);
+  });
+
+  test('a deal that returns some cash but loses money has a negative IRR that zeroes NPV', () => {
+    const r = calcDeal(accDeal({ units: lowRent(900) }));
+    expect(r.irr).toBeLessThan(0);
+    const cfs = [-r.totalCash, ...r.years.map(y => y.cashFlow)];
+    cfs[cfs.length - 1] += r.netProceeds;
+    expect(Math.abs(npv(r.irr, cfs))).toBeLessThan(1);
+  });
+});
+
+// ─── O. State tax base ───────────────────────────────────────────────────────
+describe('state tax base', () => {
+  test('is taxable rental income before the federal-only QBI deduction', async () => {
+    const { calcStateTax } = await import('../taxEngine.js');
+    // QBI must be on for "before QBI" to be distinguishable (it is opt-in since BACK-114)
+    const r = calcDeal(accDeal({
+      state: 'CA',
+      tax: { ...accDeal().assumptions.tax, agi: 100000, qbiEligible: true },
+      units: [
+        { rent: 3000, listedRent: 0, rentcastRent: 0 },
+        { rent: 3000, listedRent: 0, rentcastRent: 0 },
+        { rent: 0, listedRent: 0, rentcastRent: 0 },
+        { rent: 0, listedRent: 0, rentcastRent: 0 },
+      ],
+    }));
+    const y = r.years[0];
+    expect(y.taxableAfterPal).toBeGreaterThan(0);
+    const tax = (income) => calcStateTax({ state: 'CA', magi: 100000, netRentalIncome: income, filingStatus: 'single' }).totalTax;
+    expect(y.totalStateTax).toBeCloseTo(tax(y.taxableAfterPal), 2);
+    // The old base (after QBI) gives a materially different answer, so this test
+    // distinguishes the fix from the bug
+    expect(Math.abs(tax(y.taxableAfterPal) - tax(y.taxableAfterPal - y.qbi))).toBeGreaterThan(100);
+  });
+
+  test('in advanced mode, a cost-seg loss means no state tax', () => {
+    // Rents high enough that the deal is profitable for tax purposes without cost seg
+    const profitable = {
+      state: 'CA',
+      units: [
+        { rent: 3000, listedRent: 0, rentcastRent: 0 },
+        { rent: 3000, listedRent: 0, rentcastRent: 0 },
+        { rent: 0, listedRent: 0, rentcastRent: 0 },
+        { rent: 0, listedRent: 0, rentcastRent: 0 },
+      ],
+    };
+    const adv = (costSegEnabled) => ({ enabled: true, landValuePct: 20, costSegEnabled, costSeg5YrPct: 15,
+      costSeg15YrPct: 10, bonusDepPct: 100, sec179Amount: 0, paStatus: 're_professional', agi: 180000 });
+
+    const noCostSeg = calcDeal(accDeal({ ...profitable, tax: adv(false) }));
+    expect(noCostSeg.years[0].effectiveTaxIncAdv).toBeGreaterThan(0);
+    expect(noCostSeg.years[0].totalStateTax).toBeGreaterThan(0);
+
+    const withCostSeg = calcDeal(accDeal({ ...profitable, tax: adv(true) }));
+    expect(withCostSeg.years[0].effectiveTaxIncAdv).toBeLessThan(0);
+    expect(withCostSeg.years[0].totalStateTax).toBe(0);
+  });
+});
+
+// ─── P. Depreciation stops at the depreciable basis ──────────────────────────
+describe('depreciation over long holds', () => {
+  test('cumulative straight-line depreciation never exceeds the building basis', () => {
+    const r = calcDeal(accDeal({ holdPeriod: 30 }));
+    expect(r.cumulativeDepreciationTaken).toBeCloseTo(400000 * 0.8, 0);
+    expect(r.years[27].depreciation).toBeCloseTo(400000 * 0.8 / 27.5 / 2, 0); // half of year 28
+    expect(r.years[28].depreciation).toBe(0);
+  });
+});
+
+// ─── R. Property tax & insurance use the $ amount shown on screen ────────────
+// The UI only offers $/yr inputs for these two (Property Details / Financing), but
+// new deals defaulted them to "pct" mode and the insurance input never switched it
+// back, so the engine charged a tiny % of rent and ignored what users typed —
+// 16 of 17 affected deals had an ignored insurance premium (2026-09 review).
+describe('property tax and insurance', () => {
+  const legacyPct = () => ({ ...accDeal().assumptions.expenseModes, propertyTax: 'pct', insurance: 'pct' });
+
+  test('use the $ amount even when a saved deal is in pct mode', () => {
+    const r = calcDeal(accDeal({ expenseModes: legacyPct() }));
+    expect(r.baseExpBreakdown.propertyTax).toBeCloseTo(6000, 0);
+    expect(r.baseExpBreakdown.insurance).toBeCloseTo(1800, 0);
+  });
+
+  test('new deals start both in $ mode', () => {
+    const d = newDeal();
+    expect(d.assumptions.expenseModes.propertyTax).toBe('value');
+    expect(d.assumptions.expenseModes.insurance).toBe('value');
+  });
+
+  test('other expenses keep their % of rent mode', () => {
+    const r = calcDeal(accDeal({ expenseModes: { ...accDeal().assumptions.expenseModes, maintenance: 'pct' } }));
+    expect(r.baseExpBreakdown.maintenance).toBeCloseTo(43200 * 0.05, 0);
+  });
+
+  test('FHA self-sufficiency PITI uses the $ tax and insurance', () => {
+    const r = calcDeal(accDeal({ numUnits: 3, expenseModes: legacyPct() }));
+    expect(r.fhaSelfSufficiency.pitiAnnual).toBeCloseTo(r.annualDebtService + 6000 + 1800, 0);
+  });
+});
+
+// ─── S. Federal tax from 2026 brackets (BACK-114 phase 1) ────────────────────
+// The engine multiplied taxable income by one user-picked bracket. It now stacks the
+// property's income on the household's other income (tax.agi) through the 2026
+// brackets and standard deduction; the flat bracket remains as an override.
+describe('federal tax on rental income', () => {
+  const units = (rent) => [
+    { rent, listedRent: 0, rentcastRent: 0 }, { rent, listedRent: 0, rentcastRent: 0 },
+    { rent: 0, listedRent: 0, rentcastRent: 0 }, { rent: 0, listedRent: 0, rentcastRent: 0 },
+  ];
+  const withIncome = (agi, extra = {}) =>
+    accDeal({ units: units(3500), tax: { ...accDeal().assumptions.tax, agi }, ...extra });
+
+  test('defaults to 2026 brackets stacked on other income', async () => {
+    const { federalTaxOnIncome } = await import('../federalTaxEngine.js');
+    const y = calcDeal(withIncome(180000)).years[0];
+    const income = y.taxableAfterPal - y.qbi;
+    expect(income).toBeGreaterThan(0);
+    const fed = federalTaxOnIncome({ otherIncome: 180000, netIncome: income, filingStatus: 'single' });
+    expect(y.taxEffect).toBeCloseTo(fed.tax, 2);
+    expect(y.federalMarginalRate).toBe(fed.marginalRate);
+    expect(y.federalMarginalRate).toBeGreaterThan(0.22);
+    // the old flat 22% would have under-taxed this household
+    expect(y.taxEffect).toBeGreaterThan(income * 0.22);
+  });
+
+  test('the flat bracket is still available as an override', () => {
+    const y = calcDeal(withIncome(180000, { federalTaxMethod: 'flat', taxBracket: 22 })).years[0];
+    expect(y.taxEffect).toBeCloseTo((y.taxableAfterPal - y.qbi) * 0.22, 2);
+    expect(y.federalMarginalRate).toBe(0.22);
+  });
+
+  test('advanced mode uses the same brackets', async () => {
+    const { federalTaxOnIncome } = await import('../federalTaxEngine.js');
+    const y = calcDeal(withIncome(180000, { tax: { ...accDeal().assumptions.tax, agi: 180000, enabled: true } })).years[0];
+    const income = y.effectiveTaxIncAdv - y.qbiAdv;
+    expect(y.taxEffectAdv).toBeCloseTo(federalTaxOnIncome({ otherIncome: 180000, netIncome: income, filingStatus: 'single' }).tax, 2);
+  });
+
+  test('a low-income household with no other income pays no federal tax on a small profit', () => {
+    const y = calcDeal(accDeal({ units: units(2200), tax: { ...accDeal().assumptions.tax, agi: 0 } })).years[0];
+    expect(y.taxableAfterPal).toBeGreaterThan(0);
+    expect(y.taxableAfterPal).toBeLessThan(16100);
+    expect(y.taxEffect).toBe(0);
+  });
+
+  test('other income drives state tax the same way', async () => {
+    const { calcStateTax } = await import('../taxEngine.js');
+    const y = calcDeal(withIncome(150000, { state: 'CA' })).years[0];
+    const expected = calcStateTax({ state: 'CA', magi: 150000, netRentalIncome: y.taxableAfterPal, filingStatus: 'single' }).totalTax;
+    expect(y.totalStateTax).toBeCloseTo(expected, 2);
+  });
+});
+
+// ─── T. Taxes at sale (BACK-114 phase 2) ─────────────────────────────────────
+describe('taxes at sale', () => {
+  const units = (rent) => [
+    { rent, listedRent: 0, rentcastRent: 0 }, { rent, listedRent: 0, rentcastRent: 0 },
+    { rent: 0, listedRent: 0, rentcastRent: 0 }, { rent: 0, listedRent: 0, rentcastRent: 0 },
+  ];
+  const taxCfg = (over = {}) => ({ ...accDeal().assumptions.tax, ...over });
+
+  test('cost-seg depreciation is recaptured as §1245 (ordinary), straight-line as §1250', async () => {
+    const { federalTaxOnSale } = await import('../federalTaxEngine.js');
+    const r = calcDeal(accDeal({
+      appreciationRate: 4, holdPeriod: 7, units: units(3000),
+      tax: taxCfg({ enabled: true, costSegEnabled: true, paStatus: 're_professional', agi: 150000 }),
+    }));
+    const costSegDep = r.years.reduce((s, y) => s + y.cs5Depreciation + y.cs15Depreciation, 0);
+    expect(costSegDep).toBeGreaterThan(0);
+    expect(r.totalGainOnSale).toBeGreaterThan(r.cumulativeDepreciationTaken);
+    expect(r.sec1245RecapturePortion).toBeCloseTo(costSegDep, 0);
+    expect(r.sec1250RecapturePortion).toBeCloseTo(r.cumulativeDepreciationTaken - costSegDep, 0);
+    const fed = federalTaxOnSale({
+      otherIncome: 150000, filingStatus: 'single', niitApplies: false,
+      sec1245Gain: r.sec1245RecapturePortion, sec1250Gain: r.sec1250RecapturePortion, capitalGain: r.trueLTCGPortion,
+    });
+    expect(r.recaptureTax).toBeCloseTo(fed.tax1245 + fed.tax1250, 2);
+    expect(r.ltcgTax).toBeCloseTo(fed.taxLtcg, 2);
+  });
+
+  test('NIIT applies to high earners and not to real-estate professionals', () => {
+    const deal = (paStatus) => accDeal({ appreciationRate: 5, holdPeriod: 10, tax: taxCfg({ agi: 400000, paStatus }) });
+    expect(calcDeal(deal('active_participant')).niitTax).toBeGreaterThan(0);
+    expect(calcDeal(deal('re_professional')).niitTax).toBe(0);
+  });
+
+  test('state tax is charged on the gain', async () => {
+    const { calcStateTax } = await import('../taxEngine.js');
+    const ca = calcDeal(accDeal({ appreciationRate: 4, holdPeriod: 10, state: 'CA' }));
+    const expected = calcStateTax({ state: 'CA', magi: 100000, netRentalIncome: ca.totalGainOnSale, filingStatus: 'single' }).totalTax;
+    expect(ca.stateTaxOnSale).toBeCloseTo(expected, 2);
+    expect(ca.stateTaxOnSale).toBeGreaterThan(0);
+    expect(calcDeal(accDeal({ appreciationRate: 4, holdPeriod: 10 })).stateTaxOnSale).toBe(0);
+  });
+
+  test('net tax on sale = federal pieces + NIIT + state − released passive losses', () => {
+    const r = calcDeal(accDeal({ appreciationRate: 4, holdPeriod: 10, state: 'NY', tax: taxCfg({ agi: 300000 }) }));
+    expect(r.netTaxOnSale).toBeCloseTo(
+      Math.max(0, r.recaptureTax + r.ltcgTax + r.niitTax + r.stateTaxOnSale - r.palTaxBenefit), 2);
+  });
+
+  test('flat-rate override taxes recapture at the flat rate, capped at 25%', () => {
+    const r = calcDeal(accDeal({ appreciationRate: 0, holdPeriod: 5, federalTaxMethod: 'flat', taxBracket: 32 }));
+    expect(r.recaptureTax).toBeCloseTo(r.cumulativeDepreciationTaken * 0.25, 0);
+  });
+});
+
+// ─── U. QBI opt-in and the §121 home-sale exclusion (BACK-114 phase 3) ────────
+describe('QBI deduction is opt-in', () => {
+  const units = [
+    { rent: 3500, listedRent: 0, rentcastRent: 0 }, { rent: 3500, listedRent: 0, rentcastRent: 0 },
+    { rent: 0, listedRent: 0, rentcastRent: 0 }, { rent: 0, listedRent: 0, rentcastRent: 0 },
+  ];
+  test('off by default — most small rentals do not qualify', () => {
+    const y = calcDeal(accDeal({ units })).years[0];
+    expect(y.taxableAfterPal).toBeGreaterThan(0);
+    expect(y.qbi).toBe(0);
+  });
+
+  test('20% of positive rental income when the rental qualifies', () => {
+    const y = calcDeal(accDeal({ units, tax: { ...accDeal().assumptions.tax, qbiEligible: true } })).years[0];
+    expect(y.qbi).toBeCloseTo(y.taxableAfterPal * 0.2, 6);
+  });
+
+  test('advanced mode follows the same switch', () => {
+    const off = calcDeal(accDeal({ units, tax: { ...accDeal().assumptions.tax, enabled: true } })).years[0];
+    const on = calcDeal(accDeal({ units, tax: { ...accDeal().assumptions.tax, enabled: true, qbiEligible: true } })).years[0];
+    expect(off.qbiAdv).toBe(0);
+    expect(on.qbiAdv).toBeGreaterThan(0);
+  });
+});
+
+describe('§121 home-sale exclusion for the unit you lived in', () => {
+  // Duplex, owner lives in one unit. Appreciation creates a real long-term gain.
+  const houseHack = (over = {}) => accDeal({
+    appreciationRate: 6, ownerOccupied: true, ownerUnit: 0, numUnits: 2, ...over,
+  });
+
+  test('lived there 2 years, sold 2 years after moving out → owner unit share excluded', () => {
+    const r = calcDeal(houseHack({ ownerOccupancyYears: 2, holdPeriod: 4 }));
+    expect(r.trueLTCGPortion).toBeGreaterThan(0);
+    // owner's unit is 1 of 2 → half the long-term gain (depreciation recapture never excluded)
+    expect(r.sec121Exclusion).toBeCloseTo(r.trueLTCGPortion / 2, 2);
+  });
+
+  test('the exclusion lowers capital gains tax', () => {
+    const withExcl = calcDeal(houseHack({ ownerOccupancyYears: 2, holdPeriod: 4 }));
+    const investor = calcDeal(houseHack({ ownerOccupied: false, holdPeriod: 4 }));
+    expect(withExcl.ltcgTax).toBeLessThan(investor.ltcgTax);
+  });
+
+  test('none if sold more than 3 years after moving out', () => {
+    expect(calcDeal(houseHack({ ownerOccupancyYears: 2, holdPeriod: 6 })).sec121Exclusion).toBe(0);
+  });
+
+  test('none if lived there less than 2 years', () => {
+    expect(calcDeal(houseHack({ ownerOccupancyYears: 1, holdPeriod: 3 })).sec121Exclusion).toBe(0);
+  });
+
+  test('capped at $250k single / $500k married', () => {
+    const big = { purchasePrice: 3000000, appreciationRate: 12, numUnits: 2, ownerOccupancyYears: 3, holdPeriod: 5 };
+    expect(calcDeal(houseHack(big)).sec121Exclusion).toBeCloseTo(250000, 2);
+    expect(calcDeal(houseHack({ ...big, filingStatus: 'married' })).sec121Exclusion).toBeCloseTo(500000, 2);
+  });
+
+  test('state tax is charged on the gain after the exclusion', async () => {
+    const { calcStateTax } = await import('../taxEngine.js');
+    const r = calcDeal(houseHack({ ownerOccupancyYears: 2, holdPeriod: 4, state: 'CA' }));
+    const expected = calcStateTax({ state: 'CA', magi: 100000, netRentalIncome: r.totalGainOnSale - r.sec121Exclusion, filingStatus: 'single' }).totalTax;
+    expect(r.stateTaxOnSale).toBeCloseTo(expected, 2);
+  });
+});
+
+// ─── Q. Smaller engine fixes ─────────────────────────────────────────────────
+describe('engine hygiene', () => {
+  test('calcDeal does not write numUnits back into the deal it is given', () => {
+    const d = accDeal(); delete d.assumptions.numUnits;
+    calcDeal(d);
+    expect(d.assumptions.numUnits).toBeUndefined();
+  });
+
+  test('calcSensitivity logs one Sentry breadcrumb, not one per scenario', async () => {
+    const Sentry = await import('@sentry/react');
+    Sentry.addBreadcrumb.mockClear();
+    calcSensitivity(accDeal());
+    expect(Sentry.addBreadcrumb).toHaveBeenCalledTimes(1);
+  });
+
+  test('break-even occupancy includes PMI', () => {
+    const r = calcDeal(accDeal({ pmi: 100 }));
+    expect(r.breakEvenOccupancy).toBeCloseTo((r.annualDebtService + r.baseExpenses + 1200) / r.grossRentYear0, 6);
   });
 });

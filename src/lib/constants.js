@@ -20,6 +20,14 @@ const sbClient = createClient(SB_URL, SB_ANON_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
 });
 
+// Signed-in user from the locally stored session (refreshed automatically when
+// expired). auth.getUser() made a round trip to the Auth server on every save; RLS
+// already enforces user_id server-side, so the local session is enough here.
+async function currentUser() {
+  const { data: { session } } = await sbClient.auth.getSession();
+  return session?.user ?? null;
+}
+
 // ─── Deal shape validation — logs a Sentry warning for malformed deals ────────
 function validateDealShape(deal, source) {
   const issues = [];
@@ -62,7 +70,7 @@ const saveLocal = (d, uid) => {
 // Returns { deals: [...], prefs, updated_at } where updated_at is the most recent
 async function sbRead() {
   const t0 = Date.now();
-  const { data: { user } } = await sbClient.auth.getUser();
+  const user = await currentUser();
   if (!user) throw new Error("Not authenticated");
   const { data, error } = await sbClient
     .from("deals")
@@ -99,7 +107,7 @@ async function sbRead() {
 // Write ALL deals for user — upserts each deal as an individual row
 // Uses deal._deal_id (uuid) as stable key; assigns new uuid on first write
 async function sbWrite(deals) {
-  const { data: { user } } = await sbClient.auth.getUser();
+  const user = await currentUser();
   if (!user) throw new Error("Not authenticated");
   if (!Array.isArray(deals) || deals.length === 0) return; // never wipe DB with empty array
   // Safety: refuse to write if every deal is missing an address (likely corrupt state)
@@ -120,7 +128,7 @@ async function sbWrite(deals) {
 
 // Upsert a single deal row — used for granular saves (preferred over full sbWrite)
 async function sbWriteDeal(deal) {
-  const { data: { user } } = await sbClient.auth.getUser();
+  const user = await currentUser();
   if (!user) throw new Error("Not authenticated");
   // Validate before persisting — catches drift between in-memory shape and what
   // we'd round-trip through the cloud. Logs to Sentry but does not block the write.
@@ -142,7 +150,7 @@ async function sbWriteDeal(deal) {
 
 // Delete a single deal row by deal_id uuid
 async function sbDeleteDeal(dealId) {
-  const { data: { user } } = await sbClient.auth.getUser();
+  const user = await currentUser();
   if (!user) return;
   await sbClient.from("deals").delete()
     .eq("user_id", user.id)
@@ -150,7 +158,7 @@ async function sbDeleteDeal(dealId) {
 }
 
 async function sbWritePrefs(prefs) {
-  const { data: { user } } = await sbClient.auth.getUser();
+  const user = await currentUser();
   if (!user) throw new Error("Not authenticated");
   // Prefs live on the legacy blob row (deal_data IS NULL)
   const { error: updateErr } = await sbClient
@@ -203,7 +211,7 @@ async function sbSubmitFeedback({ user, category, message, url }) {
 
 // Upload photo to Supabase Storage — path scoped to user folder
 async function sbUploadPhoto(dealId, file, context) {
-  const { data: { user } } = await sbClient.auth.getUser();
+  const user = await currentUser();
   const ext  = file.name.split(".").pop();
   const folder = context ? `${context}/` : "";
   const path = `${user?.id || "anon"}/${dealId}/${folder}${Date.now()}.${ext}`;
@@ -222,9 +230,12 @@ async function sbDeletePhoto(url) {
   if (!path) return;
   const { data: { session } } = await sbClient.auth.getSession();
   const token = session?.access_token || SB_ANON_KEY;
-  await fetch(`${SB_URL}/storage/v1/object/${SB_BUCKET}/${path}`, {
+  const res = await fetch(`${SB_URL}/storage/v1/object/${SB_BUCKET}/${path}`, {
     method: "DELETE",
     headers: { "apikey": SB_ANON_KEY, "Authorization": "Bearer " + token } });
+  // The photo is already gone from the deal; a failed delete only leaves an orphaned
+  // file in storage, so report it rather than interrupt the user
+  if (!res.ok) Sentry.captureMessage(`sbDeletePhoto ${res.status}`, { level: 'warning', tags: { feature: 'photos' } });
 }
 
 // ─── CONSTANTS & HELPERS ──────────────────────────────────────────────────────

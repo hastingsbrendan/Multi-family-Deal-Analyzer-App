@@ -13,7 +13,58 @@ vi.mock('../constants', () => ({
   },
 }));
 
-import { PLANS } from '../../contexts/SubscriptionContext';
+import { PLANS, computeTier, computeDaysLeft } from '../../contexts/SubscriptionContext';
+
+// ─── Entitlements come from app_metadata only ───────────────────────────────
+// user_metadata is editable by the signed-in user (supabase.auth.updateUser), so
+// reading plan / trial_started_at from it let anyone grant themselves Pro or an
+// endless trial. app_metadata can only be written with the service role.
+const daysAgo = (d) => new Date(Date.now() - d * 864e5).toISOString();
+
+describe('computeTier', () => {
+  it('null user → locked', () => {
+    expect(computeTier(null)).toBe('locked');
+  });
+
+  it('app_metadata.plan = pro → pro', () => {
+    expect(computeTier({ created_at: daysAgo(90), app_metadata: { plan: 'pro' } })).toBe('pro');
+  });
+
+  it('ignores user_metadata.plan = pro (user-editable)', () => {
+    expect(computeTier({ created_at: daysAgo(90), user_metadata: { plan: 'pro' } })).toBe('locked');
+  });
+
+  it('ignores a user_metadata.trial_started_at set in the future', () => {
+    const user = { created_at: daysAgo(90), user_metadata: { trial_started_at: daysAgo(-365) } };
+    expect(computeTier(user)).toBe('locked');
+  });
+
+  it('honours an app_metadata.trial_started_at', () => {
+    expect(computeTier({ created_at: daysAgo(90), app_metadata: { trial_started_at: daysAgo(2) } })).toBe('trial');
+  });
+
+  it('account younger than 14 days → trial', () => {
+    expect(computeTier({ created_at: daysAgo(3) })).toBe('trial');
+  });
+
+  it('account older than 14 days → locked', () => {
+    expect(computeTier({ created_at: daysAgo(15) })).toBe('locked');
+  });
+});
+
+describe('computeDaysLeft', () => {
+  it('pro (app_metadata) → null', () => {
+    expect(computeDaysLeft({ created_at: daysAgo(90), app_metadata: { plan: 'pro' } })).toBeNull();
+  });
+
+  it('user_metadata.plan does not make days-left null', () => {
+    expect(computeDaysLeft({ created_at: daysAgo(4), user_metadata: { plan: 'pro' } })).toBe(10);
+  });
+
+  it('expired trial → 0', () => {
+    expect(computeDaysLeft({ created_at: daysAgo(30) })).toBe(0);
+  });
+});
 
 // ─── PLANS config tests ─────────────────────────────────────────────────────
 

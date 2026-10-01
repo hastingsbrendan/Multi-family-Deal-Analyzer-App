@@ -95,10 +95,18 @@ export const GLOSSARY = {
     "estate professional) get banked. They offset future rental income or release in " +
     "full when you sell.",
   sec1250Recapture:
-    "§1250 Unrecaptured Gain — at sale, the portion of your gain equal to the depreciation " +
-    "you took is taxed at 25% (not the 15% long-term capital gains rate). The rest is " +
-    "true LTCG at 15%. Gain is measured against your ADJUSTED basis (purchase price + " +
-    "improvements − depreciation), so even selling at your purchase price can owe this tax.",
+    "Depreciation recapture — at sale, the part of your gain equal to the depreciation you " +
+    "took is taxed at your ordinary income rates: capped at 25% for straight-line " +
+    "depreciation (§1250), uncapped for cost-segregation components (§1245). The rest is " +
+    "long-term capital gain at 0%, 15% or 20% depending on your income. Gain is measured " +
+    "against your ADJUSTED basis (purchase price + improvements − depreciation), so even " +
+    "selling at your purchase price can owe this tax.",
+  sec121:
+    "Home-sale exclusion (§121) — if you lived in your unit for at least 2 of the 5 years " +
+    "before selling, that unit's share of the long-term gain is tax-free up to $250,000 " +
+    "(single) or $500,000 (married). Depreciation recapture is never excluded, and the " +
+    "rented units' share of the gain is still taxed. Modeled as your unit's share of the " +
+    "units (e.g. 1 of 2 for a duplex); your CPA may allocate by square footage.",
   ownerOccupied:
     "House-hack scenario where you live in one unit while renting the others. " +
     "Unlocks low down payments (3.5% FHA, 5% conventional) but you forgo that unit's rent.",
