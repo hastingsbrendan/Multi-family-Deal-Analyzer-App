@@ -7,6 +7,7 @@ import { calcExitScenarios, calcDeal } from '../lib/calc';
 import { GLOSSARY } from '../lib/glossary';
 import PhotoGallery from './PhotoGallery';
 import DSCRBadge from './ui/DSCRBadge';
+import { rate, benchmarks, RATING_COLOR } from '../lib/benchmarks';
 import Panel from './ui/Panel';
 import CollapsibleSection from './ui/CollapsibleSection';
 import { useIsMobile } from '../lib/hooks';
@@ -197,9 +198,9 @@ function DealSummaryTab({deal, result, onUpdate}) {
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr 1fr",gap:10}}>
               {[
                 { label:"Monthly Cash Flow", oo:result.years[0]?.monthlyCashFlow||0, alt:altResult.years[0]?.monthlyCashFlow||0, fmt:v=>(v>=0?"+":"-")+FMT_USD(Math.abs(v))+"/mo", colorOf:v=>v>=0?"var(--green)":"var(--red)" },
-                { label:"Cap Rate", oo:result.capRate, alt:altResult.capRate, fmt:v=>FMT_PCT(v), colorOf:v=>v>=0.05?"var(--green)":v>=0.04?"var(--accent2)":"var(--red)" },
-                { label:"CoC Return", oo:result.cocReturn, alt:altResult.cocReturn, fmt:v=>FMT_PCT(v), colorOf:v=>v>=0.06?"var(--green)":v>=0.03?"var(--accent2)":"var(--red)" },
-                { label:`IRR (${holdYears}-Yr)`, oo:result.irr, alt:altResult.irr, fmt:v=>FMT_PCT(v), colorOf:v=>v>=0.12?"var(--green)":v>=0.08?"var(--accent2)":"var(--red)" },
+                { label:"Cap Rate (owner view)", oo:result.capRateOwner, alt:altResult.capRate, fmt:v=>FMT_PCT(v), colorOf:v=>RATING_COLOR[rate("capRate",v)]||"var(--text)" },
+                { label:"CoC Return", oo:result.cocReturn, alt:altResult.cocReturn, fmt:v=>FMT_PCT(v), colorOf:v=>RATING_COLOR[rate("coc",v)]||"var(--text)" },
+                { label:`IRR (${holdYears}-Yr)`, oo:result.irr, alt:altResult.irr, fmt:v=>FMT_PCT(v), colorOf:v=>RATING_COLOR[rate("irr",v)]||"var(--text)" },
               ].map(({label,oo,alt,fmt,colorOf})=>(
                 <div key={label} style={{borderRadius:"var(--r-md)",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)"}}>
                   <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>{label}</div>
@@ -279,9 +280,18 @@ function DealSummaryTab({deal, result, onUpdate}) {
           </div>
         );
       };
+      // Key metrics, coloured with the shared benchmarks (src/lib/benchmarks.js). The
+      // tour promised CoC, DSCR and equity multiple here; only IRR and cap rate were shown.
+      const bm = benchmarks();
+      const y1cf = result.years[0]?.monthlyCashFlow||0;
+      const hasLoan = (result.years[0]?.debtService||0) > 0;
       const returnItems = [
-        {label:`IRR (${holdYears}-Year)`,val:FMT_PCT(result.irr),good:result.irr>0.12,note:"Target: >12%",tip:GLOSSARY.irr},
-        {label:"Cap Rate Yr 1",val:FMT_PCT(result.capRate),good:result.capRate>0.05,note:"Target: >5%",tip:GLOSSARY.capRate},
+        {label:"Monthly Cash Flow · Yr 1",val:(y1cf>=0?"+":"-")+FMT_USD(Math.abs(y1cf)),metric:"cashFlow",v:y1cf,note:result.ooEnabled?"While you live there":"All units rented",tip:GLOSSARY.cashFlow},
+        {label:"CoC Return · Yr 1",val:FMT_PCT(result.cocReturn),metric:"coc",v:result.cocReturn,note:`Target: ${bm.coc.label}`,tip:GLOSSARY.cocReturn},
+        {label:"DSCR · Lender View",val:hasLoan?(result.dscrLenderView||0).toFixed(2)+"x":"n/a",metric:"dscr",v:hasLoan?result.dscrLenderView:null,note:hasLoan?(result.ooEnabled?`Your view: ${(result.dscr||0).toFixed(2)}x · Target: ${bm.dscr.label}`:`Target: ${bm.dscr.label}`):"No loan",tip:GLOSSARY.dscr},
+        {label:"Equity Multiple",val:FMT_X(result.equityMultiple),metric:null,v:result.equityMultiple,note:`Cash back ÷ cash in over ${holdYears} yrs`,tip:GLOSSARY.equityMultiple},
+        {label:`IRR (${holdYears}-Year)`,val:FMT_PCT(result.irr),metric:"irr",v:result.irr,note:`Target: ${bm.irr.label}`,tip:GLOSSARY.irr},
+        {label:"Cap Rate · Yr 1",val:FMT_PCT(result.capRate),metric:"capRate",v:result.capRate,note:result.ooEnabled?`All units rented · Target: ${bm.capRate.label}`:`Target: ${bm.capRate.label}`,tip:GLOSSARY.capRate},
       ];
       return(
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 2fr",gap:10,marginBottom:10,alignItems:"stretch"}}>
@@ -306,12 +316,12 @@ function DealSummaryTab({deal, result, onUpdate}) {
                 ))}
               </div>
             </DSPanel>
-            {/* IRR + Cap Rate side-by-side below hero */}
+            {/* Key metrics below hero */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-              {returnItems.map(({label,val,good,note,tip})=>(
+              {returnItems.map(({label,val,metric,v,note,tip})=>(
                 <DSPanel key={label}>
                   <div style={{fontSize:10,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4,display:"flex",alignItems:"center"}}>{label}{tip&&<Tip text={tip}/>}</div>
-                  <div style={{fontSize:22,fontWeight:900,color:good?"var(--accent)":"var(--accent2)",lineHeight:1,fontFamily:"'Fraunces',serif"}}>{val}</div>
+                  <div style={{fontSize:22,fontWeight:900,color:metric&&rate(metric,v)?RATING_COLOR[rate(metric,v)]:"var(--text)",lineHeight:1,fontFamily:"'Fraunces',serif"}}>{val}</div>
                   <div style={{fontSize:10,color:"var(--muted)",marginTop:4}}>{note}</div>
                 </DSPanel>
               ))}
@@ -477,10 +487,16 @@ function DealSummaryTab({deal, result, onUpdate}) {
 
             {/* Cash Flow hero */}
             <DSPanel accent>
-              <SLbl tip={GLOSSARY.cashFlow}>{result.ooEnabled?"Avg Monthly Cash Flow · You in Unit "+(( result.ooUnit||0)+1):"Avg Monthly Cash Flow · "+_holdLen+"-Yr Hold"}</SLbl>
+              <SLbl tip={GLOSSARY.cashFlow}>{"Avg Monthly Cash Flow · "+_holdLen+"-Yr Hold"}</SLbl>
               <div style={{fontSize:44,fontWeight:900,letterSpacing:"-2px",color:avgMonthlyCF>=0?"var(--green)":"var(--accent2)",lineHeight:1,marginBottom:10,fontFamily:"'Fraunces',serif"}}>
                 {avgMonthlyCF>=0?"+":"-"}{FMT_USD(Math.abs(avgMonthlyCF))}<span style={{fontSize:"var(--text-base)",color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
               </div>
+              {/* The hero is an average over the whole hold; say what Year 1 and post-move-out look like */}
+              {result.ooEnabled&&(()=>{const after=result.years[result.ooYears]?.monthlyCashFlow;return(
+                <div style={{fontSize:"var(--text-xs)",color:"var(--muted)",marginBottom:10}}>
+                  Yr 1, you in Unit {(result.ooUnit||0)+1}: <strong style={{color:"var(--text)"}}>{FMT_USD(result.years[0]?.monthlyCashFlow||0)}/mo</strong>
+                  {after!=null&&<> · After you move out (Yr {result.ooYears+1}): <strong style={{color:"var(--text)"}}>{FMT_USD(after)}/mo</strong></>}
+                </div>);})()}
               {/* Avg incremental CF sub-metric — OO only */}
               {result.ooEnabled&&altRent>0&&(
                 <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,padding:"9px 12px"}}>
