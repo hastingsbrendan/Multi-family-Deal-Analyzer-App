@@ -108,7 +108,7 @@ function AssumptionsTab({deal,onChange}){
         // Property tax is always a $/yr amount (calc.js ignores any legacy "pct" mode)
         const ptAnnual = +a.expenses?.propertyTax||0;
         return (
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 12px"}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:"0 12px"}}>
             {/* Number of Units */}
             <div style={{marginBottom:10}}>
               <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Number of Units</div>
@@ -185,7 +185,7 @@ function AssumptionsTab({deal,onChange}){
                 style={{width:"100%",padding:"7px 10px",borderRadius:7,fontSize:"var(--text-base)",border:"1px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit"}}/>
             </div>
             {/* Expected Close Date + Showing Date & Time — full width row */}
-            <div style={{marginBottom:10,gridColumn:"1 / -1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 12px"}}>
+            <div style={{marginBottom:10,gridColumn:"1 / -1",display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:"0 12px"}}>
               <div>
                 <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Expected Close Date</div>
                 <input type="date" value={a.expectedCloseDate||""}
