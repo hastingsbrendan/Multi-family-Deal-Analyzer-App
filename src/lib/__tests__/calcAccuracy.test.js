@@ -183,7 +183,7 @@ describe('value-add remodel cost is single-counted in IRR and equity multiple', 
 
   test('IRR zeroes the NPV of [−baseCash, yearly CFs (draws in-year), +proceeds]', () => {
     const r = calcDeal(vaDeal());
-    const series = [-r.totalCashBase, ...r.years.map(y => y.cashFlow)];
+    const series = [-r.totalCashBase, ...r.years.map(y => (r.taxAdvEnabled ? y.afterTaxCFAdv : y.afterTaxCashFlow))];
     series[r.holdYears] += r.netProceeds;
     expect(Math.abs(npv(r.irr, series))).toBeLessThan(5); // ≈ 0 within rounding
   });
@@ -202,7 +202,7 @@ describe('value-add remodel cost is single-counted in IRR and equity multiple', 
     const base = calcDeal(accDeal({ holdPeriod: 5 }));
     expect(burn.irr).toBeLessThan(base.irr);
     // Single-count check: NPV of the explicit series at the reported IRR ≈ 0
-    const series = [-burn.totalCashBase, ...burn.years.map(y => y.cashFlow)];
+    const series = [-burn.totalCashBase, ...burn.years.map(y => (burn.taxAdvEnabled ? y.afterTaxCFAdv : y.afterTaxCashFlow))];
     series[burn.holdYears] += burn.netProceeds;
     expect(Math.abs(npv(burn.irr, series))).toBeLessThan(5);
   });
@@ -515,7 +515,7 @@ describe('IRR never reports 0% for a losing deal', () => {
   test('a deal that returns some cash but loses money has a negative IRR that zeroes NPV', () => {
     const r = calcDeal(accDeal({ units: lowRent(900) }));
     expect(r.irr).toBeLessThan(0);
-    const cfs = [-r.totalCash, ...r.years.map(y => y.cashFlow)];
+    const cfs = [-r.totalCash, ...r.years.map(y => (r.taxAdvEnabled ? y.afterTaxCFAdv : y.afterTaxCashFlow))];
     cfs[cfs.length - 1] += r.netProceeds;
     expect(Math.abs(npv(r.irr, cfs))).toBeLessThan(1);
   });

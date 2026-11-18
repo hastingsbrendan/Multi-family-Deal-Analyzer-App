@@ -322,7 +322,7 @@ function buildDealConfig(a) {
 
 function calcExit(years, cfg, finalState) {
   const {pp,holdYears,appRate,totalCash,totalCashWithVA,grossRentYear0,annualDebtService,baseExpenses,bracketRate,sellingCostPct,pmiAnnual,fedMarginalAtBase,
-    agi,filingStatus,paStatus,federalMethod,stateCode,localTaxRate,ooEnabled,ooYears,numUnits}=cfg;
+    agi,filingStatus,paStatus,federalMethod,stateCode,localTaxRate,ooEnabled,ooYears,numUnits,taxAdvEnabled}=cfg;
   const {finalPalCarryforward,cumulativeDepreciationTaken,cumulative1245Taken=0}=finalState;
   const exitValue=years[holdYears-1]?.propertyValue||pp*Math.pow(1+appRate,holdYears);
   const exitLoanBalance=years[holdYears-1]?.balance||0;
@@ -372,8 +372,18 @@ function calcExit(years, cfg, finalState) {
   const netProceeds=amountRealized-exitLoanBalance-netTaxOnSale;
   // IRR: remodel draws are already timed inside years[].cashFlow (50/50 yr1-2),
   // so t=0 uses BASE cash only — the renovation cost is counted exactly once.
-  const irrCFs=[-totalCash,...years.map(y=>y.cashFlow)]; irrCFs[holdYears]+=netProceeds;
-  const irr=calcIRR(irrCFs);
+  // IRR on one consistent basis (2026-11 review, M2). It used to mix yearly cash flow
+  // BEFORE income tax with sale proceeds AFTER tax, which understated returns.
+  //  · irr (headline) — after tax: yearly after-tax cash flow + net proceeds after sale taxes
+  //  · irrPreTax      — before income tax: yearly cash flow + sale proceeds before tax
+  //  · irrWithHousingSavings — house hacks: after-tax, plus the rent the owner would
+  //    otherwise pay elsewhere while living in the property
+  const afterTaxCF=y=>taxAdvEnabled?y.afterTaxCFAdv:y.afterTaxCashFlow;
+  const grossSaleProceeds=exitValue-sellingCosts-exitLoanBalance;
+  const series=(perYear,atExit)=>{const cf=[-totalCash,...years.map(perYear)];cf[holdYears]+=atExit;return calcIRR(cf);};
+  const irr=series(afterTaxCF,netProceeds);
+  const irrPreTax=series(y=>y.cashFlow,grossSaleProceeds);
+  const irrWithHousingSavings=ooEnabled?series(y=>afterTaxCF(y)+((y.incrementalCashFlow??y.cashFlow)-y.cashFlow),netProceeds):irr;
   // Equity multiple = distributions / contributions. Draws sit inside cashFlow as
   // outflows AND inside totalCashWithVA as contributions — add them back to the
   // numerator so the cost isn't double-counted.
@@ -381,7 +391,7 @@ function calcExit(years, cfg, finalState) {
   const breakEvenOccupancy=grossRentYear0>0?(annualDebtService+baseExpenses+pmiAnnual)/grossRentYear0:0;
   return {exitValue,exitLoanBalance,sellingCosts,adjustedBasis,totalGainOnSale,sec1245RecapturePortion,sec1250RecapturePortion,trueLTCGPortion,sec121Exclusion,
     recaptureTax,ltcgTax,niitTax,stateTaxOnSale,palTaxBenefit,netTaxOnSale,capitalGainsTax,netProceeds,
-    irr,equityMultiple,breakEvenOccupancy};
+    irr,irrPreTax,irrWithHousingSavings,equityMultiple,breakEvenOccupancy};
 }
 
 function calcYear(yr, cfg, loopState) {
@@ -592,7 +602,7 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
   const exit=calcExit(years,cfg,{finalPalCarryforward:finalPal,cumulativeDepreciationTaken:ls.cumulativeDepreciationTaken,cumulative1245Taken:ls.cumulative1245Taken});
   const {exitValue,exitLoanBalance,sellingCosts,adjustedBasis,totalGainOnSale,sec1245RecapturePortion,sec1250RecapturePortion,trueLTCGPortion,sec121Exclusion,
     recaptureTax,ltcgTax,niitTax,stateTaxOnSale,palTaxBenefit,netTaxOnSale,capitalGainsTax,netProceeds,
-    irr,equityMultiple,breakEvenOccupancy}=exit;
+    irr,irrPreTax,irrWithHousingSavings,equityMultiple,breakEvenOccupancy}=exit;
   let irrWithoutVA=irr,irrWithVA=irr;
   if(vaEnabled){const d2=structuredClone(deal);d2.assumptions.valueAdd={...(a.valueAdd||{}),enabled:false};irrWithoutVA=calcDeal(d2,{_isRecursive:true}).irr;irrWithVA=irr;}
   // ── FHA Self-Sufficiency Test (BACK-062) ─────────────────────────────────────
@@ -609,7 +619,7 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     return { applies: true, grossRentAllUnits, threshold75Pct, pitiAnnual, passes, delta };
   })();
 
-  return {totalCash:totalCashWithVA,totalCashBase:totalCash,downPayment:dp,closingCostsTotal,concessions,loanShortfall,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExpenses,baseExpBreakdown:baseExp,noi:years[0]?.noi||0,cocReturn:years[0]?.cocReturn||0,capRate:years[0]?.capRate||0,capRateOwner:years[0]?.capRateOwner||0,expenseRatio:years[0]?.expenseRatio||0,noiMarket:years[0]?.noiMarket||0,dscr:years[0]?.dscr||0,dscrLenderView:years[0]?.dscrLenderView||0,irr,equityMultiple,breakEvenOccupancy,exitValue,exitLoanBalance,sellingCosts,adjustedBasis,totalGainOnSale,sec1245RecapturePortion,sec1250RecapturePortion,trueLTCGPortion,sec121Exclusion,recaptureTax,ltcgTax,niitTax,stateTaxOnSale,palTaxBenefit,netTaxOnSale,netProceeds,capitalGainsTax,years,holdYears,refiCashOut,refiYear:refiEnabled?refiYear:null,vaEnabled,vaReModelCost,vaRentBump,vaCompletionYr,irrWithoutVA,irrWithVA,ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,taxAdvEnabled,finalPalCarryforward:finalPal,cumulativeDepreciationTaken:ls.cumulativeDepreciationTaken,fhaSelfSufficiency};
+  return {totalCash:totalCashWithVA,totalCashBase:totalCash,downPayment:dp,closingCostsTotal,concessions,loanShortfall,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExpenses,baseExpBreakdown:baseExp,noi:years[0]?.noi||0,cocReturn:years[0]?.cocReturn||0,capRate:years[0]?.capRate||0,capRateOwner:years[0]?.capRateOwner||0,expenseRatio:years[0]?.expenseRatio||0,noiMarket:years[0]?.noiMarket||0,dscr:years[0]?.dscr||0,dscrLenderView:years[0]?.dscrLenderView||0,irr,irrPreTax,irrWithHousingSavings,equityMultiple,breakEvenOccupancy,exitValue,exitLoanBalance,sellingCosts,adjustedBasis,totalGainOnSale,sec1245RecapturePortion,sec1250RecapturePortion,trueLTCGPortion,sec121Exclusion,recaptureTax,ltcgTax,niitTax,stateTaxOnSale,palTaxBenefit,netTaxOnSale,netProceeds,capitalGainsTax,years,holdYears,refiCashOut,refiYear:refiEnabled?refiYear:null,vaEnabled,vaReModelCost,vaRentBump,vaCompletionYr,irrWithoutVA,irrWithVA,ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,taxAdvEnabled,finalPalCarryforward:finalPal,cumulativeDepreciationTaken:ls.cumulativeDepreciationTaken,fhaSelfSufficiency};
 }
 
 // ── BACK-805: Exit Year Scenario Analysis ─────────────────────────────────────
