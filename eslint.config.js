@@ -33,7 +33,7 @@ export default [
     languageOptions: { globals: { ...globals.node } },
   },
   {
-    files: ['functions/**/*.js', 'vite.config.js', 'eslint.config.js'],
+    files: ['functions/**/*.js', 'server/**/*.js', 'vite.config.js', 'eslint.config.js'],
     languageOptions: { ecmaVersion: 'latest', sourceType: 'module', globals: { ...globals.worker, ...globals.node } },
   },
 ];

@@ -9,35 +9,32 @@
  * Required env var in Cloudflare Pages:
  *   FRED_API_KEY=<your key>   (server-side only — never shipped to the browser)
  */
+import { preflight, json, corsHeaders as cors, isFromOurSite } from '../../server/proxyAuth.js';
+
+// Public economic data, so no sign-in, but only our own site may use our key
+// (2026-11, M6: it was an open relay with CORS "*").
 export async function onRequest(context) {
   const { request, env } = context;
 
-  if (request.method !== 'GET') {
-    return new Response('Method not allowed', { status: 405 });
-  }
+  if (request.method === 'OPTIONS') return preflight(request);
+  if (request.method !== 'GET') return json(request, { error: 'Method not allowed' }, 405);
+  if (!isFromOurSite(request)) return json(request, { error: 'Forbidden' }, 403);
 
   const apiKey = env.FRED_API_KEY;
-  if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'FRED_API_KEY not configured' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-    });
-  }
+  if (!apiKey) return json(request, { error: 'Server misconfigured' }, 500);
 
   const inUrl     = new URL(request.url);
   const seriesRaw = inUrl.searchParams.get('series_id') || 'MORTGAGE30US';
-  const limit     = Math.min(parseInt(inUrl.searchParams.get('limit') || '60', 10), 200);
-  const sortOrder = inUrl.searchParams.get('sort_order') || 'desc';
-  const obsStart  = inUrl.searchParams.get('observation_start') || '';
+  const limit     = Math.min(Math.max(parseInt(inUrl.searchParams.get('limit') || '60', 10) || 60, 1), 200);
+  const sortOrder = inUrl.searchParams.get('sort_order') === 'asc' ? 'asc' : 'desc';
+  const obsStartRaw = inUrl.searchParams.get('observation_start') || '';
+  const obsStart  = /^\d{4}-\d{2}-\d{2}$/.test(obsStartRaw) ? obsStartRaw : '';
 
-  // Support comma-separated series IDs for batch fetching
-  const seriesIds = seriesRaw.split(',').map(s => s.trim()).filter(Boolean).slice(0, 8);
+  // Comma-separated FRED series IDs (letters, digits, underscore) for batch fetching
+  const seriesIds = seriesRaw.split(',').map(s => s.trim().toUpperCase()).filter(s => /^[A-Z0-9_]{1,40}$/.test(s)).slice(0, 8);
+  if (!seriesIds.length) return json(request, { error: 'Invalid series_id' }, 400);
 
-  const corsHeaders = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Cache-Control': 'public, max-age=3600',
-  };
+  const corsHeaders = { ...cors(request), 'Cache-Control': 'public, max-age=3600' };
 
   // Single series — return the raw FRED response (backwards compatible)
   if (seriesIds.length === 1) {
@@ -49,8 +46,8 @@ export async function onRequest(context) {
       });
       const body = await upstream.text();
       return new Response(body, { status: upstream.status, headers: corsHeaders });
-    } catch (err) {
-      return new Response(JSON.stringify({ error: err.message }), { status: 502, headers: corsHeaders });
+    } catch {
+      return new Response(JSON.stringify({ error: 'Economic data service unavailable' }), { status: 502, headers: corsHeaders });
     }
   }
 
@@ -66,8 +63,8 @@ export async function onRequest(context) {
     const entries = await Promise.all(fetches);
     const results = Object.fromEntries(entries);
     return new Response(JSON.stringify({ results }), { status: 200, headers: corsHeaders });
-  } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 502, headers: corsHeaders });
+  } catch {
+    return new Response(JSON.stringify({ error: 'Economic data service unavailable' }), { status: 502, headers: corsHeaders });
   }
 }
 

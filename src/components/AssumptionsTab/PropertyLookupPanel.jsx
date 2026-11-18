@@ -41,7 +41,7 @@ function lookupErrorMessage(status) {
   if (status === 401) return 'Your session expired. Sign in again and retry.';
   if (status === 403) return 'Address lookup is part of RentHack Pro.';
   if (status === 404) return 'No property found for that address. Try entering the details manually.';
-  if (status === 429) return 'Too many lookups right now. Wait a minute and try again.';
+  if (status === 429) return 'Daily lookup limit reached (about 20 properties a day). It resets at midnight UTC.';
   return "Lookup didn't work this time. Try again, or enter the details manually.";
 }
 
