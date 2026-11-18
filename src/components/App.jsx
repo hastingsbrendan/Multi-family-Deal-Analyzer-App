@@ -1,4 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { Check, WifiOff, AlertTriangle, MessageSquare, RefreshCw, Settings, LogOut } from 'lucide-react';
+import LogoMark from './ui/LogoMark';
+// Inline icon next to a label (M9i: consistent SVG icons instead of emoji)
+const ICON = {size:14,strokeWidth:2,style:{verticalAlign:"-2px",marginRight:6}};
 import * as Sentry from '@sentry/react';
 import { trackDealOpened, trackPDFExported, trackCSVExported } from '../lib/analytics';
 import { iSty } from './ui/InputRow';
@@ -315,10 +319,10 @@ function App() {
   const badgeStatus = activeGroup && groupSync.status !== "idle" ? groupSync.status : syncStatus;
   const badgeError  = activeGroup && groupSync.status !== "idle" ? groupSync.error  : syncError;
   const syncBadge = badgeStatus==="saving"  ? { label:"Syncing…",       color:"var(--refi-amber)" }
-                  : badgeStatus==="saved"   ? { label:"✓ Synced",       color:"var(--green)" }
-                  : badgeStatus==="offline" ? { label:"📵 Offline",      color:"#8b949e" }
-                  : badgeStatus==="error"   ? { label:"⚠ Sync error",   color:"var(--red)", detail:badgeError }
-                  : badgeStatus==="conflict"? { label:"⚠ Needs review", color:"var(--accent2)" }
+                  : badgeStatus==="saved"   ? { label:<><Check {...ICON}/>Synced</>,          color:"var(--green)" }
+                  : badgeStatus==="offline" ? { label:<><WifiOff {...ICON}/>Offline</>,       color:"var(--muted)" }
+                  : badgeStatus==="error"   ? { label:<><AlertTriangle {...ICON}/>Sync error</>, color:"var(--red)", detail:badgeError }
+                  : badgeStatus==="conflict"? { label:<><AlertTriangle {...ICON}/>Needs review</>, color:"var(--accent2)" }
                   : null;
 
   // Auth gate
@@ -416,7 +420,7 @@ function App() {
         <div style={{display:"flex",alignItems:"center",gap:10,flex:"0 0 auto"}}>
           {/* Inside the app the logo goes to your deals, not the marketing page (M9g) */}
           <a href="/" aria-label="RentHack — My Deals" onClick={e=>{e.preventDefault();setActiveDealId(null);setShowSettings(false);setShowGroups(false);}} style={{display:"flex",alignItems:"center",gap:8,textDecoration:"none"}}>
-            <div style={{width:28,height:28,background:"var(--accent)",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>🏠</div>
+            <LogoMark size={28}/>
             <span style={{fontFamily:"'Fraunces',serif",fontWeight:900,fontSize:18,color:"var(--text)",letterSpacing:"-0.5px"}}><span>Rent</span><span style={{color:"var(--accent)"}}>Hack</span></span>
           </a>
           {activeDeal&&<span style={{color:"var(--muted)",fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:140}}>/ {activeDeal.address||"New Deal"}</span>}
@@ -449,13 +453,13 @@ function App() {
               <button onClick={()=>setShowFeedback(true)}
                 title="Send feedback"
                 style={{background:"none",border:"1px solid var(--border)",borderRadius:4,padding:"2px 7px",fontSize:11,color:"var(--muted)",cursor:"pointer",lineHeight:1.4,flexShrink:0}}>
-                💬</button>
+                <MessageSquare size={14} aria-hidden="true" style={{verticalAlign:"-2px"}}/></button>
             )}
             {!(isMobile && activeDeal) && (
               <button onClick={forceRefresh} disabled={syncStatus==="saving"}
                 title="Pull latest from cloud"
                 style={{background:"none",border:"1px solid var(--border)",borderRadius:4,padding:"2px 7px",fontSize:11,color:"var(--muted)",cursor:syncStatus==="saving"?"not-allowed":"pointer",lineHeight:1.4,flexShrink:0}}>
-                {syncStatus==="saving" ? "…" : "↻"}
+                {syncStatus==="saving" ? "…" : <RefreshCw size={14} aria-hidden="true" style={{verticalAlign:"-2px"}}/>}
               </button>
             )}
             {tier==='pro'&&<Pill variant="accent" size="xs" style={{fontSize:10,fontWeight:800,letterSpacing:'0.05em',flexShrink:0,borderRadius:100,padding:'2px 8px'}}>PRO</Pill>}
@@ -493,7 +497,7 @@ function App() {
                         style={{display:"block",width:"100%",textAlign:"left",padding:"10px 14px",
                           background:"none",border:"none",color:"var(--text)",fontSize:13,
                           cursor:"pointer",fontFamily:"inherit"}}>
-                        ⚙️ Settings
+                        <Settings {...ICON}/>Settings
                       </button>
                       {/* Mobile-only: feedback + refresh accessible from menu when header buttons are hidden */}
                       {isMobile && activeDeal && (
@@ -502,14 +506,14 @@ function App() {
                             style={{display:"block",width:"100%",textAlign:"left",padding:"10px 14px",
                               background:"none",border:"none",color:"var(--text)",fontSize:13,
                               cursor:"pointer",fontFamily:"inherit"}}>
-                            💬 Send Feedback
+                            <MessageSquare {...ICON}/>Send Feedback
                           </button>
                           <button onClick={()=>{forceRefresh();setProfileMenuOpen(false);}} disabled={syncStatus==="saving"}
                             style={{display:"block",width:"100%",textAlign:"left",padding:"10px 14px",
                               background:"none",border:"none",color:"var(--text)",fontSize:13,
                               cursor:syncStatus==="saving"?"not-allowed":"pointer",fontFamily:"inherit",
                               opacity:syncStatus==="saving"?0.6:1}}>
-                            ↻ Refresh from Cloud
+                            <RefreshCw {...ICON}/>Refresh from Cloud
                           </button>
                         </>
                       )}
@@ -523,7 +527,7 @@ function App() {
                         style={{display:"block",width:"100%",textAlign:"left",padding:"10px 14px",
                           background:"none",border:"none",color:"var(--red)",fontSize:13,
                           cursor:"pointer",fontFamily:"inherit",borderTop:"1px solid var(--border)"}}>
-                        ↩ Sign Out
+                        <LogOut {...ICON}/>Sign Out
                       </button>
                     </div>
                   )}
@@ -561,7 +565,7 @@ function App() {
             marginBottom:16,
             fontSize:14,
           }}>
-            <span style={{color:"var(--text)",fontWeight:700}}>🎉 Welcome to RentHack Pro! You now have full access.</span>
+            <span style={{color:"var(--text)",fontWeight:700}}>Welcome to RentHack Pro! You now have full access.</span>
             <button onClick={()=>setShowUpgradeSuccess(false)} style={{background:"none",border:"none",color:"var(--muted)",cursor:"pointer",fontSize:18,padding:"0 4px"}}>×</button>
           </div>
         )}

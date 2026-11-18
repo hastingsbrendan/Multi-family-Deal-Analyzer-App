@@ -25,6 +25,6 @@ Browser variables (`VITE_*`, see `.env.example`) are public by design: the Supab
 ## Supabase
 
 - Edge Functions: `supabase functions deploy <name>`. `verify_jwt` per function is recorded in `supabase/config.toml`; the Stripe webhook must run with it off because Stripe signs its own requests.
-- SQL changes live in `supabase/sql/`, each with a rolled-back test in `supabase/tests/`.
+- The schema lives in `supabase/migrations/` (a production baseline plus timestamped changes); see `supabase/README.md`. RLS tests are in `supabase/tests/`.
 - Stripe secrets (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`) are Supabase function secrets.
 - A daily GitHub Action pings the database so the free tier doesn't pause (`.github/workflows/supabase-keepalive.yml`).
