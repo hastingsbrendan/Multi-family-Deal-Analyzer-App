@@ -203,7 +203,7 @@ function DealCard({ d, r, onSelect, onDelete, onShareDeal, inCompare, onToggleCo
         {[
           { label: 'CoC', tip: 'Cash-on-Cash Return — your first-year cash income as a % of cash invested', val: FMT_PCT(r.cocReturn), color: tone('coc', r.cocReturn, prefs) },
           { label: 'IRR', tip: 'Internal Rate of Return — annualized return including appreciation and equity over the hold period', val: FMT_PCT(r.irr), color: tone('irr', r.irr, prefs) },
-          { label: 'Cap Rate', tip: 'Cap Rate — the building's Year 1 NOI with every unit rented, divided by purchase price', val: FMT_PCT(r.capRate), color: tone('capRate', r.capRate, prefs) },
+          { label: 'Cap Rate', tip: 'Cap Rate — the building’s Year 1 NOI with every unit rented, divided by purchase price', val: FMT_PCT(r.capRate), color: tone('capRate', r.capRate, prefs) },
         ].map(({ label, tip, val, color }) => (
           <div key={label} style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: 2, display:'flex', alignItems:'center', justifyContent:'center', gap:2 }}>{label}<Tip text={tip}/></div>
