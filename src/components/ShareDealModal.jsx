@@ -51,7 +51,7 @@ function ShareDealModal({ deal, user, onClose, onShared }) {
           {deal.address || 'Untitled Deal'}
         </div>
 
-        {msg && <div style={{background:'#fee2e2',color:'#991b1b',borderRadius:8,
+        {msg && <div style={{background:'var(--error-bg)',color:'var(--error-text)',borderRadius:8,
           padding:'8px 12px',marginBottom:12,fontSize:13}}>{msg}</div>}
 
         {loading ? (

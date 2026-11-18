@@ -264,7 +264,7 @@ function PropertyLookupPanel({deal, onChange}) {
           </div>
 
           {error && (
-            <div style={{marginTop:10,padding:'8px 12px',background:'#FEE2E2',borderRadius:6,color:'#991B1B',fontSize:12}}>
+            <div style={{marginTop:10,padding:'8px 12px',background:'var(--error-bg)',borderRadius:6,color:'var(--error-text)',fontSize:12}}>
               ⚠️ {error}
             </div>
           )}
@@ -294,7 +294,7 @@ function PropertyLookupPanel({deal, onChange}) {
                   </div>
                 ))}
               </div>
-              <div style={{padding:'6px 12px',background:'#DBEAFE',fontSize:11,color:'#1E40AF'}}>
+              <div style={{padding:'6px 12px',background:'var(--info-bg)',fontSize:11,color:'var(--info-text)'}}>
                 ✏️ <strong>What will be applied:</strong> Address · Property Tax · Rent estimate for any unit without a rent yet · Sq ft / Year Built stored as reference. You can override any values after applying.
               </div>
               <div style={{display:'flex',gap:8,padding:12}}>

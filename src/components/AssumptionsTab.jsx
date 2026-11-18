@@ -333,9 +333,9 @@ function AssumptionsTab({deal,onChange}){
                     <div style={{display:"flex",alignItems:"center",gap:6}}>
                       <span style={{color:"var(--muted)",fontSize:"var(--text-base)",fontWeight:700,flexShrink:0}}>$</span>
                       <div style={{...inputSt,
-                        background: capActive?"#fef3c7":"var(--input-bg)",
+                        background: capActive?"var(--warn-bg)":"var(--input-bg)",
                         border: capActive?"1.5px solid var(--accent2)":"1.5px solid var(--border)",
-                        color: capActive?"#92400e":"var(--text)",
+                        color: capActive?"var(--warn-text)":"var(--text)",
                         fontWeight:700,
                         display:"flex", alignItems:"center",
                         userSelect:"none", cursor:"default"}}>

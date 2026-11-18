@@ -181,6 +181,9 @@ function App() {
   }
 
   const theme = dark ? "dark" : "light";
+  // index.html ships data-theme="light" on <html>; mirror the user's theme there so the
+  // page background and overscroll match in dark mode (M9f).
+  useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
   const showDisclaimer = user && !user.user_metadata?.disclaimer_ack_at;
   const activeDeal   = (activeGroup ? (groupDeals||[]) : (deals||[])).find(d=>d.id===activeDealId);
 

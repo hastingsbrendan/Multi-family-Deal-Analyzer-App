@@ -87,6 +87,15 @@ button{cursor:pointer;}
 
   /* Semantic warning pair (amber) — used for ⚠️ "things to watch" callouts */
   --warn-bg:    rgba(245,158,11,0.10);
+  /* Status boxes (2026-11, M9f): replaces hard-coded pastel hex that glared in dark mode */
+  --warn-text:    #92400e;
+  --success-bg:   rgba(16,185,129,0.12);
+  --success-text: #065f46;
+  --error-bg:     rgba(239,68,68,0.10);
+  --error-text:   #991b1b;
+  --info-bg:      rgba(59,130,246,0.10);
+  --info-text:    #1e40af;
+  --toggle-off:   #cbd5e1;
   --warn-text:  #B45309;
 
   /* Status pill backgrounds — used in PortfolioPage filter bar + DealCard
@@ -125,6 +134,14 @@ button{cursor:pointer;}
 
   /* Semantic warning pair (amber) — slightly brighter for dark mode */
   --warn-bg:    rgba(245,158,11,0.15);
+  --warn-text:    #fbbf24;
+  --success-bg:   rgba(52,211,153,0.15);
+  --success-text: #6ee7b7;
+  --error-bg:     rgba(248,113,113,0.15);
+  --error-text:   #fca5a5;
+  --info-bg:      rgba(96,165,250,0.15);
+  --info-text:    #93c5fd;
+  --toggle-off:   #475569;
   --warn-text:  #fbbf24;
 
   /* Status pill backgrounds — dark mode keeps the same alpha tints. */
