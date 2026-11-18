@@ -265,7 +265,7 @@ function AssumptionsTab({deal,onChange}){
             const holdVal = +a.holdPeriod||10;
             // Soft warnings for refi/VA year conflicts
             const refiConflict = a.refi?.enabled && +a.refi?.year >= holdVal;
-            const vaConflict   = a.valueAdd?.enabled && +a.valueAdd?.completionYear >= holdVal;
+            const vaConflict   = a.valueAdd?.enabled && +a.valueAdd?.completionYear > holdVal;
             return(
               <div style={{marginBottom:8}}>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:10}}>
@@ -288,7 +288,7 @@ function AssumptionsTab({deal,onChange}){
                 {(refiConflict||vaConflict)&&(
                   <div style={{marginTop:6,padding:"6px 10px",background:"rgba(217,119,6,0.1)",borderRadius:"var(--r-sm)",fontSize:"var(--text-xs)",color:"var(--accent2)",border:"1px solid rgba(217,119,6,0.25)"}}>
                     ⚠️ {refiConflict&&`Refi year (Yr ${a.refi.year}) is ≥ hold period — it will be ignored in calculations.`}{refiConflict&&vaConflict&&" "}
-                    {vaConflict&&`Value-add completion year (Yr ${a.valueAdd.completionYear}) is ≥ hold period — it will be clamped to Yr ${holdVal-1}.`}
+                    {vaConflict&&`Value-add finishes in Yr ${a.valueAdd.completionYear}, after you sell in Yr ${holdVal}: its cost is counted but its rent lift and added value are not.`}
                   </div>
                 )}
               </div>

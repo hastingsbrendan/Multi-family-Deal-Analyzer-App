@@ -33,3 +33,23 @@ describe('calcDeal cash-to-close fields used by Summary and exports', () => {
     expect(r.totalCashBase).toBeCloseTo(r.downPayment + r.closingCostsTotal - r.concessions + r.loanShortfall, 2);
   });
 });
+
+describe('value-add finishing after the sale', () => {
+  const build = (completionYear) => {
+    const d = createSampleDeal();
+    d.assumptions.holdPeriod = 5;
+    d.assumptions.valueAdd = { enabled: true, reModelCost: 30000, rentBumpPerUnit: 300, unitsRenovated: 2, completionYear };
+    return calcDeal(d);
+  };
+
+  test('adds no rent lift or exit value, but its cost is still paid', () => {
+    const late = build(8), none = (() => { const d = createSampleDeal(); d.assumptions.holdPeriod = 5; return calcDeal(d); })();
+    expect(late.exitValue).toBeCloseTo(none.exitValue, 0);
+    expect(late.years.every(y => !y.vaRentLift)).toBe(true);
+    expect(late.years.reduce((s, y) => s + y.vaRemodelOutflow, 0)).toBeCloseTo(30000, 0);
+  });
+
+  test('finishing within the hold still lifts value', () => {
+    expect(build(3).exitValue).toBeGreaterThan(build(8).exitValue);
+  });
+});

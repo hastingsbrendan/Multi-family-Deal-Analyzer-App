@@ -262,7 +262,10 @@ function buildDealConfig(a) {
   const refiLTV=refiEnabled?(+a.refi.newLTV||75)/100:null;
   const refiValue=refiEnabled?pp*Math.pow(1+(+a.appreciationRate||0)/100,refiYear-1):null;
   const va=a.valueAdd||{}, vaEnabled=!!va.enabled;
-  const vaCompletionYr=vaEnabled?Math.max(1,Math.min(holdYears,+va.completionYear||3)):null;
+  // Not clamped to the hold: work finishing after the sale earns no rent lift and adds
+  // no value at exit (it used to be pulled into the last year, ~+$63k of exit value
+  // for an unfinished renovation; 2026-11 review). Its cost is still paid.
+  const vaCompletionYr=vaEnabled?Math.max(1,+va.completionYear||3):null;
   const vaReModelCost=vaEnabled?(+va.reModelCost||0):0;
   const vaRentBump=vaEnabled?(+va.rentBumpPerUnit||0)*Math.min(+va.unitsRenovated||0,a.numUnits)*12:0;
   const totalCashWithVA=totalCash+vaReModelCost;
@@ -428,7 +431,9 @@ function calcYear(yr, cfg, loopState) {
   newBalance=Math.max(0,newBalance);
   balance=newBalance;
   // 50/50 draw model; if the renovation completes in year 1 the full cost lands there
-  const vaRemodelOutflow=vaCompletionYr===1?(yr===1?vaReModelCost:0):(yr===1||yr===2?vaReModelCost/2:0);
+  // Spend all in Yr 1 when the work finishes in Yr 1 or the hold is a single year (a
+  // Yr 2 draw would fall after the sale); otherwise 50/50 over Yr 1–2.
+  const vaRemodelOutflow=(vaCompletionYr===1||cfg.holdYears===1)?(yr===1?vaReModelCost:0):(yr===1||yr===2?vaReModelCost/2:0);
   const cashFlow=noi-debtServiceThisYr-pmiThisYr-ooUtilitiesThisYr+(refiEvent?refiEvent.cashOut:0)-vaRemodelOutflow;
   const monthlyCashFlow=cashFlow/12;
   const ooAltRentAnnual=ooEnabled&&yr<=ooYears?(ooAltRentMonthly*12):0;

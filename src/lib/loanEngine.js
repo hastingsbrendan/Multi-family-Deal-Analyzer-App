@@ -30,7 +30,9 @@ export const LOAN_CATALOG = {
     minCredit: 620,
     borderlineCredit: 660,
     downPaymentOO: { '2unit': 5, '3unit': 5, '4unit': 5 },
-    downPaymentInv: { '2unit': 20, '3unit': 25, '4unit': 25 },
+    // Fannie/Freddie eligibility matrices: investment purchases on 2–4 units max out at
+    // 75% LTV; 85% applies to 1-unit only (2026-11 review).
+    downPaymentInv: { '2unit': 25, '3unit': 25, '4unit': 25 },
     maxDTI: 45,
     loanLimits2026: { standard: { '1unit':832750,'2unit':1066250,'3unit':1288800,'4unit':1601750 } },
     mi: 'PMI required if < 20% down; cancellable at 80% LTV',
@@ -47,7 +49,7 @@ export const LOAN_CATALOG = {
     ],
     cons: [
       'Stricter qualification than FHA — DTI and credit scrutinized more tightly',
-      'Investor purchases require 20–25% down',
+      'Investor purchases of 2–4 units require 25% down',
       'Higher LLPAs (rate hits) if credit score is under 700',
     ],
     whoItsFor: 'Best for buyers with good credit (680+) who want the lowest long-term cost. Owner-occupants can put as little as 5% down on a 2-4 unit.',
@@ -115,7 +117,7 @@ export const LOAN_CATALOG = {
     assumable: true,
     selfEmployedFriendly: 'standard',
     pros: [
-      '0% down payment — no other loan offers this on 2-4 unit investment properties',
+      '0% down payment on a 2–4 unit you live in — no other loan offers this',
       'No PMI ever — saves $200–$600/month vs FHA',
       'Rates are typically equal to or below conventional',
       'No loan limits for veterans with full entitlement',
@@ -250,7 +252,7 @@ export const LOAN_CATALOG = {
     minCredit: 620,
     borderlineCredit: 660,
     downPaymentOO: { '2unit': 5, '3unit': 15, '4unit': 15 },
-    downPaymentInv: { '2unit': 20 },
+    downPaymentInv: { '2unit': 25 },
     maxDTI: 45,
     loanLimits2026: { standard: { note: 'Same as Freddie Mac conforming limits' } },
     mi: 'PMI if < 20% down; cancellable',
