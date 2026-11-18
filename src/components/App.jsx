@@ -36,10 +36,34 @@ const GuidedTour      = lazyWithRetry(() => import('./GuidedTour'));
 // logic works immediately, without blocking the lazy load of GuidedTour itself.
 import { TOUR_STEPS } from './tourSteps';
 
+function NotFound() {
+  useEffect(() => {
+    document.title = 'Page not found — RentHack';
+    const m = document.createElement('meta'); m.name = 'robots'; m.content = 'noindex'; document.head.appendChild(m);
+    return () => m.remove();
+  }, []);
+  return (
+    <div data-theme="light" style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)",display:"flex",alignItems:"center",justifyContent:"center",padding:24,fontFamily:"'DM Sans',sans-serif"}}>
+      <div style={{maxWidth:420,textAlign:"center"}}>
+        <div style={{fontFamily:"'Fraunces',serif",fontWeight:900,fontSize:56,color:"var(--accent)",lineHeight:1}}>404</div>
+        <h1 style={{fontFamily:"'Fraunces',serif",fontSize:24,margin:"12px 0 8px"}}>We couldn't find that page</h1>
+        <p style={{color:"var(--muted)",fontSize:15,lineHeight:1.6,margin:"0 0 20px"}}>The link may be old or mistyped.</p>
+        <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+          <a href="/" style={{background:"var(--accent)",color:"#fff",borderRadius:100,padding:"10px 20px",fontWeight:700,textDecoration:"none"}}>Go to RentHack</a>
+          <a href="/blog/" style={{border:"1px solid var(--border)",color:"var(--text)",borderRadius:100,padding:"10px 20px",fontWeight:700,textDecoration:"none"}}>Read the blog</a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   // Read the landing-page CTA / auth-callback intent once, before anything below
   // (showUpgradeSuccess, the hash-strip effect) can rewrite the URL. See lib/authGate.js.
   const [authIntent, setAuthIntent] = useState(() => readAuthIntent(window.location.hash, window.location.search));
+  // The app lives at "/". Cloudflare sends every unknown URL here (SPA fallback), which
+  // used to bounce silently to /landing; show a real "not found" page instead (M7).
+  const [notFound] = useState(() => !['/', '/index.html'].includes(window.location.pathname));
   const [dark, setDark] = useState(() => localStorage.getItem("rh_dark") === "true");
   const [showFeedback, setShowFeedback] = useState(false);
   const [showUpgradeSuccess, setShowUpgradeSuccess] = useState(() => {
@@ -271,9 +295,10 @@ function App() {
   }, [authIntent]);
   useEffect(() => { setAuthIntent(i => consumeAuthIntent(i, user)); }, [user]);
   useEffect(() => {
-    if (gate === 'redirect') window.location.replace('/landing');
+    if (gate === 'redirect' && !notFound) window.location.replace('/landing');
   }, [gate]);
 
+  if (notFound) return <NotFound/>;
   if (deals === null) {
     return (
       <div data-theme={theme}>
