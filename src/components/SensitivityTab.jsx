@@ -73,10 +73,23 @@ const SLIDER_DEFS = [
   { key:'rent',          label:'Monthly Rent / Unit', unit:'$', min:0.7,  max:1.3,  step:0.005, format: v => FMT_USD(v), type:'multiplier' },
   { key:'vacancyRate',   label:'Vacancy Rate',      unit:'%',   min:0,    max:20,   step:0.5,   format: v => v.toFixed(1)+'%', type:'absolute' },
   { key:'interestRate',  label:'Interest Rate',     unit:'%',   min:3,    max:10,   step:0.125, format: v => v.toFixed(2)+'%', type:'absolute' },
-  { key:'downPaymentPct',label:'Down Payment',      unit:'%',   min:10,   max:30,   step:1,     format: v => v.toFixed(0)+'%', type:'absolute' },
+  { key:'downPaymentPct',label:'Down Payment',      unit:'%',   min:0,   max:30,   step:1,     format: v => v.toFixed(0)+'%', type:'absolute' },
   { key:'appreciationRate', label:'Appreciation',   unit:'%',   min:0,    max:6,    step:0.25,  format: v => v.toFixed(1)+'%', type:'absolute' },
   { key:'propertyTax',   label:'Property Tax',      unit:'$',   min:0.5,  max:2.0,  step:0.025, format: v => FMT_USD(v), type:'expense_multiplier' },
 ];
+
+// calcDeal has no monthlyCF / eqMultiple fields; reading them showed "—" and 0.00x
+// for every deal and broke the rent break-even search (2026-11 review).
+const withDerived = r => ({ ...r, monthlyCF: r.years?.[0]?.monthlyCashFlow ?? 0, eqMultiple: r.equityMultiple ?? 0 });
+
+// The rent slider is shown as unit 1's rent; move every unit by the same ratio so a
+// $1,200 / $1,800 deal doesn't become $1,200 / $1,200 (and listed-rent-only units move too).
+const unitRent = u => +(u?.rent || u?.listedRent) || 0;
+function scaleRents(a, newUnit1Rent) {
+  const base = unitRent(a.units?.[0]);
+  const ratio = base > 0 ? newUnit1Rent / base : 1;
+  return a.units.map(u => ({ ...u, rent: Math.round(unitRent(u) * ratio) }));
+}
 
 // Thresholds for "green zone"
 const THRESHOLDS = { coc: 0.06, irr: 0.12, dscr: 1.25, cashFlow: 0 };
@@ -107,16 +120,17 @@ function SensitivityTab({ deal }) {
     const a = m.assumptions;
     Object.entries(sliderOverrides).forEach(([key, val]) => {
       if (key === 'purchasePrice') a.purchasePrice = val;
-      else if (key === 'rent') a.units = a.units.map(u => ({ ...u, rent: val }));
+      else if (key === 'rent') a.units = scaleRents(a, val);
       else if (key === 'propertyTax') { if (a.expenses?.propertyTax) a.expenses.propertyTax = val; }
       else a[key] = val;
     });
     return m;
   }, [deal, sliderOverrides]);
 
-  const base      = useMemo(() => calcDeal(deal), [deal]);
-  const scenCalc  = useMemo(() => calcDeal(scenarioDeal), [scenarioDeal]);
-  const sliderCalc = useMemo(() => calcDeal(sliderDeal), [sliderDeal]);
+  const holdYears = Math.max(1, Math.min(30, +(deal?.assumptions?.holdPeriod || 10)));
+  const base      = useMemo(() => withDerived(calcDeal(deal)), [deal]);
+  const scenCalc  = useMemo(() => withDerived(calcDeal(scenarioDeal)), [scenarioDeal]);
+  const sliderCalc = useMemo(() => withDerived(calcDeal(sliderDeal)), [sliderDeal]);
   const sens      = useMemo(() => calcSensitivity(deal), [deal]);
 
   // Sensitivity (tornado) uses the base deal
@@ -136,7 +150,7 @@ function SensitivityTab({ deal }) {
   const getSliderBase = (def) => {
     const a = deal.assumptions;
     if (def.key === 'purchasePrice') return +a.purchasePrice;
-    if (def.key === 'rent') return a.units?.length ? +a.units[0].rent : 1500;
+    if (def.key === 'rent') return unitRent(a.units?.[0]) || 1500;
     if (def.key === 'propertyTax') return +a.expenses?.propertyTax || 0;
     return +a[def.key] || 0;
   };
@@ -168,8 +182,8 @@ function SensitivityTab({ deal }) {
     for (let i = 0; i < 30; i++) {
       const mid = (lo + hi) / 2;
       const m = structuredClone(deal);
-      m.assumptions.units = m.assumptions.units.map(u => ({ ...u, rent: mid }));
-      const r = calcDeal(m);
+      m.assumptions.units = scaleRents(m.assumptions, mid);
+      const r = withDerived(calcDeal(m));
       if (r.monthlyCF > 0) hi = mid; else lo = mid;
     }
     return (lo + hi) / 2;
@@ -234,7 +248,7 @@ function SensitivityTab({ deal }) {
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:8,marginBottom:14}}>
           {metricCard("CoC Yr1",    base.cocReturn,  scenCalc.cocReturn,  FMT_PCT, true)}
           {metricCard("Cap Rate",   base.capRate,    scenCalc.capRate,    FMT_PCT, true)}
-          {metricCard("IRR 10yr",   base.irr,        scenCalc.irr,        FMT_PCT, true)}
+          {metricCard(`IRR ${holdYears}yr`,   base.irr,        scenCalc.irr,        FMT_PCT, true)}
           {metricCard("DSCR",       base.dscr,       scenCalc.dscr,       v => v?.toFixed(2)+'x', true)}
         </div>
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:8,marginBottom:14}}>
@@ -377,7 +391,7 @@ function SensitivityTab({ deal }) {
       ══════════════════════════════════════════════════════ */}
       <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:20,flexWrap:"wrap"}}>
         <span style={{fontSize:13,color:"var(--muted)",fontWeight:600}}>Tornado Metric:</span>
-        {[["irr","IRR (10yr)"],["coc","CoC (Yr1)"]].map(([k,lbl])=>(
+        {[["irr",`IRR (${holdYears}yr)`],["coc","CoC (Yr1)"]].map(([k,lbl])=>(
           <button key={k} onClick={()=>setMetric(k)}
             style={{padding:"7px 14px",borderRadius:6,border:"1px solid var(--border)",
               background:metric===k?"var(--accent)":"var(--card)",

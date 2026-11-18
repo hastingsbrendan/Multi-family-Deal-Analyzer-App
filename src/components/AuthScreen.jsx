@@ -91,19 +91,19 @@ function AuthScreen({ onAuth, initialMode }) {
     background:"none", border:"none", padding:0, fontFamily:"inherit" };
 
   return (
-    <div style={{minHeight:"100vh", background:"var(--bg)", display:"flex", alignItems:"center",
+    <div style={{minHeight:"100vh", background:"var(--bg)", color:"var(--text)", display:"flex", alignItems:"center",
       justifyContent:"center", padding:16}}>
       <div style={{width:"100%", maxWidth:420, background:"var(--card)", border:"1.5px solid var(--border)",
         borderRadius:22, padding:"44px 40px", boxShadow:"0 24px 64px rgba(0,0,0,0.08)"}}>
 
-        <div style={{display:"flex", alignItems:"center", gap:10, marginBottom:32, justifyContent:"center"}}>
+        <a href="/landing" aria-label="RentHack home" style={{display:"flex", alignItems:"center", gap:10, marginBottom:32, justifyContent:"center", textDecoration:"none", color:"inherit"}}>
           <div style={{width:44, height:44, background:"var(--accent)", borderRadius:12, display:"flex",
             alignItems:"center", justifyContent:"center", fontSize:22}}>🏠</div>
           <div>
             <div style={{fontFamily:"'Fraunces',serif", fontWeight:900, fontSize:22, letterSpacing:"-0.5px"}}><span>Rent</span><span style={{color:"var(--accent)"}}>Hack</span></div>
             <div style={{fontSize:12, color:"var(--muted)", marginTop:1}}>2–4 unit multifamily</div>
           </div>
-        </div>
+        </a>
 
         {mode === "verify" && (
           <div style={{textAlign:"center"}}>
@@ -170,7 +170,7 @@ function AuthScreen({ onAuth, initialMode }) {
 
         {mode === "login" && (
           <div style={{display:"flex", flexDirection:"column", gap:14}}>
-            <div style={{fontWeight:800, fontSize:20, marginBottom:2}}>Welcome back</div>
+            <h1 style={{fontWeight:800, fontSize:20, margin:"0 0 2px"}}>Welcome back</h1>
             <button onClick={()=>authSignInWithGoogle()} style={{width:"100%",padding:"11px",borderRadius:8,
               fontSize:14,fontWeight:600,background:"#fff",color:"#1f2937",border:"1px solid #d1d5db",
               cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,fontFamily:"inherit"}}>
@@ -211,7 +211,7 @@ function AuthScreen({ onAuth, initialMode }) {
 
         {mode === "signup" && (
           <div style={{display:"flex", flexDirection:"column", gap:14}}>
-            <div style={{fontWeight:800, fontSize:20, marginBottom:2}}>Create your account</div>
+            <h1 style={{fontWeight:800, fontSize:20, margin:"0 0 2px"}}>Create your account</h1>
             <button onClick={()=>authSignInWithGoogle()} style={{width:"100%",padding:"11px",borderRadius:8,
               fontSize:14,fontWeight:600,background:"#fff",color:"#1f2937",border:"1px solid #d1d5db",
               cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,fontFamily:"inherit"}}>

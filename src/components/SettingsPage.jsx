@@ -57,12 +57,20 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
       return next;
     });
   };
-  const handleSaveDefaults = (applyToDeals) => {
+  const [saveError, setSaveError] = useState('');
+  // Only say "saved" once the cloud write succeeded (it used to show regardless).
+  const handleSaveDefaults = async (applyToDeals) => {
     setSaving(true);
-    onSave(local, applyToDeals ? pushFields : null);
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setSaveError('');
+    try {
+      await onSave(local, applyToDeals ? pushFields : null);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {
+      setSaveError("Couldn't save your defaults. Check your connection and try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   // ── Account tab state ─────────────────────────────────────────────────────
@@ -340,6 +348,7 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
             </button>
           </div>
           {saved && <div style={{color:'var(--green)',fontSize:13,fontWeight:600,marginTop:12}}>✓ Settings saved</div>}
+          {saveError && <div role="alert" style={{color:'var(--red)',fontSize:13,fontWeight:600,marginTop:12}}>{saveError}</div>}
         </div>
       </>)}
 

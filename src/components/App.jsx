@@ -254,14 +254,14 @@ function App() {
 
   // Auth gate
   if (authLoading) return (
-    <div data-theme="dark">
+    <div data-theme="dark" style={{color:"var(--text)"}}>
       <Spinner fullPage/>
     </div>
   );
   if (!user) {
     // #app / #signup = landing-page CTA; callback = email verify / password reset
     if (gate === 'auth') return (
-      <div data-theme="dark" style={{minHeight:"100vh"}}>
+      <div data-theme="dark" style={{minHeight:"100vh",color:"var(--text)"}}>
         <AuthScreen onAuth={setUser} initialMode={authIntent === 'signup' ? "signup" : authIntent === 'login' ? "login" : undefined}/>
       </div>
     );
@@ -295,7 +295,8 @@ function App() {
             onOpenGroups={()=>{ setShowSettings(false); setShowGroups(true); }}
             onSave={(newPrefs, pushFields)=>{
               setPrefs(newPrefs);
-              sbWritePrefs(newPrefs).catch(()=>{});
+              const saving = sbWritePrefs(newPrefs);
+              saving.catch(e => Sentry.captureException(e, { tags: { origin: 'App.sbWritePrefs' } }));
               if (pushFields && pushFields.size > 0 && deals?.length > 0) {
                 const has = (k) => pushFields.has(k);
                 const updated = deals.map(d => {
@@ -325,6 +326,7 @@ function App() {
                 });
                 setDeals(updated);
               }
+              return saving;
             }}
           />
         </Suspense>

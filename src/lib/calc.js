@@ -301,7 +301,7 @@ function buildDealConfig(a) {
   const fedMarginalAtBase=federalMethod==='flat'?bracketRate:federalMarginal(taxableBase(otherIncome,filingStatus),filingStatus);
   const refiNewRateRaw=a.refi?.newRate;
   const costSegFee=+(taxCfg.costSegFee||0);
-  return {pp,dpPct,dp,totalCash,loanAmt,rate,n,monthlyPayment,annualDebtService,grossRentYear0,pmiAnnual,sellingCostPct,
+  return {pp,dpPct,dp,closingCostsTotal,concessions,loanShortfall,totalCash,loanAmt,rate,n,monthlyPayment,annualDebtService,grossRentYear0,pmiAnnual,sellingCostPct,
     ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAnnualUtilities,ooAltRentMonthly,
     vacRate,rentGrowth,expGrowth,appRate,baseExp,baseExpenses,
     holdYears,refiEnabled,refiYear,refiRate,refiLTV,refiValue,
@@ -556,7 +556,7 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
   const {pp,holdYears,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExp,baseExpenses,
     ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,vacRate,
     vaEnabled,vaCompletionYr,vaReModelCost,vaRentBump,
-    totalCash,totalCashWithVA,taxAdvEnabled,refiEnabled,refiYear,appRate}=cfg;
+    totalCash,totalCashWithVA,taxAdvEnabled,refiEnabled,refiYear,appRate,dp,closingCostsTotal,concessions,loanShortfall}=cfg;
   const years=[];
   let ls={balance:loanAmt,currentMonthlyPayment:monthlyPayment,currentAnnualDebtService:annualDebtService,refiCashOut:0,palCarryforward:0,basicPalCarryforward:0,cumulativeDepreciationTaken:0,cumulative1245Taken:0};
   for(let yr=1;yr<=holdYears;yr++){
@@ -586,7 +586,7 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     return { applies: true, grossRentAllUnits, threshold75Pct, pitiAnnual, passes, delta };
   })();
 
-  return {totalCash:totalCashWithVA,totalCashBase:totalCash,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExpenses,baseExpBreakdown:baseExp,noi:years[0]?.noi||0,cocReturn:years[0]?.cocReturn||0,capRate:years[0]?.capRate||0,dscr:years[0]?.dscr||0,dscrLenderView:years[0]?.dscrLenderView||0,irr,equityMultiple,breakEvenOccupancy,exitValue,exitLoanBalance,sellingCosts,adjustedBasis,totalGainOnSale,sec1245RecapturePortion,sec1250RecapturePortion,trueLTCGPortion,sec121Exclusion,recaptureTax,ltcgTax,niitTax,stateTaxOnSale,palTaxBenefit,netTaxOnSale,netProceeds,capitalGainsTax,years,holdYears,refiCashOut,refiYear:refiEnabled?refiYear:null,vaEnabled,vaReModelCost,vaRentBump,vaCompletionYr,irrWithoutVA,irrWithVA,ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,taxAdvEnabled,finalPalCarryforward:finalPal,cumulativeDepreciationTaken:ls.cumulativeDepreciationTaken,fhaSelfSufficiency};
+  return {totalCash:totalCashWithVA,totalCashBase:totalCash,downPayment:dp,closingCostsTotal,concessions,loanShortfall,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExpenses,baseExpBreakdown:baseExp,noi:years[0]?.noi||0,cocReturn:years[0]?.cocReturn||0,capRate:years[0]?.capRate||0,dscr:years[0]?.dscr||0,dscrLenderView:years[0]?.dscrLenderView||0,irr,equityMultiple,breakEvenOccupancy,exitValue,exitLoanBalance,sellingCosts,adjustedBasis,totalGainOnSale,sec1245RecapturePortion,sec1250RecapturePortion,trueLTCGPortion,sec121Exclusion,recaptureTax,ltcgTax,niitTax,stateTaxOnSale,palTaxBenefit,netTaxOnSale,netProceeds,capitalGainsTax,years,holdYears,refiCashOut,refiYear:refiEnabled?refiYear:null,vaEnabled,vaReModelCost,vaRentBump,vaCompletionYr,irrWithoutVA,irrWithVA,ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,taxAdvEnabled,finalPalCarryforward:finalPal,cumulativeDepreciationTaken:ls.cumulativeDepreciationTaken,fhaSelfSufficiency};
 }
 
 // ── BACK-805: Exit Year Scenario Analysis ─────────────────────────────────────
@@ -661,9 +661,15 @@ const createSampleDeal = (prefs) => {
   a.vacancyRate = 5;
   a.pmi = 150; // 10% down → PMI until 78% LTV (~0.6%/yr of the ~$306k loan)
 
-  // Expenses — realistic for a Chicago 2-flat
-  a.expenseModes.propertyTax = 'value';
-  a.expenseModes.insurance   = 'value';
+  // Expenses — realistic for a Chicago 2-flat. newDeal starts maintenance/CapEx/
+  // management in "% of rent" mode, so set the modes too or the $ amounts below are
+  // ignored and an 8% fee lands on a self-managed deal (2026-11 review).
+  a.expenseModes.propertyTax  = 'value';
+  a.expenseModes.insurance    = 'value';
+  a.expenseModes.maintenance  = 'value';
+  a.expenseModes.capex        = 'value';
+  a.expenseModes.propertyMgmt = 'value';
+  a.selfManage            = true;
   a.expenses.propertyTax  = 5800;
   a.expenses.insurance    = 1600;
   a.expenses.maintenance  = 2200;
@@ -675,6 +681,9 @@ const createSampleDeal = (prefs) => {
   a.expenseGrowth    = 2;
   a.appreciationRate = 4;
   a.taxBracket       = 22;
+  // Set up front so the numbers don't shift when the Assumptions tab later reads
+  // the state from the address.
+  a.state            = 'IL';
 
   a.beds = 4; a.baths = 2; a.yearBuilt = 1965; a.sqftTotal = 2400;
 

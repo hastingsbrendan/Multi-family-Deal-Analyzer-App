@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { iSty } from './ui/InputRow';
-import { FMT_USD } from '../lib/constants';;
+import { FMT_USD } from '../lib/constants';
 import { useIsMobile } from '../lib/hooks';
 import PhotoGallery from './PhotoGallery';
 
@@ -22,9 +22,15 @@ function ShowingTab({deal,onChange}){
     if(!d.showing.units||!Array.isArray(d.showing.units))d.showing.units=Array(4).fill(null).map(()=>({condition:"",notes:"",rehabMode:"lump",rehabLump:0,rehabPhase:"1",lineItems:[]}));
     if(!d.showing.exterior)d.showing.exterior={condition:"",notes:"",rehabMode:"lump",rehabLump:0,rehabPhase:"1",lineItems:[]};
     fn(d);
+    // Phase-1 rehab feeds the Value-Add remodel cost, but only when this edit changed
+    // the rehab total. Syncing on every edit meant typing a note or picking an
+    // impression reset a remodel cost entered in Assumptions, often to $0.
+    const before=calcRehabTotal(deal.showing||{},deal.assumptions.numUnits,"1");
     const p1=calcRehabTotal(d.showing,d.assumptions.numUnits,"1");
-    if(!d.assumptions.valueAdd)d.assumptions.valueAdd={};
-    d.assumptions.valueAdd.reModelCost=p1;
+    if(p1!==before){
+      if(!d.assumptions.valueAdd)d.assumptions.valueAdd={};
+      d.assumptions.valueAdd.reModelCost=p1;
+    }
     onChange(d);
   };
   const imp=(deal.showing||{}).impression||"";
@@ -97,7 +103,7 @@ function ShowingTab({deal,onChange}){
           {COND_OPTS.map(o=><option key={o} value={o}>{o||"— Select —"}</option>)}
         </select>
         <label style={lSty}>Notes</label>
-        <textarea value={u.notes||""} onChange={e=>upd(d=>{if(!d.showing.units[i])d.showing.units[i]={};d.showing.units[i].notes=e.target.value;})} rows={3} placeholder="Unit condition, features, tenant situation…" style={{...iSty,resize:"vertical",marginBottom:12}}/>
+        <textarea value={u.notes||""} onChange={e=>upd(d=>{if(!d.showing.units[i])d.showing.units[i]={};d.showing.units[i].notes=e.target.value;})} rows={3} placeholder="Unit condition, features, tenant situation…" style={{...iSty,borderRadius:10,resize:"vertical",marginBottom:12}}/>
         {renderRehab(true,i)}
         <PhotoGallery deal={deal} onUpdate={onChange} context={`unit_${i}`} contextLabel={`Unit ${i+1}`}/>
       </div>);
@@ -112,7 +118,7 @@ function ShowingTab({deal,onChange}){
         {COND_OPTS.map(o=><option key={o} value={o}>{o||"— Select —"}</option>)}
       </select>
       <label style={lSty}>Notes</label>
-      <textarea value={ext.notes||""} onChange={e=>upd(d=>{if(!d.showing.exterior)d.showing.exterior={};d.showing.exterior.notes=e.target.value;})} rows={3} placeholder="Roof, foundation, siding, landscaping, parking…" style={{...iSty,resize:"vertical",marginBottom:12}}/>
+      <textarea value={ext.notes||""} onChange={e=>upd(d=>{if(!d.showing.exterior)d.showing.exterior={};d.showing.exterior.notes=e.target.value;})} rows={3} placeholder="Roof, foundation, siding, landscaping, parking…" style={{...iSty,borderRadius:10,resize:"vertical",marginBottom:12}}/>
       {renderRehab(false,-1)}
       <PhotoGallery deal={deal} onUpdate={onChange} context="exterior" contextLabel="Exterior"/>
     </div>);})()}

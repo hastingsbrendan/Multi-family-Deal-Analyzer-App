@@ -170,13 +170,18 @@ async function sbDeleteDeal(dealId) {
 async function sbWritePrefs(prefs) {
   const user = await currentUser();
   if (!user) throw new Error("Not authenticated");
-  // Prefs live on the legacy blob row (deal_data IS NULL)
-  const { error: updateErr } = await sbClient
+  // Prefs live on the legacy blob row (deal_data IS NULL). Updating zero rows is not
+  // an error, so the insert used to run only on a failed update: new accounts have no
+  // such row, and nobody's defaults were ever saved (2026-11 review). Insert when the
+  // update touched nothing.
+  const { data: updated, error: updateErr } = await sbClient
     .from("deals")
     .update({ prefs, updated_at: new Date().toISOString() })
     .eq("user_id", user.id)
-    .is("deal_data", null);
-  if (updateErr) {
+    .is("deal_data", null)
+    .select("deal_id");
+  if (updateErr) throw new Error(`WritePrefs: ${updateErr.message}`);
+  if (!updated?.length) {
     const { error: insertErr } = await sbClient
       .from("deals")
       .insert({ user_id: user.id, prefs, updated_at: new Date().toISOString() });

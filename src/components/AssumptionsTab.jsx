@@ -10,6 +10,24 @@ import PropertyLookupPanel from './AssumptionsTab/PropertyLookupPanel';
 import { getStateOptions } from '../lib/taxEngine';
 import { FEDERAL_TAX_YEAR } from '../lib/federalTaxEngine';
 
+// Plain numeric field that keeps what you type locally and commits on blur (or Enter).
+// The previous inline inputs were controlled by deal state but never updated it on
+// change, so React reset them on every keystroke and Interest Rate / Amortization
+// couldn't be typed into; the growth fields were rebuilt on every render and lost
+// focus after one character (2026-11 review).
+function DraftInput({value, onCommit, allow=/[^0-9.]/g, style}) {
+  const [draft, setDraft] = useState(null);
+  const shown = draft ?? (value ?? "");
+  const commit = () => { if (draft !== null) { onCommit(draft); setDraft(null); } };
+  return (
+    <input type="text" inputMode="decimal" value={shown} placeholder="0"
+      onChange={e=>setDraft(e.target.value.replace(allow,""))}
+      onBlur={commit}
+      onKeyDown={e=>{ if (e.key==="Enter") e.currentTarget.blur(); }}
+      style={style}/>
+  );
+}
+
 function ExpenseInputRow({lbl, modeToggle, isItemPct, rawVal, onChange, mobile, tip}) {
   const [focused, setFocused] = useState(false);
   const [draft, setDraft] = useState('');
@@ -224,9 +242,7 @@ function AssumptionsTab({deal,onChange}){
                 <div>
                   <label style={lblSt}>Interest Rate</label>
                   <div style={{display:"flex",alignItems:"center",gap:4}}>
-                    <input type="text" inputMode="decimal" value={a.interestRate||""} placeholder="0"
-                      onChange={e=>{ e.target.value=e.target.value.replace(/[^0-9.]/g,""); }}
-                      onBlur={e=>upd("interestRate",e.target.value.replace(/,/g,""))}
+                    <DraftInput value={a.interestRate||""} onCommit={v=>upd("interestRate",v)}
                       style={{...fldSt,flex:1}}/>
                     <span style={{fontSize:"var(--text-sm)",color:"var(--muted)",whiteSpace:"nowrap"}}>%</span>
                   </div>
@@ -234,9 +250,7 @@ function AssumptionsTab({deal,onChange}){
                 <div>
                   <label style={lblSt}>Amortization</label>
                   <div style={{display:"flex",alignItems:"center",gap:4}}>
-                    <input type="text" inputMode="decimal" value={a.amortYears||""} placeholder="0"
-                      onChange={e=>{ e.target.value=e.target.value.replace(/[^0-9]/g,""); }}
-                      onBlur={e=>upd("amortYears",e.target.value.replace(/,/g,""))}
+                    <DraftInput value={a.amortYears||""} allow={/[^0-9]/g} onCommit={v=>upd("amortYears",v)}
                       style={{...fldSt,flex:1}}/>
                     <span style={{fontSize:"var(--text-sm)",color:"var(--muted)",whiteSpace:"nowrap"}}>yrs</span>
                   </div>
@@ -708,22 +722,23 @@ function AssumptionsTab({deal,onChange}){
       {(()=>{
         const fldSt={width:"100%",padding:"8px 10px",borderRadius:"var(--r-md)",fontSize:"var(--text-base)",border:"1.5px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"inherit",WebkitAppearance:"none",appearance:"none"};
         const lblSt={fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4,display:"block"};
+        // Called as a function, not rendered as <Col/>: a component declared inside
+        // render is a new type each time, which remounts the input and drops focus.
         const Col = ({label,value,path,suffix,tip}) => (
-          <div>
+          <div key={path}>
             <label style={{...lblSt,display:"flex",alignItems:"center"}}>{label}{tip&&<Tip text={tip}/>}</label>
             <div style={{display:"flex",alignItems:"center",gap:4}}>
-              <input type="text" inputMode="decimal" value={value||""} placeholder="0"
-                onChange={e=>upd(path,e.target.value.replace(/,/g,""))}
+              <DraftInput value={value||""} allow={/[^0-9.\-]/g} onCommit={v=>upd(path,v)}
                 style={{...fldSt,flex:1}}/>
               <span style={{fontSize:12,color:"var(--muted)",whiteSpace:"nowrap"}}>{suffix}</span>
             </div>
           </div>
         );
         return(<>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,paddingBottom:8,borderBottom:"1px solid var(--border-faint)",marginBottom:4}}>
-            <Col label="Rent Growth" value={a.rentGrowth} path="rentGrowth" suffix="%/yr" tip="Annual % increase in rents over the 10-year hold. Historical multifamily rent growth averages ~3–4%/yr in most US markets."/>
-            <Col label="Expense Growth" value={a.expenseGrowth} path="expenseGrowth" suffix="%/yr" tip="Annual % increase in operating expenses (taxes, insurance, maintenance). Typically tracks inflation — 2–3%/yr is realistic."/>
-            <Col label="Appreciation" value={a.appreciationRate} path="appreciationRate" suffix="%/yr" tip="Annual % increase in the property's value. Used to project your equity at sale. Conservative assumption: 3–4%/yr; be careful not to over-assume."/>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:10,paddingBottom:8,borderBottom:"1px solid var(--border-faint)",marginBottom:4}}>
+            {Col({label:"Rent Growth", value:a.rentGrowth, path:"rentGrowth", suffix:"%/yr", tip:"Annual % increase in rents over the hold period. Historical multifamily rent growth averages ~3–4%/yr in most US markets."})}
+            {Col({label:"Expense Growth", value:a.expenseGrowth, path:"expenseGrowth", suffix:"%/yr", tip:"Annual % increase in operating expenses (taxes, insurance, maintenance). Typically tracks inflation — 2–3%/yr is realistic."})}
+            {Col({label:"Appreciation", value:a.appreciationRate, path:"appreciationRate", suffix:"%/yr", tip:"Annual % increase in the property's value. Used to project your equity at sale. Conservative assumption: 3–4%/yr; be careful not to over-assume."})}
           </div>
           <InputRow label="Selling Costs" value={a.sellingCostPct??6} onChange={v=>upd("sellingCostPct",v)} suffix="% of sale" tip="Agent commissions plus seller-paid closing costs when you eventually sell — typically 6–8% of the sale price. Deducted from exit proceeds and from the taxable gain."/>
         </>);

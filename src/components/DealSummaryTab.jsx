@@ -143,12 +143,12 @@ function DealSummaryTab({deal, result, onUpdate}) {
               🏠 Your Effective Mortgage<Tip text={GLOSSARY.effectiveMortgage}/>
             </div>
             <div style={{fontSize:isMobile?34:44,fontWeight:900,letterSpacing:"-2px",color:emPos?"var(--red)":"var(--green)",lineHeight:1,marginBottom:6,fontFamily:"'Fraunces',serif"}}>
-              {emPos?"+":"-"}{FMT_USD(Math.abs(effectiveMortgage))}<span style={{fontSize:"var(--text-base)",color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
+              {emPos?"":"+"}{FMT_USD(Math.abs(effectiveMortgage))}<span style={{fontSize:"var(--text-base)",color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
             </div>
             <div style={{fontSize:12,color:"var(--muted)",lineHeight:1.5}}>
               {emPos
                 ? <>Tenant rents cover <strong style={{color:"var(--accent)"}}>{Math.round(Math.min(100,(egiExOO/Math.max(piti,1))*100))}%</strong> of your PITI. You still pay {FMT_USD(Math.abs(effectiveMortgage))}/mo out of pocket to live here.</>
-                : <>Tenant rents cover <strong style={{color:"var(--green)"}}>100%</strong> of PITI plus {FMT_USD(Math.abs(effectiveMortgage))}/mo. You live for free with positive cash flow.</>
+                : <>Tenant rents cover <strong style={{color:"var(--green)"}}>100%</strong> of PITI with {FMT_USD(Math.abs(effectiveMortgage))}/mo to spare. You live mortgage-free (before repairs, CapEx and management).</>
               }
             </div>
           </div>
@@ -369,12 +369,21 @@ function DealSummaryTab({deal, result, onUpdate}) {
 
     {(()=>{
       // ── derived monthly values ──
-      const grossRentMo   = result.grossRentYear0/12;
-      const vacancyMo     = grossRentMo*(+a.vacancyRate||0)/100;
-      const egiAllMo      = (result.years[0]?.egi||0)/12;
-      const pitiMo        = piti;
-      const opexMo        = result.baseExpenses/12;
+      // Every bar comes from the engine's Year 1 row so the steps add up to the Cash
+      // Flow bar. OpEx used to include tax and insurance, which PITI already holds, and
+      // owner-occupied deals skipped the owner's unit (2026-11 review).
+      const y1            = result.years[0]||{};
+      const y1Tax         = y1.expBreakdown?.propertyTax||0;
+      const y1Ins         = y1.expBreakdown?.insurance||0;
+      const grossRentMo   = (y1.grossRent||0)/12;
+      const ownUnitMo     = (y1.ooRentDeduction||0)/12;
+      const vacancyMo     = (y1.vacancyLoss||0)/12;
+      const egiAllMo      = (y1.egi||0)/12;
+      const pitiMo        = ((y1.debtService||0)+(y1.pmi||0)+y1Tax+y1Ins)/12;
+      const opexMo        = ((y1.expenses||0)-y1Tax-y1Ins)/12;
       const cfMo          = regularCF;
+      // Owner utilities, renovation draws and any refi cash-out in Year 1
+      const otherMo       = egiAllMo-pitiMo-opexMo-cfMo;
 
       // PITI slices — PMI included so the donut totals the real housing payment
       const pitiSlices = [
@@ -493,7 +502,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
               <SLbl tip={GLOSSARY.effectiveMortgage}>Effective Mortgage</SLbl>
               <div style={{fontSize:"var(--text-xs)",color:"var(--muted)",marginBottom:8}}>PITI − Tenant rents</div>
               <div style={{fontSize:"var(--text-xl)",fontWeight:900,letterSpacing:"-1px",color:emPos?"var(--red)":"var(--green)",lineHeight:1,marginBottom:10,fontFamily:"'Fraunces',serif"}}>
-                {emPos?"+":"-"}{FMT_USD(Math.abs(effectiveMortgage))}<span style={{fontSize:"var(--text-sm)",color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
+                {emPos?"":"+"}{FMT_USD(Math.abs(effectiveMortgage))}<span style={{fontSize:"var(--text-sm)",color:"var(--muted)",fontWeight:400,letterSpacing:0}}>/mo</span>
               </div>
               <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Rent covers PITI</div>
               <div style={{height:5,background:"var(--bg2)",borderRadius:99,border:"1px solid var(--border)",overflow:"hidden",marginBottom:4}}>
@@ -510,10 +519,12 @@ function DealSummaryTab({deal, result, onUpdate}) {
             <DSPanel>
               <SLbl>Monthly Waterfall</SLbl>
               <WFBar label="Gross Rent"   value={grossRentMo}  color="var(--accent)"  pct={100}     />
-              <WFBar label="−Vacancy"     value={-vacancyMo}   color="var(--red)"     pct={vacancyMo/wfTotal*100}/>
+              {ownUnitMo>0.5&&<WFBar label="−Your unit (you live here)" value={-ownUnitMo} color="var(--muted)" pct={ownUnitMo/wfTotal*100}/>}
+              <WFBar label={ownUnitMo>0.5?"−Vacancy (tenant units)":"−Vacancy"} value={-vacancyMo} color="var(--red)" pct={vacancyMo/wfTotal*100}/>
               <WFBar label="EGI"          value={egiAllMo}     color="var(--accent)"  pct={egiPct}  />
               <WFBar label="−PITI"        value={-pitiMo}      color="#0891B2"        pct={pitiPct} />
-              <WFBar label="−OpEx"        value={-opexMo}      color="var(--accent2)" pct={opexPct} />
+              <WFBar label="−OpEx (excl. tax & ins.)" value={-opexMo} color="var(--accent2)" pct={opexPct} />
+              {Math.abs(otherMo)>0.5&&<WFBar label={otherMo>0?"−Utilities / renovation":"+Refi cash-out"} value={-otherMo} color="var(--muted)" pct={Math.abs(otherMo)/wfTotal*100}/>}
               <WFBar label="Cash Flow"    value={cfMo}         color={cfMo>=0?"var(--green)":"var(--red)"} pct={cfPct} isResult/>
             </DSPanel>
           </div>
@@ -638,7 +649,9 @@ function DealSummaryTab({deal, result, onUpdate}) {
         <SLbl>Financing</SLbl>
         {[
           ["Purchase Price", FMT_USD(+a.purchasePrice)],
-          ["Down Payment", FMT_USD(result.totalCashBase-(Object.values(a.closingCosts||{}).reduce((s,v)=>s+(+v||0),0)))+" ("+((a.downPaymentPct==null||a.downPaymentPct==='')?25:+a.downPaymentPct)+"%)"],
+          // Price minus loan: the old figure (total cash − closing costs) also counted the
+          // prepaid insurance, showing $35,600 for 10% of $340k (2026-11 review).
+          ["Down Payment", (()=>{const dp=Math.max(0,(+a.purchasePrice||0)-(result.loanAmt||0));const pct=+a.purchasePrice>0?dp/(+a.purchasePrice)*100:0;return FMT_USD(dp)+" ("+(Math.round(pct*10)/10)+"%)";})()],
           ["Loan Amount", FMT_USD(result.loanAmt)],
           ["Interest Rate", ((a.interestRate==null||a.interestRate==='')?7:+a.interestRate).toFixed(3)+"%"],
           ["Amortization", (a.amortYears||30)+" years"],
@@ -664,10 +677,10 @@ function DealSummaryTab({deal, result, onUpdate}) {
           {a.units.slice(0,numUnits).map((u,i)=>(
             <KV key={i} label={"Unit "+(i+1)+(result.ooEnabled&&i===result.ooUnit?" 🏠":"")} value={FMT_USD(+(u.rent||u.listedRent)||0)+"/mo"} color={result.ooEnabled&&i===result.ooUnit?"var(--muted)":"var(--text)"}/>
           ))}
-          <KV label="Gross Rent" value={FMT_USD(result.grossRentYear0/12)+"/mo"}/>
-          <KV label={"Vacancy ("+((+a.vacancyRate)||0)+"%)"} value={FMT_USD(-result.grossRentYear0/12*(+a.vacancyRate||0)/100)+"/mo"} color="var(--red)" tip={GLOSSARY.vacancyRate}/>
-          <KV label="EGI (All Units)" value={FMT_USD(result.years[0]?.egi/12||0)+"/mo"} color="var(--accent)" bold tip={GLOSSARY.egi}/>
-          {result.ooEnabled&&<KV label="EGI (Tenant Only)" value={FMT_USD(egiExOO)+"/mo"} color="var(--accent)" bold/>}
+          <KV label="Gross Rent (all units)" value={FMT_USD((result.years[0]?.grossRent||0)/12)+"/mo"}/>
+          {(result.years[0]?.ooRentDeduction||0)>0&&<KV label="Your unit (you live here)" value={FMT_USD(-(result.years[0].ooRentDeduction)/12)+"/mo"} color="var(--muted)"/>}
+          <KV label={"Vacancy ("+((+a.vacancyRate)||0)+"%"+((result.years[0]?.ooRentDeduction||0)>0?" of tenant rent)":")")} value={FMT_USD(-(result.years[0]?.vacancyLoss||0)/12)+"/mo"} color="var(--red)" tip={GLOSSARY.vacancyRate}/>
+          <KV label="EGI" value={FMT_USD((result.years[0]?.egi||0)/12)+"/mo"} color="var(--accent)" bold tip={GLOSSARY.egi}/>
           <KV label="NOI Year 1" value={FMT_USD(result.noi)+"/yr"} color="var(--accent)" last tip={GLOSSARY.noi}/>
         </DSPanel>
         <DSPanel>
