@@ -141,14 +141,20 @@ function App() {
   const addDeal = useCallback(() => _addDeal(setActiveDealId), [_addDeal, setActiveDealId]);
   const addSampleDeal = useCallback(() => {
     _addSampleDeal(setActiveDealId);
-    // First-touch users from the empty-portfolio CTA: auto-launch the guided tour
-    // unless they've explicitly closed/completed it before. We check the flag here
-    // so any later sample-deal additions don't re-trigger the tour.
-    if (user && !localStorage.getItem('rh_tour_seen_' + user.id)) {
-      localStorage.setItem('rh_tour_seen_' + user.id, '1');
-      setTourStep(0);
-    }
+    launchTourOnce();
   }, [_addSampleDeal, setActiveDealId, user]);
+
+  // The guided tour starts by itself once per account. New accounts get a sample deal
+  // at sign-up, so the portfolio is never empty and the empty-portfolio trigger above
+  // never fired; it now also starts right after the first-run disclaimer (2026-11, M9a).
+  function launchTourOnce() {
+    if (!user) return;
+    try {
+      if (localStorage.getItem('rh_tour_seen_' + user.id)) return;
+      localStorage.setItem('rh_tour_seen_' + user.id, '1');
+    } catch { /* storage blocked: still show the tour this once */ }
+    setTourStep(0);
+  }
 
   const theme = dark ? "dark" : "light";
   const showDisclaimer = user && !user.user_metadata?.disclaimer_ack_at;
@@ -373,6 +379,7 @@ function App() {
       {showDisclaimer && (
         <DisclaimerModal user={user} onAcknowledged={() => {
           sbClient.auth.getUser().then(({ data }) => { if (data?.user) setUser(data.user); });
+          launchTourOnce();
         }}/>
       )}
       <div style={{borderBottom:"1px solid var(--border)",padding:"0 20px",height:60,display:"flex",alignItems:"center",justifyContent:"space-between",background:dark?"var(--card)":"rgba(253,250,246,0.95)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",position:"sticky",top:0,zIndex:100}}>

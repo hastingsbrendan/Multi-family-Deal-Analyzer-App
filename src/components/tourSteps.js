@@ -48,7 +48,7 @@ export const TOUR_STEPS = [
   },
   {
     title: 'Cash Flow Projections',
-    body: '10-year projections showing income growth, expenses, debt service, cash flow, and equity accumulation year by year.',
+    body: 'Year-by-year projections over your hold period (1–30 years): income, expenses, debt service, cash flow, taxes, and equity.',
     target: 'tab-content',
     page: 'deal',
     tab: 2,
@@ -56,7 +56,7 @@ export const TOUR_STEPS = [
   },
   {
     title: 'Rent Comps',
-    body: 'Compare your rents against market data. Paste a listing URL to pull nearby rental comps and see how your assumptions stack up.',
+    body: 'Enter nearby rentals to check your rent assumptions against the market. Part of RentHack Pro.',
     target: 'tab-content',
     page: 'deal',
     tab: 3,
@@ -99,7 +99,7 @@ export const TOUR_STEPS = [
   },
   {
     title: "You're ready to analyze deals!",
-    body: 'Start by clicking + Add to create your first deal, or paste a listing URL directly into the Property Lookup panel. Your data syncs automatically across devices.',
+    body: 'Click + New Deal to analyze your own property, or paste an address or listing URL into the Property Lookup panel on the Assumptions tab. Your deals sync across your devices.',
     icon: '🚀',
     page: 'center',
   },
