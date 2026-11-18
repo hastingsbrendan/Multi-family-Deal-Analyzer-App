@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Users, Building2, Download, Compass } from 'lucide-react';
+const ICON = {size:14,strokeWidth:2,style:{verticalAlign:'-2px',marginRight:6},'aria-hidden':true};
 import InputRow, { iSty } from './ui/InputRow';
 import Tip from './ui/Tip';
 import EmptyState from './ui/EmptyState';
@@ -222,7 +224,7 @@ function DealCard({ d, r, onSelect, onDelete, onShareDeal, inCompare, onToggleCo
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, borderTop: '1px solid var(--border-faint)' }}>
         {lenderDscr(r) > 0 ? <DSCRBadge dscr={lenderDscr(r)} prefs={prefs} /> : <span style={{ fontSize: 11, color: 'var(--muted)', display:'flex', alignItems:'center', gap:2 }}>DSCR n/a<Tip text="Debt Service Coverage Ratio — NOI with every unit rented, divided by the annual mortgage payment. Not applicable without a loan."/></span>}
         <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
-          {onShareDeal && <button onClick={() => onShareDeal(d)} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 16, padding: '2px 4px', cursor: 'pointer' }} title="Share">👥</button>}
+          {onShareDeal && <button onClick={() => onShareDeal(d)} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 16, padding: '2px 4px', cursor: 'pointer' }} title="Share" aria-label="Share deal"><Users size={16} aria-hidden="true"/></button>}
           <button onClick={() => onDelete(d.id)} style={{ background: 'none', border: 'none', color: 'var(--red)', fontSize: 16, padding: '2px 4px', cursor: 'pointer' }} title="Delete">✕</button>
         </div>
       </div>
@@ -341,7 +343,7 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
 
   const groupBanner = activeGroup && (
     <div style={{ background: 'var(--accentlt)', border: '1px solid rgba(13,148,136,0.25)', borderRadius: isMobile ? 14 : 10, padding: isMobile ? '12px 16px' : '12px 18px', marginBottom: isMobile ? 12 : 16, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-      <span style={{ fontSize: 16 }}>👥</span>
+      <Users size={16} aria-hidden="true"/>
       <div style={{ flex: 1 }}>
         <div style={{ fontWeight: 700, fontSize: isMobile ? 13 : 14, color: 'var(--accentdk)' }}>{activeGroup.name}</div>
         <div style={{ fontSize: 11, color: 'var(--accent)' }}>{activeGroup.role} · {isMobile ? 'Group Portfolio' : 'Shared Group Portfolio'}</div>
@@ -366,7 +368,7 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
   const emptyState = (deals || []).length === 0 ? (
     <div data-tour="portfolio-list" style={{ padding: isMobile ? '40px 0' : '60px 0' }}>
       <EmptyState
-        icon="🏘"
+        icon={<Building2 size={40} strokeWidth={1.5} style={{color:'var(--accent)'}} aria-hidden="true"/>}
         title="No deals yet"
         body="Add your first 2–4 unit property to start analyzing — or kick the tires on a fully-loaded sample duplex."
         primary={{ label: isMobile ? '+ Add Deal' : '+ New Deal', onClick: onAdd }}
@@ -391,7 +393,7 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>{(deals || []).length} deal{(deals || []).length !== 1 ? 's' : ''}</div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => onTour && onTour()} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>🗺️</button>
+            <button onClick={() => onTour && onTour()} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}><Compass size={15} aria-hidden="true" style={{verticalAlign:"-3px"}}/></button>
             <Button variant="primary" onClick={onAdd} data-tour="add-deal" style={{fontWeight:800}}>+ Add</Button>
           </div>
         </div>
@@ -445,9 +447,9 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
               ⇄ Compare {compareCount}
             </button>
           )}
-          <Button variant="secondary" onClick={() => onTour && onTour()} style={{borderRadius:8,background:'none',color:'var(--muted)',fontWeight:600}}>🗺️ Tour</Button>
-          <Button variant="secondary" onClick={() => onOpenGroups && onOpenGroups()} style={{borderRadius:8,background:'none',color:'var(--muted)',fontWeight:600}}>👥 Groups</Button>
-          <Button variant="secondary" onClick={onExport} style={{borderRadius:8}}>⬇ Excel</Button>
+          <Button variant="secondary" onClick={() => onTour && onTour()} style={{borderRadius:8,background:'none',color:'var(--muted)',fontWeight:600}}><Compass {...ICON}/>Tour</Button>
+          <Button variant="secondary" onClick={() => onOpenGroups && onOpenGroups()} style={{borderRadius:8,background:'none',color:'var(--muted)',fontWeight:600}}><Users {...ICON}/>Groups</Button>
+          <Button variant="secondary" onClick={onExport} style={{borderRadius:8}}><Download {...ICON}/>Excel</Button>
           <Button variant="primary" onClick={onAdd} data-tour="add-deal" style={{fontWeight:800}}>+ New Deal</Button>
         </div>
       </div>
@@ -524,7 +526,7 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
                     <td style={{ padding: '12px' }}>{lenderDscr(r) > 0 ? <DSCRBadge dscr={lenderDscr(r)} prefs={prefs} /> : '—'}</td>
                     <td style={{ padding: '12px' }}>
                       <button onClick={e => { e.stopPropagation(); setConfirmDeleteId(d.id); }} style={{ background: 'none', border: 'none', color: 'var(--red)', fontSize: 16, padding: 0, cursor: 'pointer' }}>✕</button>
-                      {onShareDeal && <button onClick={e => { e.stopPropagation(); onShareDeal(d); }} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 14, padding: '0 2px', cursor: 'pointer' }}>👥</button>}
+                      {onShareDeal && <button onClick={e => { e.stopPropagation(); onShareDeal(d); }} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 14, padding: '0 2px', cursor: 'pointer' }}><Users size={14} aria-hidden="true"/></button>}
                     </td>
                   </tr>
                 );

@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
+import { Users, Lock, Eye, Download } from 'lucide-react';
+const ICON = {size:14,strokeWidth:2,style:{verticalAlign:'-2px',marginRight:6},'aria-hidden':true};
 import { useIsMobile, lazyWithRetry } from '../lib/hooks';
 import { FMT_USD, FMT_PCT, STATUS_OPTIONS, STATUS_COLORS, STATUS_BG_VARS, IS_PROD } from '../lib/constants';
 import { calcDeal, DEFAULT_PREFS } from '../lib/calc';
@@ -106,28 +108,28 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
 
         {/* Share button — gated */}
         {onShare && canShare && (
-          <button onClick={onShare} style={{background:"var(--accentlt, #CCFBF1)",border:"1px solid rgba(13,148,136,0.25)",borderRadius:6,padding:"7px 14px",cursor:"pointer",fontSize:13,color:"var(--accentdk, #0F766E)",fontWeight:700}}>👥 Share</button>
+          <button onClick={onShare} style={{background:"var(--accentlt, #CCFBF1)",border:"1px solid rgba(13,148,136,0.25)",borderRadius:6,padding:"7px 14px",cursor:"pointer",fontSize:13,color:"var(--accentdk, #0F766E)",fontWeight:700}}><Users {...ICON}/>Share</button>
         )}
         {onShare && !canShare && (
-          <button onClick={()=>setShowUpgrade(true)} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:6,padding:"7px 14px",cursor:"pointer",fontSize:13,color:"var(--muted)",fontWeight:700}}>{isMobile?"🔒 Share":"🔒 Share Deal — Pro"}</button>
+          <button onClick={()=>setShowUpgrade(true)} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:6,padding:"7px 14px",cursor:"pointer",fontSize:13,color:"var(--muted)",fontWeight:700}}><Lock {...ICON}/>{isMobile?"Share":"Share Deal — Pro"}</button>
         )}
 
-        {groupRole==="Viewer"&&<div style={{fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:20,background:"var(--accent-soft)",color:"var(--accent)",border:"1px solid var(--accent)"}}>👁 View Only</div>}
+        {groupRole==="Viewer"&&<div style={{fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:20,background:"var(--accent-soft)",color:"var(--accent)",border:"1px solid var(--accent)"}}><Eye {...ICON}/>View Only</div>}
 
         {/* PDF button — gated */}
         {groupRole!=="Viewer" && canPDF && (
-          <Button variant="outline" onClick={onExportPDF} style={{padding:"7px 14px",fontSize:13}}>⬇ PDF</Button>
+          <Button variant="outline" onClick={onExportPDF} style={{padding:"7px 14px",fontSize:13}}><Download {...ICON}/>PDF</Button>
         )}
         {groupRole!=="Viewer" && !canPDF && (
-          <button onClick={()=>setShowUpgrade(true)} style={{background:"var(--card)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:100,padding:"7px 14px",cursor:"pointer",fontSize:13,fontWeight:700}}>{isMobile?"🔒 PDF":"🔒 Export PDF — Pro"}</button>
+          <button onClick={()=>setShowUpgrade(true)} style={{background:"var(--card)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:100,padding:"7px 14px",cursor:"pointer",fontSize:13,fontWeight:700}}><Lock {...ICON}/>{isMobile?"PDF":"Export PDF — Pro"}</button>
         )}
 
-        <Button variant="primary" onClick={onExport} style={{padding:"7px 14px",fontSize:13}}>⬇ Excel</Button>
+        <Button variant="primary" onClick={onExport} style={{padding:"7px 14px",fontSize:13}}><Download {...ICON}/>Excel</Button>
       </div>
     </div>
     {readOnly && (
       <div role="note" style={{marginBottom:12,padding:"8px 12px",borderRadius:8,background:"var(--accent-soft)",border:"1px solid var(--border)",fontSize:12,color:"var(--text)"}}>
-        👁 You have view-only access to this group's deals. Ask the group owner for Editor access to make changes.
+        <Eye {...ICON}/>You have view-only access to this group's deals. Ask the group owner for Editor access to make changes.
       </div>
     )}
     <ReadOnlyIf on={readOnly}><AddressAutocomplete value={deal.address} onChange={v=>onUpdate({...deal,address:v})} placeholder="Enter property address..." inputStyle={{width:"100%",background:"none",border:"none",borderBottom:"2px solid var(--accent)",fontSize:isMobile?18:24,fontFamily:"'Fraunces',serif",fontWeight:900,color:"var(--text)",padding:"6px 0",marginBottom:14,outline:"none",letterSpacing:"-0.5px"}}/></ReadOnlyIf>

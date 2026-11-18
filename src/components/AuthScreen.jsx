@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Mail, CheckCircle2 } from 'lucide-react';
+import LogoMark from './ui/LogoMark';
 import { iSty, btnSm, srcSty } from './ui/InputRow';
 import { sbClient, authSignInWithGoogle, authSignUp, authSignIn, authResetPassword, authUpdatePassword } from '../lib/constants';
 
@@ -97,8 +99,7 @@ function AuthScreen({ onAuth, initialMode }) {
         borderRadius:22, padding:"44px 40px", boxShadow:"0 24px 64px rgba(0,0,0,0.08)"}}>
 
         <a href="/landing" aria-label="RentHack home" style={{display:"flex", alignItems:"center", gap:10, marginBottom:32, justifyContent:"center", textDecoration:"none", color:"inherit"}}>
-          <div style={{width:44, height:44, background:"var(--accent)", borderRadius:12, display:"flex",
-            alignItems:"center", justifyContent:"center", fontSize:22}}>🏠</div>
+          <LogoMark size={44} radius={12}/>
           <div>
             <div style={{fontFamily:"'Fraunces',serif", fontWeight:900, fontSize:22, letterSpacing:"-0.5px"}}><span>Rent</span><span style={{color:"var(--accent)"}}>Hack</span></div>
             <div style={{fontSize:12, color:"var(--muted)", marginTop:1}}>2–4 unit multifamily</div>
@@ -107,7 +108,7 @@ function AuthScreen({ onAuth, initialMode }) {
 
         {mode === "verify" && (
           <div style={{textAlign:"center"}}>
-            <div style={{fontSize:44, marginBottom:12}}>📧</div>
+            <div style={{marginBottom:12,color:"var(--accent)"}}><Mail size={44} strokeWidth={1.5} aria-hidden="true"/></div>
             <div style={{fontWeight:800, fontSize:18, marginBottom:8}}>Check your inbox</div>
             <div style={{color:"var(--muted)", fontSize:14, lineHeight:1.6, marginBottom:20}}>
               We sent a verification link to <strong style={{color:"var(--text)"}}>{email}</strong>.<br/>
@@ -127,7 +128,7 @@ function AuthScreen({ onAuth, initialMode }) {
 
         {mode === "verified" && (
           <div style={{textAlign:"center"}}>
-            <div style={{fontSize:44, marginBottom:12}}>✅</div>
+            <div style={{marginBottom:12,color:"var(--green)"}}><CheckCircle2 size={44} strokeWidth={1.5} aria-hidden="true"/></div>
             <div style={{fontWeight:800, fontSize:18, marginBottom:8}}>Email verified!</div>
             <div style={{color:"var(--muted)", fontSize:14, marginBottom:20}}>Your account is active. Sign in to continue.</div>
             <button style={bS} onClick={() => setMode("login")}>Go to Login</button>
