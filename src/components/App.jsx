@@ -64,6 +64,20 @@ function App() {
   const [showSyncDetail, setShowSyncDetail] = useState(false);
   const [syncToastShown, setSyncToastShown] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(null);
+  // Exports load their library on first use (jsPDF / xlsx are large), so show progress
+  // and report failures; they used to do nothing visible and fail silently.
+  const [exportStatus, setExportStatus] = useState(null); // { state:'working'|'error', label }
+  const runExport = useCallback(async (label, load, run) => {
+    setExportStatus({ state: 'working', label });
+    try {
+      const m = await load();
+      await run(m);
+      setExportStatus(null);
+    } catch (e) {
+      Sentry.captureException(e, { tags: { origin: 'App.export', label } });
+      setExportStatus({ state: 'error', label });
+    }
+  }, []);
   const [prefs, setPrefs] = useState(DEFAULT_PREFS);
   const [activeDealId, setActiveDealId] = useState(null);
   const [portfolioFilter, setPortfolioFilter] = useState("All");
@@ -499,6 +513,14 @@ function App() {
       </div>
       <div style={{padding:"18px 16px 0"}}>
         <TrialBanner userEmail={user?.email}/>
+        {exportStatus && (
+          <div role="status" style={{background:exportStatus.state==='error'?"var(--warn-bg)":"var(--accent-soft)",border:"1px solid var(--border)",borderRadius:10,padding:"10px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:12,fontSize:13}}>
+            <span style={{color:"var(--text)",fontWeight:700}}>
+              {exportStatus.state==='error' ? `Couldn't create the ${exportStatus.label}. Please try again.` : `Preparing your ${exportStatus.label}…`}
+            </span>
+            {exportStatus.state==='error' && <button onClick={()=>setExportStatus(null)} aria-label="Dismiss" style={{background:"none",border:"none",color:"var(--muted)",cursor:"pointer",fontSize:16,padding:"0 4px"}}>×</button>}
+          </div>
+        )}
         {shareSuccess && (
           <div style={{background:"rgba(13,148,136,0.12)",border:"1px solid rgba(13,148,136,0.35)",borderRadius:10,padding:"10px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:12,fontSize:13}}>
             <span style={{color:"var(--text)",fontWeight:700}}>✓ Deal shared to "{shareSuccess}" successfully.</span>
@@ -535,7 +557,7 @@ function App() {
               onAdd={activeGroup ? addGroupDeal : addDeal}
               onAddSample={activeGroup ? null : addSampleDeal}
               onDelete={activeGroup ? deleteGroupDeal : (id => deleteDeal(id, (deals||[]).find(d => d.id === id)?._deal_id))}
-              onExport={()=>import('../lib/export').then(m=>m.exportPortfolioXLSX(activeGroup ? groupDeals : deals, user))}
+              onExport={()=>runExport('Excel file', ()=>import('../lib/export/portfolioXLSX'), m=>m.exportPortfolioXLSX(activeGroup ? groupDeals : deals, user))}
               onReorder={activeGroup ? reorderGroupDeals : reorderDeals}
               dark={dark} setDark={setDark}
               filterState={[portfolioFilter,setPortfolioFilter]}
@@ -549,8 +571,8 @@ function App() {
               deal={activeDeal}
               onUpdate={activeGroup ? updateGroupDeal : updateDeal}
               onBack={()=>setActiveDealId(null)}
-              onExport={()=>import('../lib/export').then(m=>{ trackCSVExported(activeDeal.id); m.exportDealXLSX(activeDeal, user); })}
-              onExportPDF={()=>import('../lib/export').then(m=>{ trackPDFExported(activeDeal.id); m.exportDealPDF(activeDeal, user); })}
+              onExport={()=>runExport('Excel file', ()=>import('../lib/export/dealXLSX'), m=>{ trackCSVExported(activeDeal.id); return m.exportDealXLSX(activeDeal, user); })}
+              onExportPDF={()=>runExport('PDF report', ()=>import('../lib/export/dealPDF'), m=>{ trackPDFExported(activeDeal.id); return m.exportDealPDF(activeDeal, user); })}
               onShare={()=>setShowShareModal(activeDeal)}
               groupRole={activeGroup?.role}
               activeGroup={activeGroup}
