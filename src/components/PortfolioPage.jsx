@@ -387,8 +387,8 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
         {groupBanner}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
           <div>
-            <div style={{ fontFamily: "'Fraunces',serif", fontSize: 24, fontWeight: 900, color: 'var(--text)', letterSpacing: '-1px' }}><span>Rent</span><span style={{ color: 'var(--accent)' }}>Hack</span></div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>2–4 unit multifamily</div>
+            <h1 style={{ fontFamily: "'Fraunces',serif", fontSize: 24, fontWeight: 900, color: 'var(--text)', letterSpacing: '-1px', margin: 0 }}>{activeGroup ? activeGroup.name : 'My Deals'}</h1>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>{(deals || []).length} deal{(deals || []).length !== 1 ? 's' : ''}</div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => onTour && onTour()} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>🗺️</button>
@@ -433,8 +433,9 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
       {groupBanner}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
-          <div style={{ fontFamily: "'Fraunces',serif", fontSize: 28, fontWeight: 900, color: 'var(--text)', letterSpacing: '-0.5px' }}><span>Rent</span><span style={{ color: 'var(--accent)' }}>Hack</span></div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>{(deals || []).length} deal{(deals || []).length !== 1 ? 's' : ''} · multifamily analyzer</div>
+          {/* The header already shows the wordmark; this is the page title (M9g) */}
+          <h1 style={{ fontFamily: "'Fraunces',serif", fontSize: 28, fontWeight: 900, color: 'var(--text)', letterSpacing: '-0.5px', margin: 0 }}>{activeGroup ? activeGroup.name : 'My Deals'}</h1>
+          <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>{(deals || []).length} deal{(deals || []).length !== 1 ? 's' : ''}</div>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <ViewToggle view={viewMode} setView={setViewMode} />
