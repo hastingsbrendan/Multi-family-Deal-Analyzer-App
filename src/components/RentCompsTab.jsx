@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { iSty, srcSty } from './ui/InputRow';
 import MetricCard from './ui/MetricCard';
 import AddressAutocomplete from './AddressAutocomplete';
-import { FMT_USD } from '../lib/constants';;
+import { FMT_USD } from '../lib/constants';
 import { useIsMobile } from '../lib/hooks';
 
 function RentCompsTab({deal,onChange}){
@@ -11,14 +11,30 @@ function RentCompsTab({deal,onChange}){
   const assumptions = deal?.assumptions || {};
   const numUnits = assumptions.numUnits || assumptions.units?.length || 2;
   const units = assumptions.units || Array(4).fill(null).map(()=>({rent:0}));
-  const comps = deal?.comps || Array(5).fill(null).map(()=>({address:'',source:'',units:Array(4).fill(null).map(()=>({rent:0})),numUnits:2,distance:''}));
-  const inPlaceRents=units.slice(0,numUnits).map(u=>+u.rent||0);
+  const blankComp = () => ({address:'',source:'',units:Array(4).fill(null).map(()=>({rent:0})),numUnits:2,distance:''});
+  const comps = deal?.comps || Array(5).fill(null).map(blankComp);
+  // Same rent the model uses: actual rent, else listed rent (listed-only units showed $0)
+  const inPlaceRents=units.slice(0,numUnits).map(u=>+(u?.rent||u?.listedRent)||0);
   const inPlaceAvg=inPlaceRents.reduce((s,v)=>s+v,0)/numUnits;
   const compAvgs=comps.map(c=>{const rents=Array.from({length:numUnits},(_,i)=>+(c.units[i]?.rent)||0).filter(r=>r>0);return rents.length?rents.reduce((s,v)=>s+v,0)/rents.length:0;});
   const overallAvg=compAvgs.filter(v=>v>0).length?compAvgs.filter(v=>v>0).reduce((s,v)=>s+v,0)/compAvgs.filter(v=>v>0).length:0;
-  const updComp=(ci,field,val)=>{const d=structuredClone(deal);d.comps[ci][field]=val;onChange(d);};
-  const updUnit=(ci,ui,field,val)=>{const d=structuredClone(deal);if(!d.comps[ci].units[ui])d.comps[ci].units[ui]={rent:0};d.comps[ci].units[ui][field]=val;onChange(d);};
+  // Deals saved before comps existed have no deal.comps; create them on first edit
+  // instead of crashing (2026-11, M9h).
+  const withComps=()=>{const d=structuredClone(deal);if(!Array.isArray(d.comps))d.comps=Array(5).fill(null).map(blankComp);return d;};
+  const updComp=(ci,field,val)=>{const d=withComps();d.comps[ci][field]=val;onChange(d);};
+  const updUnit=(ci,ui,field,val)=>{const d=withComps();if(!d.comps[ci].units[ui])d.comps[ci].units[ui]={rent:0};d.comps[ci].units[ui][field]=val;onChange(d);};
+  // Rentcast estimates from the Assumptions property lookup, as a starting comp
+  const rcRents=units.slice(0,numUnits).map(u=>+u?.rentcastRent||0);
+  const hasRentcast=rcRents.some(r=>r>0);
+  const useRentcast=()=>{const d=withComps();const ci=Math.max(0,d.comps.findIndex(c=>!(c.units||[]).some(u=>+u?.rent>0)));d.comps[ci]={...blankComp(),address:'Rentcast estimate (this property)',source:'Rentcast',numUnits,units:Array(4).fill(null).map((_,i)=>({rent:rcRents[i]||0}))};onChange(d);};
+  const noComps=compAvgs.every(v=>!v);
+  const guide=noComps&&(
+    <div style={{marginBottom:16,padding:"12px 14px",borderRadius:10,background:"var(--accent-soft)",border:"1px solid var(--border)",fontSize:13,color:"var(--text)",lineHeight:1.55}}>
+      <strong>Check your rents against the market.</strong> Add 3–5 similar rentals nearby (same bedroom count, ideally within a mile) from Zillow, Apartments.com or Craigslist, with their monthly rent per unit. RentHack averages them and shows the gap to your rents.
+      {hasRentcast&&<div style={{marginTop:8}}><button type="button" onClick={useRentcast} style={{background:"var(--accent)",color:"#fff",border:"none",borderRadius:100,padding:"6px 14px",fontSize:12,fontWeight:700,cursor:"pointer"}}>Use Rentcast estimates as a starting comp</button></div>}
+    </div>);
   if(isMobile){return(<div style={{padding:"16px 0"}}>
+    {guide}
     <div style={{display:"flex",gap:10,marginBottom:20,flexWrap:"wrap"}}>
       <MetricCard label="In-Place Avg/Unit" value={FMT_USD(inPlaceAvg)} sub="per month"/>
       <MetricCard label="Comp Avg/Unit" value={overallAvg?FMT_USD(overallAvg):"—"} sub={compAvgs.filter(v=>v>0).length+" comps"} highlight={overallAvg>0}/>
@@ -35,6 +51,7 @@ function RentCompsTab({deal,onChange}){
   const TH={padding:"8px 10px",fontWeight:700,fontSize:11,letterSpacing:"0.06em",color:"var(--muted)",textTransform:"uppercase",borderBottom:"1px solid var(--border)",background:"var(--table-head)",whiteSpace:"nowrap"};
   const LC={padding:"8px 10px",fontSize:12,color:"var(--muted)",fontWeight:600,background:"var(--table-head)",borderRight:"1px solid var(--border)",whiteSpace:"nowrap"};
   return(<div style={{padding:"16px 0"}}>
+    {guide}
     <div style={{display:"flex",gap:12,marginBottom:20,flexWrap:"wrap"}}>
       <MetricCard label="In-Place Avg Rent/Unit" value={FMT_USD(inPlaceAvg)} sub="per month"/>
       <MetricCard label="Comp Avg Rent/Unit" value={overallAvg?FMT_USD(overallAvg):"—"} sub={compAvgs.filter(v=>v>0).length+" active comps"} highlight={overallAvg>0}/>
