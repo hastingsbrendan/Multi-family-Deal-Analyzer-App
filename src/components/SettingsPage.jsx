@@ -23,10 +23,9 @@ const PUSH_FIELDS = [
   { key:'cc_inspection',    section:'Closing Costs',      label:'Inspection',      ccKey:'inspection' },
   { key:'cc_attorney',      section:'Closing Costs',      label:'Attorney',        ccKey:'attorney' },
   { key:'cc_lenderFees',    section:'Closing Costs',      label:'Lender Fees',     ccKey:'lenderFees' },
-  { key:'dscrFloor',        section:'Red Flag Thresholds', label:'DSCR Floor' },
-  { key:'capRateFloor',     section:'Red Flag Thresholds', label:'Cap Rate Floor %' },
-  { key:'expRatioCeiling',  section:'Red Flag Thresholds', label:'Exp. Ratio Ceiling %' },
 ];
+// Red Flag thresholds aren't stored on deals (they apply everywhere once saved), so they
+// aren't "pushed" and no longer inflate the field count (2026-11, M9c).
 const SECTIONS = [...new Set(PUSH_FIELDS.map(f => f.section))];
 
 const TABS = ['Defaults', 'Account', 'Appearance', 'Groups'];
@@ -40,6 +39,7 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
   const [saved, setSaved] = useState(false);
   const [pushFields, setPushFields] = useState(() => new Set(PUSH_FIELDS.map(f => f.key)));
   const [showPushPanel, setShowPushPanel] = useState(false);
+  const [confirmPush, setConfirmPush] = useState(false);
 
   const set    = (key, val) => setLocal(p => ({ ...p, [key]: val }));
   const setCC  = (key, val) => setLocal(p => ({ ...p, closingCosts: { ...p.closingCosts, [key]: val } }));
@@ -258,14 +258,26 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
             {deals?.length > 0 && <span> You have <strong style={{color:'var(--text)'}}>{deals.length} existing deal{deals.length!==1?'s':''}</strong>.</span>}
           </div>
           <div style={{display:'flex', flexDirection:'column', gap:10}}>
+            {/* Primary: save defaults for new deals. Updating existing deals is a separate,
+                confirmed step (it rewrote every deal in one click before). */}
+            <button onClick={()=>handleSaveDefaults(false)} disabled={saving}
+              style={{background:'var(--accent)',color:'#fff',border:'none',borderRadius:8,
+                padding:'12px 20px',fontSize:14,fontWeight:700,cursor:'pointer',textAlign:'left',
+                opacity:saving?0.7:1,display:'flex',alignItems:'center',gap:10}}>
+              <span style={{fontSize:18}}>✓</span>
+              <div>
+                <div>Save Defaults</div>
+                <div style={{fontSize:12,fontWeight:400,opacity:0.85}}>Used for new deals; existing deals are unchanged</div>
+              </div>
+            </button>
             <div style={{border:'1px solid var(--border)', borderRadius:10, overflow:'hidden'}}>
-              <button onClick={()=>setShowPushPanel(p=>!p)}
-                style={{width:'100%', background:'var(--accent)', color:'#fff', border:'none',
+              <button onClick={()=>{ setShowPushPanel(p=>!p); setConfirmPush(false); }}
+                style={{width:'100%', background:'var(--card)', color:'var(--text)', border:'none',
                   padding:'12px 20px', fontSize:14, fontWeight:700, cursor:'pointer', textAlign:'left',
                   display:'flex', alignItems:'center', gap:10}}>
                 <span style={{fontSize:18}}>🔄</span>
                 <div style={{flex:1}}>
-                  <div>Push to All Deals</div>
+                  <div>Update Existing Deals…</div>
                   <div style={{fontSize:12, fontWeight:400, opacity:0.85}}>
                     {pushedCount === totalFields ? `All ${totalFields} fields will be pushed` : `${pushedCount} of ${totalFields} fields selected`}
                   </div>
@@ -308,7 +320,7 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
                       style={{fontSize:11,padding:'4px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--card)',color:'var(--muted)',cursor:'pointer'}}>Select All</button>
                     <button onClick={()=>setPushFields(new Set())}
                       style={{fontSize:11,padding:'4px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--card)',color:'var(--muted)',cursor:'pointer'}}>Clear All</button>
-                    <button onClick={()=>{ if(pushedCount>0) handleSaveDefaults(true); }} disabled={pushedCount===0||saving}
+                    <button onClick={()=>{ if(pushedCount>0) setConfirmPush(true); }} disabled={pushedCount===0||saving}
                       style={{marginLeft:'auto',fontSize:12,padding:'6px 16px',borderRadius:100,border:'none',
                         background:pushedCount>0?'var(--accent)':'var(--border)',
                         color:pushedCount>0?'#fff':'var(--muted)',
@@ -318,24 +330,21 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
                   </div>
                 </div>
               )}
-              {!showPushPanel && (
-                <button onClick={()=>handleSaveDefaults(true)} disabled={saving}
-                  style={{width:'100%',background:'var(--card)',border:'none',borderTop:'1px solid var(--border)',
-                    padding:'10px 20px',fontSize:13,color:'var(--accent)',cursor:'pointer',fontWeight:600,opacity:saving?0.7:1}}>
-                  ✓ Confirm & Push {pushedCount} field{pushedCount!==1?'s':''} →
-                </button>
+              {showPushPanel && confirmPush && (
+                <div role="alertdialog" aria-label="Confirm updating existing deals" style={{padding:16,borderTop:'1px solid var(--border)',background:'var(--warn-bg)'}}>
+                  <div style={{fontSize:13,color:'var(--text)',marginBottom:10,lineHeight:1.5}}>
+                    This overwrites <strong>{pushedCount} field{pushedCount!==1?'s':''}</strong> on all <strong>{(deals||[]).length} existing deal{(deals||[]).length!==1?'s':''}</strong> with these defaults. It can't be undone.
+                  </div>
+                  <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+                    <button onClick={()=>setConfirmPush(false)} style={{fontSize:12,padding:'6px 14px',borderRadius:100,border:'1px solid var(--border)',background:'var(--card)',color:'var(--text)',cursor:'pointer',fontWeight:600}}>Cancel</button>
+                    <button onClick={async()=>{ await handleSaveDefaults(true); setConfirmPush(false); setShowPushPanel(false); }} disabled={saving}
+                      style={{fontSize:12,padding:'6px 14px',borderRadius:100,border:'none',background:'var(--red)',color:'#fff',cursor:'pointer',fontWeight:700}}>
+                      Yes, update {(deals||[]).length} deal{(deals||[]).length!==1?'s':''}
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
-            <button onClick={()=>handleSaveDefaults(false)} disabled={saving}
-              style={{background:'var(--card)',color:'var(--text)',border:'1px solid var(--accent)',borderRadius:8,
-                padding:'12px 20px',fontSize:14,fontWeight:700,cursor:'pointer',textAlign:'left',
-                opacity:saving?0.7:1,display:'flex',alignItems:'center',gap:10}}>
-              <span style={{fontSize:18}}>✨</span>
-              <div>
-                <div>Apply to New Deals Only</div>
-                <div style={{fontSize:12,fontWeight:400,color:'var(--muted)'}}>Existing deals are unchanged</div>
-              </div>
-            </button>
             <button onClick={()=>setLocal({...DEFAULT_PREFS})}
               style={{background:'none',border:'1px solid var(--border)',borderRadius:8,
                 padding:'12px 20px',fontSize:14,color:'var(--muted)',cursor:'pointer',textAlign:'left',

@@ -161,7 +161,13 @@ function MarketTab({deal, onChange}) {
         let body = {}; try { body = await mktRes.json(); } catch {}
         if (body.paused) { setApiPaused(true); setLoading(false); return; }
       }
-      if (!mktRes.ok) throw new Error(`Rentcast ${mktRes.status}: ${await mktRes.text()}`);
+      if (!mktRes.ok) {
+        // Plain messages for the proxy's plan and daily-limit answers (raw bodies were shown)
+        const msg = mktRes.status === 403 ? 'Rent market data is part of RentHack Pro. Census and economic data below are free.'
+          : mktRes.status === 429 ? 'Daily lookup limit reached. It resets at midnight UTC.'
+          : "Couldn't load rent market data right now. Try again later.";
+        setError(msg); setLoading(false); return;
+      }
       const data = await mktRes.json();
       const fetchedAt = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       setMarketData(data);

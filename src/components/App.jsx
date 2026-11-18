@@ -36,10 +36,34 @@ const GuidedTour      = lazyWithRetry(() => import('./GuidedTour'));
 // logic works immediately, without blocking the lazy load of GuidedTour itself.
 import { TOUR_STEPS } from './tourSteps';
 
+function NotFound() {
+  useEffect(() => {
+    document.title = 'Page not found — RentHack';
+    const m = document.createElement('meta'); m.name = 'robots'; m.content = 'noindex'; document.head.appendChild(m);
+    return () => m.remove();
+  }, []);
+  return (
+    <div data-theme="light" style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)",display:"flex",alignItems:"center",justifyContent:"center",padding:24,fontFamily:"'DM Sans',sans-serif"}}>
+      <div style={{maxWidth:420,textAlign:"center"}}>
+        <div style={{fontFamily:"'Fraunces',serif",fontWeight:900,fontSize:56,color:"var(--accent)",lineHeight:1}}>404</div>
+        <h1 style={{fontFamily:"'Fraunces',serif",fontSize:24,margin:"12px 0 8px"}}>We couldn't find that page</h1>
+        <p style={{color:"var(--muted)",fontSize:15,lineHeight:1.6,margin:"0 0 20px"}}>The link may be old or mistyped.</p>
+        <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+          <a href="/" style={{background:"var(--accent)",color:"#fff",borderRadius:100,padding:"10px 20px",fontWeight:700,textDecoration:"none"}}>Go to RentHack</a>
+          <a href="/blog/" style={{border:"1px solid var(--border)",color:"var(--text)",borderRadius:100,padding:"10px 20px",fontWeight:700,textDecoration:"none"}}>Read the blog</a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   // Read the landing-page CTA / auth-callback intent once, before anything below
   // (showUpgradeSuccess, the hash-strip effect) can rewrite the URL. See lib/authGate.js.
   const [authIntent, setAuthIntent] = useState(() => readAuthIntent(window.location.hash, window.location.search));
+  // The app lives at "/". Cloudflare sends every unknown URL here (SPA fallback), which
+  // used to bounce silently to /landing; show a real "not found" page instead (M7).
+  const [notFound] = useState(() => !['/', '/index.html'].includes(window.location.pathname));
   const [dark, setDark] = useState(() => localStorage.getItem("rh_dark") === "true");
   const [showFeedback, setShowFeedback] = useState(false);
   const [showUpgradeSuccess, setShowUpgradeSuccess] = useState(() => {
@@ -142,14 +166,20 @@ function App() {
   const addDeal = useCallback(() => _addDeal(setActiveDealId), [_addDeal, setActiveDealId]);
   const addSampleDeal = useCallback(() => {
     _addSampleDeal(setActiveDealId);
-    // First-touch users from the empty-portfolio CTA: auto-launch the guided tour
-    // unless they've explicitly closed/completed it before. We check the flag here
-    // so any later sample-deal additions don't re-trigger the tour.
-    if (user && !localStorage.getItem('rh_tour_seen_' + user.id)) {
-      localStorage.setItem('rh_tour_seen_' + user.id, '1');
-      setTourStep(0);
-    }
+    launchTourOnce();
   }, [_addSampleDeal, setActiveDealId, user]);
+
+  // The guided tour starts by itself once per account. New accounts get a sample deal
+  // at sign-up, so the portfolio is never empty and the empty-portfolio trigger above
+  // never fired; it now also starts right after the first-run disclaimer (2026-11, M9a).
+  function launchTourOnce() {
+    if (!user) return;
+    try {
+      if (localStorage.getItem('rh_tour_seen_' + user.id)) return;
+      localStorage.setItem('rh_tour_seen_' + user.id, '1');
+    } catch { /* storage blocked: still show the tour this once */ }
+    setTourStep(0);
+  }
 
   const theme = dark ? "dark" : "light";
   const showDisclaimer = user && !user.user_metadata?.disclaimer_ack_at;
@@ -266,9 +296,10 @@ function App() {
   }, [authIntent]);
   useEffect(() => { setAuthIntent(i => consumeAuthIntent(i, user)); }, [user]);
   useEffect(() => {
-    if (gate === 'redirect') window.location.replace('/landing');
+    if (gate === 'redirect' && !notFound) window.location.replace('/landing');
   }, [gate]);
 
+  if (notFound) return <NotFound/>;
   if (deals === null) {
     return (
       <div data-theme={theme}>
@@ -374,6 +405,7 @@ function App() {
       {showDisclaimer && (
         <DisclaimerModal user={user} onAcknowledged={() => {
           sbClient.auth.getUser().then(({ data }) => { if (data?.user) setUser(data.user); });
+          launchTourOnce();
         }}/>
       )}
       <div style={{borderBottom:"1px solid var(--border)",padding:"0 20px",height:60,display:"flex",alignItems:"center",justifyContent:"space-between",background:dark?"var(--card)":"rgba(253,250,246,0.95)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",position:"sticky",top:0,zIndex:100}}>

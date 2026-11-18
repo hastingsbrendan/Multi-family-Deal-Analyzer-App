@@ -50,6 +50,12 @@ const TAB_NEXT = {
 
 const TabFallback = () => <Spinner/>;
 
+// Module scope on purpose: a component declared inside render is a new type on every
+// render, which remounts its children (inputs lose focus and local state).
+function ReadOnlyIf({on, children}) {
+  return on ? <fieldset disabled style={{border:0,padding:0,margin:0,minWidth:0}}>{children}</fieldset> : children;
+}
+
 function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, groupRole, activeGroup, currentUser, prefs, forceTab}) {
   // Land new/empty deals on Assumptions (tab 1) instead of Deal Summary (0).
   // Empty = no purchase price OR all unit rents are zero. Existing deals keep
@@ -85,12 +91,16 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
   const canRentComps  = useFeatureCheck('rentComps');
   const canSensitivity = useFeatureCheck('sensitivity');
   const userEmail   = currentUser?.email;
+  // Group Viewers can look but not change anything. Their inputs used to accept typing
+  // that was then silently discarded (2026-11, M9b). Form tabs are wrapped in a
+  // disabled <fieldset>; read-only tabs (Cash Flow, Market, Sensitivity) stay usable.
+  const readOnly = groupRole === "Viewer";
 
   return(<div style={{maxWidth:980,margin:"0 auto",paddingBottom:60}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,gap:8}}>
       <Button variant="secondary" size="sm" onClick={onBack} style={{color:"var(--accent)",borderColor:"var(--border)",padding:"6px 12px",fontSize:13}}>← Portfolio</Button>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
-        <select value={deal.status} onChange={e=>onUpdate({...deal,status:e.target.value})} style={{background:STATUS_BG_VARS[deal.status],border:`1px solid ${STATUS_COLORS[deal.status]}55`,borderRadius:6,padding:"6px 10px",color:STATUS_COLORS[deal.status],fontWeight:700,fontSize:13,cursor:"pointer"}}>
+        <select value={deal.status} disabled={readOnly} onChange={e=>onUpdate({...deal,status:e.target.value})} style={{background:STATUS_BG_VARS[deal.status],border:`1px solid ${STATUS_COLORS[deal.status]}55`,borderRadius:6,padding:"6px 10px",color:STATUS_COLORS[deal.status],fontWeight:700,fontSize:13,cursor:"pointer"}}>
           {STATUS_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
         </select>
 
@@ -115,7 +125,12 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
         <Button variant="primary" onClick={onExport} style={{padding:"7px 14px",fontSize:13}}>⬇ Excel</Button>
       </div>
     </div>
-    <AddressAutocomplete value={deal.address} onChange={v=>onUpdate({...deal,address:v})} placeholder="Enter property address..." inputStyle={{width:"100%",background:"none",border:"none",borderBottom:"2px solid var(--accent)",fontSize:isMobile?18:24,fontFamily:"'Fraunces',serif",fontWeight:900,color:"var(--text)",padding:"6px 0",marginBottom:14,outline:"none",letterSpacing:"-0.5px"}}/>
+    {readOnly && (
+      <div role="note" style={{marginBottom:12,padding:"8px 12px",borderRadius:8,background:"var(--accent-soft)",border:"1px solid var(--border)",fontSize:12,color:"var(--text)"}}>
+        👁 You have view-only access to this group's deals. Ask the group owner for Editor access to make changes.
+      </div>
+    )}
+    <ReadOnlyIf on={readOnly}><AddressAutocomplete value={deal.address} onChange={v=>onUpdate({...deal,address:v})} placeholder="Enter property address..." inputStyle={{width:"100%",background:"none",border:"none",borderBottom:"2px solid var(--accent)",fontSize:isMobile?18:24,fontFamily:"'Fraunces',serif",fontWeight:900,color:"var(--text)",padding:"6px 0",marginBottom:14,outline:"none",letterSpacing:"-0.5px"}}/></ReadOnlyIf>
     <div style={{position:"relative"}}>
       <div data-tour="tab-bar" style={{display:"flex",borderBottom:"1px solid var(--border)",overflowX:"auto",WebkitOverflowScrolling:"touch",scrollbarWidth:"none",msOverflowStyle:"none"}}>
         {VISIBLE_TABS.map(t=>(<button key={t.id} onClick={()=>handleTabChange(t.id)} style={{background:"none",border:"none",borderBottom:tab===t.id?"3px solid var(--accent)":"3px solid transparent",padding:isMobile?"10px 12px":"10px 18px",cursor:"pointer",fontSize:isMobile?12:13,fontWeight:tab===t.id?800:500,color:tab===t.id?"var(--accent)":"var(--muted)",marginBottom:-1,fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}}>{isMobile?t.mobileLabel:t.label}</button>))}
@@ -124,16 +139,16 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
     </div>
     <div data-tour="tab-content"><ErrorBoundary key={tab} compact><Suspense fallback={<TabFallback/>}>
       {tab===0&&<DealSummaryTab deal={deal} result={result} onUpdate={onUpdate}/>}
-      {tab===1&&<AssumptionsTab deal={deal} onChange={onUpdate}/>}
+      {tab===1&&<ReadOnlyIf on={readOnly}><AssumptionsTab deal={deal} onChange={onUpdate}/></ReadOnlyIf>}
       {tab===2&&<CashFlowTab result={result} deal={deal}/>}
       {tab===3&&(
         <BlurGate feature="rentComps" userEmail={userEmail}>
-          <RentCompsTab deal={deal} onChange={onUpdate}/>
+          <ReadOnlyIf on={readOnly}><RentCompsTab deal={deal} onChange={onUpdate}/></ReadOnlyIf>
         </BlurGate>
       )}
       {tab===4&&<MarketTab deal={deal} onChange={onUpdate}/>}
-      {tab===5&&<ShowingTab deal={deal} onChange={onUpdate}/>}
-      {tab===6&&<RedFlagsTab deal={deal} result={result} onChange={onUpdate} prefs={prefs||DEFAULT_PREFS}/>}
+      {tab===5&&<ReadOnlyIf on={readOnly}><ShowingTab deal={deal} onChange={onUpdate}/></ReadOnlyIf>}
+      {tab===6&&<ReadOnlyIf on={readOnly}><RedFlagsTab deal={deal} result={result} onChange={onUpdate} prefs={prefs||DEFAULT_PREFS}/></ReadOnlyIf>}
       {tab===7&&(
         <BlurGate feature="sensitivity" userEmail={userEmail}>
           <SensitivityTab deal={deal}/>

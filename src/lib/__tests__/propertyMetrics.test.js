@@ -60,3 +60,31 @@ describe('property management on collected rent', () => {
     expect(r.years[1].expBreakdown.propertyMgmt).toBeCloseTo(3090, 2);
   });
 });
+
+// M2: IRR on one consistent basis. It mixed pre-tax yearly cash flow with after-tax
+// sale proceeds, which understated returns.
+describe('IRR bases', () => {
+  const npv = (r, cfs) => cfs.reduce((s, c, t) => s + c / Math.pow(1 + r, t), 0);
+
+  test('pre-tax IRR zeroes NPV of yearly cash flow + sale proceeds before tax', () => {
+    const r = calcDeal(investorDuplex());
+    const cfs = [-r.totalCashBase, ...r.years.map(y => y.cashFlow)];
+    cfs[r.holdYears] += r.exitValue - r.sellingCosts - r.exitLoanBalance;
+    expect(Math.abs(npv(r.irrPreTax, cfs))).toBeLessThan(1);
+  });
+
+  test('after-tax (headline) IRR zeroes NPV of after-tax cash flow + net proceeds', () => {
+    const r = calcDeal(investorDuplex());
+    const cfs = [-r.totalCashBase, ...r.years.map(y => y.afterTaxCashFlow)];
+    cfs[r.holdYears] += r.netProceeds;
+    expect(Math.abs(npv(r.irr, cfs))).toBeLessThan(1);
+    expect(r.irr).toBeLessThan(r.irrPreTax); // a profitable deal pays some tax
+  });
+
+  test('house hack: counting the rent you no longer pay raises IRR; investors get the same number', () => {
+    const hh = calcDeal(createSampleDeal());
+    expect(hh.irrWithHousingSavings).toBeGreaterThan(hh.irr);
+    const inv = calcDeal(investorDuplex());
+    expect(inv.irrWithHousingSavings).toBe(inv.irr);
+  });
+});

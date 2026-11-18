@@ -11,8 +11,10 @@ export const GLOSSARY = {
     "Cash-on-Cash Return — your first-year cash income divided by the cash you put in. " +
     "Above 6% is healthy; below 3% is weak.",
   irr:
-    "Internal Rate of Return — annualized total return including cash flow, principal " +
-    "paydown, appreciation, and exit proceeds. Above 12% is strong; below 8% is weak.",
+    "Internal Rate of Return — your annualized total return over the hold: yearly cash " +
+    "flow plus what you keep when you sell. The headline figure is after income tax and " +
+    "sale taxes; the pre-tax figure ignores taxes. For a house hack, \"incl. housing " +
+    "savings\" also counts the rent you'd otherwise pay while you live there.",
   capRate:
     "Cap Rate — the building's annual income with every unit rented (after vacancy and " +
     "expenses, before mortgage) divided by purchase price. It measures the property's yield, " +

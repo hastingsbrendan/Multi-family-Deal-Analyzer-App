@@ -259,7 +259,8 @@ function exportDealXLSX(deal, user) {
   // Same benchmarks as the app (src/lib/benchmarks.js)
   const BM = benchmarks();
   const kpiRows = [
-    [`IRR (${holdYrs}-Year)`,             r.irr,                 PCT1,  true,  `Benchmark: ${BM.irr.label} annually over ${holdYrs}-year hold`],
+    [`IRR (${holdYrs}-Year, after tax)`,  r.irr,                 PCT1,  true,  `Benchmark: ${BM.irr.label} annually over ${holdYrs}-year hold`],
+    [`IRR (${holdYrs}-Year, pre-tax)`,    r.irrPreTax,           PCT1,  false, 'Before income tax and sale taxes'],
     ['Equity Multiple',                    r.equityMultiple,      X2,    true,  'Benchmark: ≥1.5x over hold period'],
     ['Cash-on-Cash Return (Yr 1)',         r.cocReturn,           PCT1,  true,  `Benchmark: ${BM.coc.label}`],
     ['Monthly Cash Flow (Yr 1)',           yr1.monthlyCashFlow,   USD,   true,  'Target: positive (> $0)'],

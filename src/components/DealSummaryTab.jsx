@@ -290,7 +290,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
         {label:"CoC Return · Yr 1",val:FMT_PCT(result.cocReturn),metric:"coc",v:result.cocReturn,note:`Target: ${bm.coc.label}`,tip:GLOSSARY.cocReturn},
         {label:"DSCR · Lender View",val:hasLoan?(result.dscrLenderView||0).toFixed(2)+"x":"n/a",metric:"dscr",v:hasLoan?result.dscrLenderView:null,note:hasLoan?(result.ooEnabled?`Your view: ${(result.dscr||0).toFixed(2)}x · Target: ${bm.dscr.label}`:`Target: ${bm.dscr.label}`):"No loan",tip:GLOSSARY.dscr},
         {label:"Equity Multiple",val:FMT_X(result.equityMultiple),metric:null,v:result.equityMultiple,note:`Cash back ÷ cash in over ${holdYears} yrs`,tip:GLOSSARY.equityMultiple},
-        {label:`IRR (${holdYears}-Year)`,val:FMT_PCT(result.irr),metric:"irr",v:result.irr,note:`Target: ${bm.irr.label}`,tip:GLOSSARY.irr},
+        {label:`IRR · ${holdYears}-Yr · After Tax`,val:FMT_PCT(result.irr),metric:"irr",v:result.irr,note:result.ooEnabled?`Pre-tax ${FMT_PCT(result.irrPreTax)} · Incl. housing savings ${FMT_PCT(result.irrWithHousingSavings)}`:`Pre-tax ${FMT_PCT(result.irrPreTax)} · Target: ${bm.irr.label}`,tip:GLOSSARY.irr},
         {label:"Cap Rate · Yr 1",val:FMT_PCT(result.capRate),metric:"capRate",v:result.capRate,note:result.ooEnabled?`All units rented · Target: ${bm.capRate.label}`:`Target: ${bm.capRate.label}`,tip:GLOSSARY.capRate},
       ];
       return(

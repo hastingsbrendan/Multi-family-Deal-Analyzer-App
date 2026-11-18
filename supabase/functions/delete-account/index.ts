@@ -5,6 +5,34 @@ const CORS = {
   'Access-Control-Allow-Headers': 'content-type, authorization',
 };
 
+// Lists every object under <uid>/ (deal folders, then optional context subfolders)
+// and deletes them in batches. Throws on any storage error so the account isn't
+// deleted with photos left behind.
+async function removeUserPhotos(supabase: ReturnType<typeof createClient>, uid: string): Promise<number> {
+  const bucket = supabase.storage.from('deal-photos');
+  const files: string[] = [];
+  async function walk(prefix: string, depth: number) {
+    for (let offset = 0; ; offset += 100) {
+      const { data, error } = await bucket.list(prefix, { limit: 100, offset });
+      if (error) throw new Error('Failed to list photos: ' + error.message);
+      if (!data?.length) break;
+      for (const item of data) {
+        const path = prefix + '/' + item.name;
+        // Folders come back without an id
+        if (item.id) files.push(path);
+        else if (depth < 3) await walk(path, depth + 1);
+      }
+      if (data.length < 100) break;
+    }
+  }
+  await walk(uid, 0);
+  for (let i = 0; i < files.length; i += 100) {
+    const { error } = await bucket.remove(files.slice(i, i + 100));
+    if (error) throw new Error('Failed to delete photos: ' + error.message);
+  }
+  return files.length;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
@@ -36,12 +64,18 @@ Deno.serve(async (req) => {
   console.log('[delete-account] Starting deletion uid=' + uid);
 
   try {
-    // 1. Delete all deals
-    const { error: dealsErr } = await supabase.from('deals').delete().eq('user_id', uid);
-    if (dealsErr) throw new Error('Failed to delete deals: ' + dealsErr.message);
+    // 1. Groups the user owns (handed to the longest-standing member, or deleted),
+    //    links to their shared deals, and feedback they sent. See
+    //    supabase/sql/m8_account_deletion.sql. Deals, comments, memberships, profile and
+    //    API usage cascade when the auth user is deleted in step 4.
+    const { data: summary, error: prepErr } = await supabase.rpc('prepare_account_deletion', { p_uid: uid });
+    if (prepErr) throw new Error('Failed to prepare deletion: ' + prepErr.message);
+    console.log('[delete-account] prepared', JSON.stringify(summary));
 
-    // 2. Remove from all groups
-    await supabase.from('group_members').delete().eq('user_id', uid);
+    // 2. Deal photos live in the public deal-photos bucket under <uid>/<dealId>/...;
+    //    they stayed reachable by URL after an account was deleted (2026-11, M8).
+    const removed = await removeUserPhotos(supabase, uid);
+    console.log('[delete-account] photos removed: ' + removed);
 
     // 3. Cancel Stripe subscriptions if present
     const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
@@ -64,7 +98,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 4. Delete auth user (cascades to profiles via trigger)
+    // 4. Delete auth user (cascades deals, comments, memberships, profile, API usage)
     const { error: deleteErr } = await supabase.auth.admin.deleteUser(uid);
     if (deleteErr) throw new Error('Failed to delete auth user: ' + deleteErr.message);
 

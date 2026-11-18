@@ -1,0 +1,17 @@
+# Cloudflare Pages response headers (2026-11 review, M7)
+#
+# The Content-Security-Policy is report-only at first: browsers log (and send to
+# Sentry) anything it would block, without blocking it. Once a week of reports is
+# clean, rename the header to Content-Security-Policy to enforce it.
+
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://maps.gstatic.com https://us-assets.i.posthog.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://*.supabase.co https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com https://*.gstatic.com; connect-src 'self' https://lxkwvayalxuoryuwxtsq.supabase.co wss://lxkwvayalxuoryuwxtsq.supabase.co https://*.ingest.us.sentry.io https://us.i.posthog.com https://us-assets.i.posthog.com https://maps.googleapis.com https://api.census.gov https://geocoding.geo.census.gov https://hazards.fema.gov; worker-src 'self' blob:; frame-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com; object-src 'none'; report-uri https://o4511005787357184.ingest.us.sentry.io/api/4511005788930048/security/?sentry_key=1427d8f17bc8fb78a755d240cdf1741f
+
+# Vite gives built files content hashes, so they can be cached for a year.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

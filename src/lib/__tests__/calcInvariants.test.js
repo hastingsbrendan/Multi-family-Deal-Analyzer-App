@@ -227,7 +227,7 @@ describe(`engine invariants (seed ${SEED}, ${N} deals)`, () => {
 
   check('IRR is finite, within [−100%, 1000%], and zeroes NPV when it is an interior root', (r) => {
     if (!Number.isFinite(r.irr) || r.irr < -1 || r.irr > 10) return `irr ${r.irr}`;
-    const cfs = [-r.totalCashBase, ...r.years.map(y => y.cashFlow)];
+    const cfs = [-r.totalCashBase, ...r.years.map(y => (r.taxAdvEnabled ? y.afterTaxCFAdv : y.afterTaxCashFlow))];
     cfs[cfs.length - 1] += r.netProceeds;
     if (cfs[0] >= 0) return null;                      // no investment → IRR undefined, reported 0
     if (r.irr <= -0.999 || r.irr >= 9.99) return null; // total-loss / capped outcomes
@@ -240,7 +240,7 @@ describe(`engine invariants (seed ${SEED}, ${N} deals)`, () => {
   });
 
   check('a deal that never returns cash reports −100%, not 0%', (r) => {
-    const cfs = [-r.totalCashBase, ...r.years.map(y => y.cashFlow)];
+    const cfs = [-r.totalCashBase, ...r.years.map(y => (r.taxAdvEnabled ? y.afterTaxCFAdv : y.afterTaxCashFlow))];
     cfs[cfs.length - 1] += r.netProceeds;
     if (cfs[0] < 0 && !cfs.some(c => c > 0) && r.irr !== -1) return `irr ${r.irr} with no positive cash flow`;
     return null;

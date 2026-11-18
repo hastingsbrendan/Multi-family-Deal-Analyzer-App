@@ -48,7 +48,7 @@ function ComparePanel({ deals, results, onClose, onSelect, prefs }) {
     {
       label: 'Hold-Period Returns',
       rows: [
-        { label: 'IRR',             fmt: (_d, r) => FMT_PCT(r.irr),           colorFn: (_d, r) => tone('irr', r.irr, prefs) },
+        { label: 'IRR (after tax)', fmt: (_d, r) => FMT_PCT(r.irr),           colorFn: (_d, r) => tone('irr', r.irr, prefs) },
         { label: 'Equity Multiple', fmt: (_d, r) => FMT_X(r.equityMultiple),  colorFn: (_d, r) => (r.equityMultiple ?? 0) >= 2 ? 'var(--green)' : (r.equityMultiple ?? 0) >= 1.5 ? 'var(--accent2)' : 'var(--red)' },
       ],
     },
@@ -202,7 +202,7 @@ function DealCard({ d, r, onSelect, onDelete, onShareDeal, inCompare, onToggleCo
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
         {[
           { label: 'CoC', tip: 'Cash-on-Cash Return — your first-year cash income as a % of cash invested', val: FMT_PCT(r.cocReturn), color: tone('coc', r.cocReturn, prefs) },
-          { label: 'IRR', tip: 'Internal Rate of Return — annualized return including appreciation and equity over the hold period', val: FMT_PCT(r.irr), color: tone('irr', r.irr, prefs) },
+          { label: 'IRR', tip: 'Internal Rate of Return, after tax — annualized return over the hold from cash flow and sale proceeds', val: FMT_PCT(r.irr), color: tone('irr', r.irr, prefs) },
           { label: 'Cap Rate', tip: 'Cap Rate — the building’s Year 1 NOI with every unit rented, divided by purchase price', val: FMT_PCT(r.capRate), color: tone('capRate', r.capRate, prefs) },
         ].map(({ label, tip, val, color }) => (
           <div key={label} style={{ textAlign: 'center' }}>
