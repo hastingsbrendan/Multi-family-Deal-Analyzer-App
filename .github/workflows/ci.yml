@@ -12,6 +12,11 @@ permissions:
 jobs:
   test-and-build:
     runs-on: ubuntu-latest
+    # Placeholders so modules that create the Supabase client can load; tests mock
+    # the network and the CI build is never deployed (Cloudflare builds its own).
+    env:
+      VITE_SB_URL: https://ci-placeholder.supabase.co
+      VITE_SB_ANON_KEY: ci-placeholder-anon-key
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
