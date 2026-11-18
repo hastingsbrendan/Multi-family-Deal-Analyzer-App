@@ -1,4 +1,5 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import * as Sentry from '@sentry/react';
 import { newDeal, createSampleDeal } from './calc';
 import { sbDeleteDeal } from './constants';
 import { trackDealCreated, trackDealDeleted } from './analytics';
@@ -35,22 +36,40 @@ export function useDeals({ prefs, setDeals, forgetDeal }) {
     setDeals(p => p.map(d => d.id === updated.id ? updated : d));
   }, [setDeals]);
 
-  const deleteDeal = useCallback((id) => {
+  // Deletes reach the server only after the Undo toast (5s) has gone. Deleting at once
+  // meant Undo restored a deal whose row no longer existed, so the next save reported
+  // "deleted on another device" (2026-11 review). Network calls also don't belong
+  // inside a setState updater, which React may run twice.
+  const pendingDeletes = useRef(new Map()); // local id -> { timer, run }
+
+  const deleteDeal = useCallback((id, dealId) => {
     trackDealDeleted(id);
-    forgetDeal(id);
-    // Use functional form to access current deals so we can read _deal_id.
-    // sbDeleteDeal removes the row from Supabase; without this the row survives
-    // (saves never delete) and reappears on next page load.
-    setDeals(p => {
-      const deal = (p || []).find(d => d.id === id);
-      if (deal?._deal_id) sbDeleteDeal(deal._deal_id).catch(() => {});
-      return p.filter(d => d.id !== id);
-    });
+    setDeals(p => p.filter(d => d.id !== id));
+    const run = () => {
+      pendingDeletes.current.delete(id);
+      forgetDeal(id);
+      // Saves never delete rows, so without this the deal reappears on next load.
+      if (dealId) sbDeleteDeal(dealId).catch(e => Sentry.captureException(e, { tags: { origin: 'useDeals.delete' } }));
+    };
+    pendingDeletes.current.set(id, { timer: setTimeout(run, 6000), run });
   }, [setDeals, forgetDeal]);
 
+  // Reorder is also how Undo puts a deleted deal back: any deal present again
+  // cancels its pending delete.
   const reorderDeals = useCallback((next) => {
+    (next || []).forEach(d => {
+      const pending = pendingDeletes.current.get(d.id);
+      if (pending) { clearTimeout(pending.timer); pendingDeletes.current.delete(d.id); }
+    });
     setDeals(next);
   }, [setDeals]);
+
+  // Leaving the page or signing out shouldn't resurrect a deal the user deleted.
+  useEffect(() => {
+    const flushAll = () => pendingDeletes.current.forEach(({ timer, run }) => { clearTimeout(timer); run(); });
+    window.addEventListener('pagehide', flushAll);
+    return () => { window.removeEventListener('pagehide', flushAll); flushAll(); };
+  }, []);
 
   return { addDeal, addSampleDeal, updateDeal, deleteDeal, reorderDeals };
 }

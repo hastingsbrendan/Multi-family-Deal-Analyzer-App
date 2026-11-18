@@ -9,7 +9,7 @@ import CFSectionHeader from './ui/CFSectionHeader';
 // Map Cash-Flow row labels (or label prefixes) to a glossary tip key.
 // The R helper looks up by exact label first, then by prefix-match.
 const ROW_TIPS = {
-  'Gross Rent':           "Total annual rent from all units assuming 100% occupancy and Yr-1 rent.",
+  'Gross Rent':           "Total annual rent from all units at 100% occupancy, growing each year at your rent growth rate.",
   'Vacancy Loss (tenant units)': GLOSSARY.vacancyRate,
   'EGI':                  GLOSSARY.egi,
   'NOI':                  GLOSSARY.noi,

@@ -556,7 +556,7 @@ function AssumptionsTab({deal,onChange}){
         onChange={v=>upd("expenses.hoa",v)}
         prefix="$"
         suffix="/yr"
-        tooltip="Annual HOA or condo association fee. Auto-populated from Rentcast when available. Enter 0 if none."
+        tip="Annual HOA or condo association fee. Filled in from the property lookup when Rentcast has it. Enter 0 if none."
       />
       <div style={{fontSize:12,color:"var(--muted)",padding:"6px 0"}}>Year 1 computed total: <strong style={{color:"var(--text)"}}>{FMT_USD(resolveExpenses(a,grossRentYear0).total)}</strong></div>
     </Section>
@@ -671,7 +671,7 @@ function AssumptionsTab({deal,onChange}){
     </button>
     {!showAdvanced&&(
       <div style={{fontSize:"var(--text-xs)",color:"var(--muted)",padding:"0 2px 12px",lineHeight:1.6}}>
-        Currently using: {a.ownerOccupied?`owner-occupied (Unit ${(+a.ownerUnit||0)+1}, ${a.ownerOccupancyYears||2} yrs)`:"investment property (no owner unit)"} · {a.rentGrowth||0}% rent growth · {a.appreciationRate||0}% appreciation · {a.taxBracket||0}% tax bracket{a.state?` · ${a.state} state tax`:""} · {(a.sellingCostPct??6)}% selling costs at exit
+        Currently using: {a.ownerOccupied?`owner-occupied (Unit ${(+a.ownerUnit||0)+1}, ${a.ownerOccupancyYears||2} yrs)`:"investment property (no owner unit)"} · {a.rentGrowth||0}% rent growth · {a.appreciationRate||0}% appreciation · {a.federalTaxMethod==='flat'?`${a.taxBracket||0}% flat federal rate`:`${FEDERAL_TAX_YEAR} federal brackets`}{a.state?` · ${a.state} state tax`:""} · {(a.sellingCostPct??6)}% selling costs at exit
       </div>
     )}
     {showAdvanced&&(<>
@@ -997,7 +997,7 @@ function AssumptionsTab({deal,onChange}){
                 </div>
                 {(tax.paStatus||'active_participant')==='active_participant' && (
                   <div style={{fontSize:"var(--text-xs)",color:"var(--muted)",padding:"3px 0 8px",lineHeight:1.5}}>
-                    $25k allowance phases out $1 for every $2 of AGI over $100k (fully phased at $150k AGI). Suspended losses carry forward to future years (not modeled).
+                    $25k allowance phases out $1 for every $2 of AGI over $100k (fully phased at $150k AGI). Suspended losses carry forward and are released when you sell.
                   </div>
                 )}
                 {tax.paStatus==='re_professional' && (

@@ -102,7 +102,7 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
           <button onClick={()=>setShowUpgrade(true)} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:6,padding:"7px 14px",cursor:"pointer",fontSize:13,color:"var(--muted)",fontWeight:700}}>🔒 Share Deal — Pro</button>
         )}
 
-        {groupRole==="Viewer"&&<div style={{fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:20,background:"var(--teal-lt, #CCFBF1)",color:"var(--accentdk, #0F766E)",border:"1px solid rgba(13,148,136,0.35)"}}>👁 View Only</div>}
+        {groupRole==="Viewer"&&<div style={{fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:20,background:"var(--accent-soft)",color:"var(--accent)",border:"1px solid var(--accent)"}}>👁 View Only</div>}
 
         {/* PDF button — gated */}
         {groupRole!=="Viewer" && canPDF && (
@@ -122,7 +122,7 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
       </div>
       <div style={{position:"absolute",right:0,top:0,bottom:1,width:40,background:"linear-gradient(to right, transparent, var(--bg))",pointerEvents:"none"}}/>
     </div>
-    <div data-tour="tab-content"><ErrorBoundary compact><Suspense fallback={<TabFallback/>}>
+    <div data-tour="tab-content"><ErrorBoundary key={tab} compact><Suspense fallback={<TabFallback/>}>
       {tab===0&&<DealSummaryTab deal={deal} result={result} onUpdate={onUpdate}/>}
       {tab===1&&<AssumptionsTab deal={deal} onChange={onUpdate}/>}
       {tab===2&&<CashFlowTab result={result} deal={deal}/>}

@@ -200,14 +200,34 @@ function App() {
       .catch(() => {});
   }, [activeGroup?.id, prefs]);
 
+  // Like personal deals: the server change waits until the Undo toast is gone, and
+  // Undo (which restores via reorder) cancels it. Removing at once meant Undo only
+  // restored the card while the deal had already left the group.
+  const pendingGroupRemovals = useRef(new Map());
   const deleteGroupDeal = useCallback((id) => {
     const deal = (groupDeals||[]).find(d => d.id === id);
-    if (deal?._deal_id) sbRemoveDealFromGroup(deal._deal_id, activeGroup.id).catch(() => {});
-    groupSync.forgetDeal(id);
+    const groupId = activeGroup?.id;
     setGroupDeals(prev => prev.filter(d => d.id !== id));
+    const run = () => {
+      pendingGroupRemovals.current.delete(id);
+      groupSync.forgetDeal(id);
+      if (deal?._deal_id && groupId) sbRemoveDealFromGroup(deal._deal_id, groupId)
+        .catch(e => Sentry.captureException(e, { tags: { origin: 'App.removeGroupDeal' } }));
+    };
+    pendingGroupRemovals.current.set(id, { timer: setTimeout(run, 6000), run });
   }, [groupDeals, activeGroup?.id]);
 
+  useEffect(() => {
+    const flushAll = () => pendingGroupRemovals.current.forEach(({ timer, run }) => { clearTimeout(timer); run(); });
+    window.addEventListener('pagehide', flushAll);
+    return () => window.removeEventListener('pagehide', flushAll);
+  }, []);
+
   const reorderGroupDeals = useCallback((next) => {
+    (next || []).forEach(d => {
+      const pending = pendingGroupRemovals.current.get(d.id);
+      if (pending) { clearTimeout(pending.timer); pendingGroupRemovals.current.delete(d.id); }
+    });
     setGroupDeals(next);
     const orderedIds = next.map(d => d._deal_id).filter(Boolean);
     if (orderedIds.length && activeGroup) sbReorderGroupDeals(activeGroup.id, orderedIds).catch(() => {});
@@ -514,7 +534,7 @@ function App() {
               onSelect={id=>setActiveDealId(id)}
               onAdd={activeGroup ? addGroupDeal : addDeal}
               onAddSample={activeGroup ? null : addSampleDeal}
-              onDelete={activeGroup ? deleteGroupDeal : deleteDeal}
+              onDelete={activeGroup ? deleteGroupDeal : (id => deleteDeal(id, (deals||[]).find(d => d.id === id)?._deal_id))}
               onExport={()=>import('../lib/export').then(m=>m.exportPortfolioXLSX(activeGroup ? groupDeals : deals, user))}
               onReorder={activeGroup ? reorderGroupDeals : reorderDeals}
               dark={dark} setDark={setDark}

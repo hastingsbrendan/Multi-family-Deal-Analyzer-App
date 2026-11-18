@@ -165,7 +165,7 @@ function CommentsPanel({ groupId, dealId, currentUser }) {
                     </div>
                   ) : (
                     <div style={{
-                      background: 'var(--accentSoft)', borderRadius: 10,
+                      background: 'var(--accent-soft)', borderRadius: 10,
                       padding: '8px 12px', fontSize: 13, color: 'var(--text)',
                       lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word'
                     }}>

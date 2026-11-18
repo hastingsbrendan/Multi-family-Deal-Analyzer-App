@@ -122,7 +122,7 @@ function ShowingTab({deal,onChange}){
       {renderRehab(false,-1)}
       <PhotoGallery deal={deal} onUpdate={onChange} context="exterior" contextLabel="Exterior"/>
     </div>);})()}
-    <div style={{...cSty,background:"var(--accent-soft)",border:"1px solid var(--accent)44"}}>
+    <div style={{...cSty,background:"var(--accent-soft)",border:"1px solid var(--border)"}}>
       <span style={{fontWeight:800,fontSize:13,color:"var(--text)",display:"block",marginBottom:12}}>Rehab Rollup</span>
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:12}}>
         {PH.map(p=>(<div key={p} style={{textAlign:"center",background:"var(--card)",borderRadius:8,padding:"10px 6px",border:"1px solid var(--border)"}}>

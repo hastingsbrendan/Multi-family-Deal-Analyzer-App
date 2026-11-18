@@ -358,7 +358,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
     {result.vaEnabled&&(<div style={{background:"rgba(167,139,250,0.08)",border:"1px solid rgba(167,139,250,0.35)",borderRadius:12,padding:14,marginBottom:10}}>
       <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.1em",color:"var(--va-purple)",marginBottom:10,textTransform:"uppercase"}}>🔨 Value Add Impact</div>
       <div style={{display:"flex",gap:16,flexWrap:"wrap",fontSize:"var(--text-sm)"}}>
-        <div><div style={{color:"var(--muted)",fontSize:"var(--text-xs)",marginBottom:2}}>TOTAL REMODEL COST</div><div style={{fontWeight:800,color:"var(--text)",fontSize:15}}>{FMT_USD(result.vaReModelCost)}</div><div style={{fontSize:"var(--text-xs)",color:"var(--muted)"}}>50/50 over Yr 1–2</div></div>
+        <div><div style={{color:"var(--muted)",fontSize:"var(--text-xs)",marginBottom:2}}>TOTAL REMODEL COST</div><div style={{fontWeight:800,color:"var(--text)",fontSize:15}}>{FMT_USD(result.vaReModelCost)}</div><div style={{fontSize:"var(--text-xs)",color:"var(--muted)"}}>{result.vaCompletionYr===1||result.holdYears===1?"All in Yr 1":"50/50 over Yr 1–2"}</div></div>
         <div><div style={{color:"var(--muted)",fontSize:"var(--text-xs)",marginBottom:2}}>ANNUAL RENT LIFT</div><div style={{fontWeight:800,color:"var(--va-purple)",fontSize:15}}>{FMT_USD(result.vaRentBump)}/yr</div><div style={{fontSize:"var(--text-xs)",color:"var(--muted)"}}>From Year {result.vaCompletionYr}</div></div>
         <div><div style={{color:"var(--muted)",fontSize:"var(--text-xs)",marginBottom:6}}>IRR COMPARISON</div><div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}><div style={{textAlign:"center"}}><div style={{fontSize:10,color:"var(--muted)",marginBottom:1}}>Without VA</div><div style={{fontSize:"var(--text-md)",fontWeight:800,color:"var(--text)"}}>{FMT_PCT(result.irrWithoutVA)}</div></div><div style={{fontSize:18,color:"var(--va-purple)",fontWeight:800}}>→</div><div style={{textAlign:"center"}}><div style={{fontSize:10,color:"var(--muted)",marginBottom:1}}>With VA</div><div style={{fontSize:"var(--text-md)",fontWeight:800,color:"var(--va-purple)"}}>{FMT_PCT(result.irrWithVA)}</div></div><div style={{background:result.irrWithVA>result.irrWithoutVA?"rgba(167,139,250,0.15)":"rgba(239,68,68,0.1)",borderRadius:"var(--r-sm)",padding:"3px 8px",fontSize:12,fontWeight:800,color:result.irrWithVA>result.irrWithoutVA?"var(--va-purple)":"var(--red)"}}>{result.irrWithVA>result.irrWithoutVA?"+":""}{FMT_PCT(result.irrWithVA-result.irrWithoutVA)}</div></div></div>
       </div>
@@ -821,7 +821,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
               <DataRow label="Rent Range" value={(rd.rentEstimateLow&&rd.rentEstimateHigh)?`$${Math.round(rd.rentEstimateLow).toLocaleString()}–$${Math.round(rd.rentEstimateHigh).toLocaleString()}/mo`:null}/>
             </div>
           </div>
-          {rd.hoaFee>0&&<div style={{marginTop:8,padding:"6px 10px",background:"#FEF3C7",borderRadius:"var(--r-sm)",fontSize:"var(--text-xs)",color:"#92400E"}}>⚠️ HOA fee of {FMT_USD(rd.hoaFee)}/mo detected — consider adding this as a monthly expense in Assumptions.</div>}
+          {rd.hoaFee>0&&!(+a.expenses?.hoa>0)&&<div style={{marginTop:8,padding:"6px 10px",background:"var(--warn-bg)",borderRadius:"var(--r-sm)",fontSize:"var(--text-xs)",color:"var(--accent2)"}}>⚠️ This listing shows an HOA fee of {FMT_USD(rd.hoaFee)}/mo that isn't in your expenses yet. Add it under Assumptions → HOA.</div>}
         </div>
       );
     })()}
