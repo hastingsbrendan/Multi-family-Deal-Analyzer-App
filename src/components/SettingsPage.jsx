@@ -57,12 +57,20 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
       return next;
     });
   };
-  const handleSaveDefaults = (applyToDeals) => {
+  const [saveError, setSaveError] = useState('');
+  // Only say "saved" once the cloud write succeeded (it used to show regardless).
+  const handleSaveDefaults = async (applyToDeals) => {
     setSaving(true);
-    onSave(local, applyToDeals ? pushFields : null);
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setSaveError('');
+    try {
+      await onSave(local, applyToDeals ? pushFields : null);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {
+      setSaveError("Couldn't save your defaults. Check your connection and try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   // ── Account tab state ─────────────────────────────────────────────────────
@@ -144,7 +152,7 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
       if (!res.ok) throw new Error(json.error || 'Deletion failed');
       localStorage.clear();
       await sbClient.auth.signOut();
-      window.location.replace('/landing.html');
+      window.location.replace('/landing');
     } catch (e) {
       setDeleteError(e.message || 'Something went wrong. Please try again or contact support@renthack.io.');
       setDeleteLoading(false);
@@ -340,6 +348,7 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
             </button>
           </div>
           {saved && <div style={{color:'var(--green)',fontSize:13,fontWeight:600,marginTop:12}}>✓ Settings saved</div>}
+          {saveError && <div role="alert" style={{color:'var(--red)',fontSize:13,fontWeight:600,marginTop:12}}>{saveError}</div>}
         </div>
       </>)}
 
@@ -430,9 +439,9 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
           </div>
           <div style={{fontSize:12,color:'var(--muted)',lineHeight:1.5}}>
             Your data is yours.{' '}
-            <a href="/legal/privacy.html" target="_blank" style={{color:'var(--accent)'}}>Privacy Policy</a>
+            <a href="/legal/privacy" target="_blank" style={{color:'var(--accent)'}}>Privacy Policy</a>
             {' · '}
-            <a href="/legal/tos.html" target="_blank" style={{color:'var(--accent)'}}>Terms of Service</a>
+            <a href="/legal/tos" target="_blank" style={{color:'var(--accent)'}}>Terms of Service</a>
           </div>
         </div>
 

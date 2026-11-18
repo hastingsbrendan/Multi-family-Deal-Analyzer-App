@@ -262,7 +262,10 @@ function buildDealConfig(a) {
   const refiLTV=refiEnabled?(+a.refi.newLTV||75)/100:null;
   const refiValue=refiEnabled?pp*Math.pow(1+(+a.appreciationRate||0)/100,refiYear-1):null;
   const va=a.valueAdd||{}, vaEnabled=!!va.enabled;
-  const vaCompletionYr=vaEnabled?Math.max(1,Math.min(holdYears,+va.completionYear||3)):null;
+  // Not clamped to the hold: work finishing after the sale earns no rent lift and adds
+  // no value at exit (it used to be pulled into the last year, ~+$63k of exit value
+  // for an unfinished renovation; 2026-11 review). Its cost is still paid.
+  const vaCompletionYr=vaEnabled?Math.max(1,+va.completionYear||3):null;
   const vaReModelCost=vaEnabled?(+va.reModelCost||0):0;
   const vaRentBump=vaEnabled?(+va.rentBumpPerUnit||0)*Math.min(+va.unitsRenovated||0,a.numUnits)*12:0;
   const totalCashWithVA=totalCash+vaReModelCost;
@@ -301,7 +304,7 @@ function buildDealConfig(a) {
   const fedMarginalAtBase=federalMethod==='flat'?bracketRate:federalMarginal(taxableBase(otherIncome,filingStatus),filingStatus);
   const refiNewRateRaw=a.refi?.newRate;
   const costSegFee=+(taxCfg.costSegFee||0);
-  return {pp,dpPct,dp,totalCash,loanAmt,rate,n,monthlyPayment,annualDebtService,grossRentYear0,pmiAnnual,sellingCostPct,
+  return {pp,dpPct,dp,closingCostsTotal,concessions,loanShortfall,totalCash,loanAmt,rate,n,monthlyPayment,annualDebtService,grossRentYear0,pmiAnnual,sellingCostPct,
     ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAnnualUtilities,ooAltRentMonthly,
     vacRate,rentGrowth,expGrowth,appRate,baseExp,baseExpenses,
     holdYears,refiEnabled,refiYear,refiRate,refiLTV,refiValue,
@@ -428,7 +431,9 @@ function calcYear(yr, cfg, loopState) {
   newBalance=Math.max(0,newBalance);
   balance=newBalance;
   // 50/50 draw model; if the renovation completes in year 1 the full cost lands there
-  const vaRemodelOutflow=vaCompletionYr===1?(yr===1?vaReModelCost:0):(yr===1||yr===2?vaReModelCost/2:0);
+  // Spend all in Yr 1 when the work finishes in Yr 1 or the hold is a single year (a
+  // Yr 2 draw would fall after the sale); otherwise 50/50 over Yr 1–2.
+  const vaRemodelOutflow=(vaCompletionYr===1||cfg.holdYears===1)?(yr===1?vaReModelCost:0):(yr===1||yr===2?vaReModelCost/2:0);
   const cashFlow=noi-debtServiceThisYr-pmiThisYr-ooUtilitiesThisYr+(refiEvent?refiEvent.cashOut:0)-vaRemodelOutflow;
   const monthlyCashFlow=cashFlow/12;
   const ooAltRentAnnual=ooEnabled&&yr<=ooYears?(ooAltRentMonthly*12):0;
@@ -556,7 +561,7 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
   const {pp,holdYears,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExp,baseExpenses,
     ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,vacRate,
     vaEnabled,vaCompletionYr,vaReModelCost,vaRentBump,
-    totalCash,totalCashWithVA,taxAdvEnabled,refiEnabled,refiYear,appRate}=cfg;
+    totalCash,totalCashWithVA,taxAdvEnabled,refiEnabled,refiYear,appRate,dp,closingCostsTotal,concessions,loanShortfall}=cfg;
   const years=[];
   let ls={balance:loanAmt,currentMonthlyPayment:monthlyPayment,currentAnnualDebtService:annualDebtService,refiCashOut:0,palCarryforward:0,basicPalCarryforward:0,cumulativeDepreciationTaken:0,cumulative1245Taken:0};
   for(let yr=1;yr<=holdYears;yr++){
@@ -586,7 +591,7 @@ function calcDeal(deal, { _isRecursive = false } = {}) {
     return { applies: true, grossRentAllUnits, threshold75Pct, pitiAnnual, passes, delta };
   })();
 
-  return {totalCash:totalCashWithVA,totalCashBase:totalCash,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExpenses,baseExpBreakdown:baseExp,noi:years[0]?.noi||0,cocReturn:years[0]?.cocReturn||0,capRate:years[0]?.capRate||0,dscr:years[0]?.dscr||0,dscrLenderView:years[0]?.dscrLenderView||0,irr,equityMultiple,breakEvenOccupancy,exitValue,exitLoanBalance,sellingCosts,adjustedBasis,totalGainOnSale,sec1245RecapturePortion,sec1250RecapturePortion,trueLTCGPortion,sec121Exclusion,recaptureTax,ltcgTax,niitTax,stateTaxOnSale,palTaxBenefit,netTaxOnSale,netProceeds,capitalGainsTax,years,holdYears,refiCashOut,refiYear:refiEnabled?refiYear:null,vaEnabled,vaReModelCost,vaRentBump,vaCompletionYr,irrWithoutVA,irrWithVA,ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,taxAdvEnabled,finalPalCarryforward:finalPal,cumulativeDepreciationTaken:ls.cumulativeDepreciationTaken,fhaSelfSufficiency};
+  return {totalCash:totalCashWithVA,totalCashBase:totalCash,downPayment:dp,closingCostsTotal,concessions,loanShortfall,loanAmt,monthlyPayment,annualDebtService,grossRentYear0,baseExpenses,baseExpBreakdown:baseExp,noi:years[0]?.noi||0,cocReturn:years[0]?.cocReturn||0,capRate:years[0]?.capRate||0,dscr:years[0]?.dscr||0,dscrLenderView:years[0]?.dscrLenderView||0,irr,equityMultiple,breakEvenOccupancy,exitValue,exitLoanBalance,sellingCosts,adjustedBasis,totalGainOnSale,sec1245RecapturePortion,sec1250RecapturePortion,trueLTCGPortion,sec121Exclusion,recaptureTax,ltcgTax,niitTax,stateTaxOnSale,palTaxBenefit,netTaxOnSale,netProceeds,capitalGainsTax,years,holdYears,refiCashOut,refiYear:refiEnabled?refiYear:null,vaEnabled,vaReModelCost,vaRentBump,vaCompletionYr,irrWithoutVA,irrWithVA,ooEnabled,ooUnit,ooYears,ooAnnualRentLost,ooAltRentMonthly,taxAdvEnabled,finalPalCarryforward:finalPal,cumulativeDepreciationTaken:ls.cumulativeDepreciationTaken,fhaSelfSufficiency};
 }
 
 // ── BACK-805: Exit Year Scenario Analysis ─────────────────────────────────────
@@ -661,9 +666,15 @@ const createSampleDeal = (prefs) => {
   a.vacancyRate = 5;
   a.pmi = 150; // 10% down → PMI until 78% LTV (~0.6%/yr of the ~$306k loan)
 
-  // Expenses — realistic for a Chicago 2-flat
-  a.expenseModes.propertyTax = 'value';
-  a.expenseModes.insurance   = 'value';
+  // Expenses — realistic for a Chicago 2-flat. newDeal starts maintenance/CapEx/
+  // management in "% of rent" mode, so set the modes too or the $ amounts below are
+  // ignored and an 8% fee lands on a self-managed deal (2026-11 review).
+  a.expenseModes.propertyTax  = 'value';
+  a.expenseModes.insurance    = 'value';
+  a.expenseModes.maintenance  = 'value';
+  a.expenseModes.capex        = 'value';
+  a.expenseModes.propertyMgmt = 'value';
+  a.selfManage            = true;
   a.expenses.propertyTax  = 5800;
   a.expenses.insurance    = 1600;
   a.expenses.maintenance  = 2200;
@@ -675,6 +686,9 @@ const createSampleDeal = (prefs) => {
   a.expenseGrowth    = 2;
   a.appreciationRate = 4;
   a.taxBracket       = 22;
+  // Set up front so the numbers don't shift when the Assumptions tab later reads
+  // the state from the address.
+  a.state            = 'IL';
 
   a.beds = 4; a.baths = 2; a.yearBuilt = 1965; a.sqftTotal = 2400;
 

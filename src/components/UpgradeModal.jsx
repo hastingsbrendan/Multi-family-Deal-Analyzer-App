@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import * as Sentry from '@sentry/react';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { trackUpgradeGateHit } from '../lib/analytics';
 import Button from './ui/Button';
@@ -8,6 +9,7 @@ import { sbClient } from '../lib/constants';
 // Creates a Checkout Session via our Supabase Edge Function and redirects.
 // functions.invoke sends the session token, so the function identifies the buyer
 // server-side and stamps their user id on the Stripe session for the webhook.
+// Returns an error message for the card to show (alert() was used before).
 async function startCheckout(userEmail) {
   try {
     const { data, error } = await sbClient.functions.invoke('stripe-checkout', {
@@ -21,9 +23,10 @@ async function startCheckout(userEmail) {
     if (error) throw error;
     if (!data?.url) throw new Error(data?.error || 'No checkout URL returned');
     window.location.href = data.url;
+    return null;
   } catch (e) {
-    alert('Could not start checkout. Please try again or contact support.');
-    console.error('[RentHack] Checkout error:', e);
+    Sentry.captureException(e, { tags: { origin: 'startCheckout' } });
+    return "Couldn't start checkout. Please try again, or email support@renthack.io.";
   }
 }
 
@@ -63,24 +66,33 @@ export function BlurGate({ feature, children, userEmail, dealId }) {
 
 // ─── Upgrade card ─────────────────────────────────────────────────────────────
 export function UpgradeCard({ userEmail, compact = false }) {
-  const { tier, daysLeft } = useSubscription();
-  if (tier === 'pro') return null;
+  const { tier } = useSubscription();
+  // Hooks before the early return: returning first broke React's hook order when
+  // the tier changed while the card was on screen (e.g. right after upgrading).
   const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState('');
+  if (tier === 'pro') return null;
   // Copy is tier-aware: "trial has ended" only when a trial actually ran out.
   // Locked users who never trialed (or whose trial ended long ago) get a neutral headline.
   const headline = tier === 'trial' ? 'Go Pro before your trial ends' : 'Unlock RentHack Pro';
 
   async function handleUpgrade() {
     setLoading(true);
-    await startCheckout(userEmail);
+    setError('');
+    const err = await startCheckout(userEmail);
+    if (err) setError(err);
     setLoading(false);
   }
+  const errorLine = error && <div role="alert" style={{ fontSize: 12, color: 'var(--red)', marginTop: 8 }}>{error}</div>;
 
   if (compact) {
     return (
-      <Button variant="primary" onClick={handleUpgrade} disabled={loading} style={{padding:'7px 16px',fontSize:13,cursor:loading?'wait':'pointer'}}>
-        {loading ? 'Redirecting…' : '⚡ Upgrade — $9/mo'}
-      </Button>
+      <>
+        <Button variant="primary" onClick={handleUpgrade} disabled={loading} style={{padding:'7px 16px',fontSize:13,cursor:loading?'wait':'pointer'}}>
+          {loading ? 'Redirecting…' : '⚡ Upgrade — $9/mo'}
+        </Button>
+        {errorLine}
+      </>
     );
   }
 
@@ -105,6 +117,7 @@ export function UpgradeCard({ userEmail, compact = false }) {
       <Button variant="primary" size="lg" onClick={handleUpgrade} disabled={loading} style={{width:'100%',fontWeight:800,letterSpacing:'-0.2px',cursor:loading?'wait':'pointer'}}>
         {loading ? 'Redirecting to checkout…' : '⚡ Upgrade — $9/mo'}
       </Button>
+      {errorLine}
       <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10 }}>
         Cancel anytime · Secure checkout via Stripe
       </div>

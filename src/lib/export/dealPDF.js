@@ -502,16 +502,21 @@ function exportDealPDF(deal, user) {
   const cfHead = [['', ...r.years.map(y => `Yr ${y.yr}`)]];
   const cfRows = [
     { label: 'Gross Rent',    data: r.years.map(y => fmtK(y.grossRent)),    bold: false, teal: false },
+    // Owner-occupancy, PMI and owner-utility rows, so EGI − expenses − debt = cash flow
+    // reads straight down the table (they were missing for house hacks).
+    ...(r.years.some(y => y.ooRentDeduction > 0) ? [{ label: 'Your Unit (OO)', data: r.years.map(y => y.ooRentDeduction > 0 ? fmtK(-y.ooRentDeduction) : '—'), bold: false, teal: false }] : []),
     { label: 'Vacancy Loss',  data: r.years.map(y => fmtK(y.vacancyLoss)),  bold: false, teal: false },
     { label: 'EGI',           data: r.years.map(y => fmtK(y.egi)),          bold: true,  teal: false, top: true },
     { label: 'Expenses',      data: r.years.map(y => fmtK(y.expenses)),     bold: false, teal: false },
     { label: 'NOI',           data: r.years.map(y => fmtK(y.noi)),          bold: true,  teal: true,  top: true },
     { label: 'Debt Service',  data: r.years.map(y => fmtK(y.debtService)),  bold: false, teal: false },
+    ...(r.years.some(y => y.pmi > 0) ? [{ label: 'PMI / MIP', data: r.years.map(y => y.pmi > 0 ? fmtK(y.pmi) : '—'), bold: false, teal: false }] : []),
+    ...(r.years.some(y => y.ooUtilities > 0) ? [{ label: 'Owner Utilities', data: r.years.map(y => y.ooUtilities > 0 ? fmtK(y.ooUtilities) : '—'), bold: false, teal: false }] : []),
     { label: 'Cash Flow',     data: r.years.map(y => fmtK(y.cashFlow)),     bold: true,  teal: true,  top: true },
     { label: 'CoC Return',    data: r.years.map(y => fmtRate(y.cocReturn)), bold: false, teal: false },
     { label: 'DSCR',          data: r.years.map(y => y.dscr.toFixed(2)),   bold: false, teal: false },
     { label: 'Prop. Value',   data: r.years.map(y => fmtK(y.propertyValue)),bold: false, teal: false, top: true },
-    { label: 'Loan Balance',  data: r.years.map(y => fmtK(y.loanBalance)),  bold: false, teal: false },
+    { label: 'Loan Balance',  data: r.years.map(y => fmtK(y.balance)),  bold: false, teal: false },
     { label: 'Equity',        data: r.years.map(y => fmtK(y.equity)),       bold: true,  teal: true },
   ];
 

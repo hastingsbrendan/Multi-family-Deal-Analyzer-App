@@ -31,7 +31,7 @@ class ErrorBoundary extends React.Component {
             <div style={{ fontSize: 12, marginBottom: 16 }}>
               {chunkErr
                 ? 'RentHack was updated. Click below to reload the latest version.'
-                : (this.state.error?.message || 'An unexpected error occurred.')}
+                : 'Something went wrong on our side. It has been reported, and trying again usually works.'}
             </div>
             <button
               onClick={chunkErr ? () => window.location.reload() :() => this.setState({ hasError: false, error: null })}
@@ -56,7 +56,7 @@ class ErrorBoundary extends React.Component {
             <div style={{ fontSize: 13, color: 'var(--muted, #94a3b8)', marginBottom: 20 }}>
               {chunkErr
                 ? 'RentHack was updated since you last loaded the page. Click below to get the latest version.'
-                : (this.state.error?.message || 'An unexpected error occurred.')}
+                : 'Something went wrong on our side. It has been reported, and trying again usually works.'}
             </div>
             <button
               onClick={chunkErr ? () => window.location.reload() :() => this.setState({ hasError: false, error: null })}

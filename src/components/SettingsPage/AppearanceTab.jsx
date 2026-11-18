@@ -24,8 +24,8 @@ function AppearanceTab({ dark, setDark, card }) {
           For informational purposes only. Not financial, legal, or tax advice.
         </div>
         <div style={{fontSize:12,marginTop:6,display:'flex',gap:16,justifyContent:'center'}}>
-          <a href="/legal/tos.html" target="_blank" style={{color:'var(--muted)',textDecoration:'none'}}>Terms of Service</a>
-          <a href="/legal/privacy.html" target="_blank" style={{color:'var(--muted)',textDecoration:'none'}}>Privacy Policy</a>
+          <a href="/legal/tos" target="_blank" style={{color:'var(--muted)',textDecoration:'none'}}>Terms of Service</a>
+          <a href="/legal/privacy" target="_blank" style={{color:'var(--muted)',textDecoration:'none'}}>Privacy Policy</a>
         </div>
       </div>
     </>

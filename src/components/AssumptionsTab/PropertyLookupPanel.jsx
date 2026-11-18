@@ -22,7 +22,33 @@ function parseAddressFromUrl(url) {
   } catch(e) { return null; }
 }
 
-export default function PropertyLookupPanel({deal, onChange}) {
+export default // Rentcast keys tax history by year; each entry may be an object ({ year, total }) or a
+// plain number depending on the record. Math.round() on the object gave NaN.
+function latestTaxTotal(propertyTaxes) {
+  const yrs = Object.keys(propertyTaxes || {}).sort().reverse();
+  if (!yrs.length) return null;
+  const v = propertyTaxes[yrs[0]];
+  const n = typeof v === 'object' ? +v?.total : +v;
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+function latestAssessedValue(prop) {
+  if (prop?.assessedValue) return prop.assessedValue;
+  const yrs = Object.keys(prop?.taxAssessments || {}).sort().reverse();
+  return yrs.length ? (prop.taxAssessments[yrs[0]]?.value || null) : null;
+}
+// Friendly text for proxy/Rentcast failures (raw response bodies were shown before).
+function lookupErrorMessage(status) {
+  if (status === 401) return 'Your session expired. Sign in again and retry.';
+  if (status === 403) return 'Address lookup is part of RentHack Pro.';
+  if (status === 404) return 'No property found for that address. Try entering the details manually.';
+  if (status === 429) return 'Too many lookups right now. Wait a minute and try again.';
+  return "Lookup didn't work this time. Try again, or enter the details manually.";
+}
+
+function PropertyLookupPanel({deal, onChange}) {
+  // Latest deal for the async flood/county lookup that finishes after Apply
+  const dealRef = React.useRef(deal);
+  React.useEffect(() => { dealRef.current = deal; }, [deal]);
   const [input, setInput] = React.useState(deal.address||'');
   // Keep input in sync if address is updated from outside (e.g. typed on Summary tab)
   React.useEffect(() => {
@@ -55,7 +81,10 @@ export default function PropertyLookupPanel({deal, onChange}) {
         let b = {}; try { b = await propRes.json(); } catch {}
         if (b.paused) { setError('Rentcast API is temporarily paused — property lookup is unavailable. Try again later.'); setLoading(false); return; }
       }
-      if (!propRes.ok) { const t = await propRes.text(); setError(`Rentcast error (${propRes.status}): ${t}`); setLoading(false); return; }
+      if (!propRes.ok) {
+        Sentry.captureMessage(`Property lookup failed: ${propRes.status}`, { level: 'warning' });
+        setError(lookupErrorMessage(propRes.status)); setLoading(false); return;
+      }
       const propData = await propRes.json();
       const prop = Array.isArray(propData) ? propData[0] : propData;
 
@@ -82,7 +111,10 @@ export default function PropertyLookupPanel({deal, onChange}) {
       const rentData = rentRes.ok ? await rentRes.json() : null;
 
       setPreview({ prop, rent: rentData, rentByBeds, bedsPerUnit, parsedAddr: addr });
-    } catch(e) { setError('Network error: ' + e.message); }
+    } catch(e) {
+      Sentry.captureException(e, { tags: { origin: 'PropertyLookupPanel.lookup' } });
+      setError("Couldn't reach the lookup service. Check your connection and try again.");
+    }
     setLoading(false);
   };
 
@@ -112,16 +144,6 @@ export default function PropertyLookupPanel({deal, onChange}) {
     // Property tax — Rentcast returns annual tax amount
     // propertyTaxes = actual annual tax bill (what we want)
     // taxAssessments[year].value = assessed property value (NOT the tax amount)
-    if (prop.propertyTaxes) {
-      const taxYears = Object.keys(prop.propertyTaxes).sort().reverse();
-      if (taxYears.length > 0) {
-        const annualTax = prop.propertyTaxes[taxYears[0]];
-        if (annualTax) {
-          a.expenses.propertyTax = Math.round(annualTax);
-          a.expenseModes.propertyTax = 'value';
-        }
-      }
-    }
 
     // Rent estimate — use per-bedroom estimates when available, fall back to whole-property estimate
     const { rentByBeds, bedsPerUnit } = preview;
@@ -132,6 +154,9 @@ export default function PropertyLookupPanel({deal, onChange}) {
       const rentSrc = (rentByBeds && rentByBeds[unitBeds]) ? rentByBeds[unitBeds] : rent;
       if (rentSrc && rentSrc.rent) {
         a.units[i].rentcastRent = Math.round(rentSrc.rent);
+        // The model reads rent || listedRent, so the estimate only counts if it lands
+        // in one of those. Fill Listed Rent for units the user hasn't priced yet.
+        if (!(+a.units[i].rent > 0) && !(+a.units[i].listedRent > 0)) a.units[i].listedRent = Math.round(rentSrc.rent);
         const lo = rentSrc.rentRangeLow ? Math.round(rentSrc.rentRangeLow) : null;
         const hi = rentSrc.rentRangeHigh ? Math.round(rentSrc.rentRangeHigh) : null;
         if (lo && hi) a.units[i].rentcastRentRange = `$${lo.toLocaleString()}–$${hi.toLocaleString()}`;
@@ -141,17 +166,8 @@ export default function PropertyLookupPanel({deal, onChange}) {
 
     // Store property metadata for display
     // Resolve annual property tax from propertyTaxes field
-    let annualTax = null;
-    if (prop.propertyTaxes) {
-      const taxYrs = Object.keys(prop.propertyTaxes).sort().reverse();
-      if (taxYrs.length > 0) annualTax = prop.propertyTaxes[taxYrs[0]];
-    }
-    // Resolve assessed value from taxAssessments
-    let assessedValue = prop.assessedValue || null;
-    if (!assessedValue && prop.taxAssessments) {
-      const assYrs = Object.keys(prop.taxAssessments).sort().reverse();
-      if (assYrs.length > 0) assessedValue = prop.taxAssessments[assYrs[0]]?.value || null;
-    }
+    const annualTax = latestTaxTotal(prop.propertyTaxes);
+    const assessedValue = latestAssessedValue(prop);
     // Pre-populate Property Details fields from Rentcast
     if (prop.bedrooms != null)    a.beds            = prop.bedrooms;
     if (prop.bathrooms != null)   a.baths           = prop.bathrooms;
@@ -194,7 +210,9 @@ export default function PropertyLookupPanel({deal, onChange}) {
           getCountyAndMsaForAddress(addrForAsync, token).catch(() => null),
         ]).then(([zone, countyMsa]) => {
           if (zone || countyMsa) {
-            const upd2 = structuredClone(d);
+            // Start from the latest deal: building on the pre-apply copy undid any
+            // edits made while these lookups were running.
+            const upd2 = structuredClone(dealRef.current);
             if (zone) upd2.assumptions.floodZone = zone;
             if (countyMsa) {
               upd2.assumptions.countyFips  = countyMsa.countyFips;
@@ -264,9 +282,8 @@ export default function PropertyLookupPanel({deal, onChange}) {
                   ['Bedrooms / Baths', rc ? `${rc.bedrooms||'?'} bed / ${rc.bathrooms||'?'} bath` : '—'],
                   ['Sq Footage', rc?.squareFootage ? rc.squareFootage.toLocaleString()+' sq ft' : '—'],
                   ['Year Built', rc?.yearBuilt || '—'],
-                  ['Assessed Value', rc?.assessedValue ? '$'+Math.round(rc.assessedValue).toLocaleString() : '—'],
-                  ['Est. Annual Tax', rc?.propertyTaxes ? (()=>{const yrs=Object.keys(rc.propertyTaxes).sort().reverse();return yrs.length?'$'+Math.round(rc.propertyTaxes[yrs[0]]||0).toLocaleString():'—';})() : '—'],
-                  ['Assessed Value', rc?.taxAssessments ? (()=>{const yrs=Object.keys(rc.taxAssessments).sort().reverse();return yrs.length?'$'+Math.round(rc.taxAssessments[yrs[0]].value||0).toLocaleString():'—';})() : '—'],
+                  ['Assessed Value', latestAssessedValue(rc) ? '$'+Math.round(latestAssessedValue(rc)).toLocaleString() : '—'],
+                  ['Est. Annual Tax', latestTaxTotal(rc?.propertyTaxes) ? '$'+Math.round(latestTaxTotal(rc.propertyTaxes)).toLocaleString() : '—'],
                   ['Rent Est. (whole property)', rv?.rent ? '$'+Math.round(rv.rent).toLocaleString()+'/mo' : '—'],
                   ['Rent Range', rv ? `$${Math.round(rv.rentRangeLow||0).toLocaleString()} – $${Math.round(rv.rentRangeHigh||0).toLocaleString()}/mo` : '—'],
                   ['Rent Est. (per unit / '+( pv.bedsPerUnit||2)+'br)', (pv.rentByBeds&&pv.rentByBeds[pv.bedsPerUnit||2]) ? '$'+Math.round(pv.rentByBeds[pv.bedsPerUnit||2].rent||0).toLocaleString()+'/mo' : '—'],
@@ -278,7 +295,7 @@ export default function PropertyLookupPanel({deal, onChange}) {
                 ))}
               </div>
               <div style={{padding:'6px 12px',background:'#DBEAFE',fontSize:11,color:'#1E40AF'}}>
-                ✏️ <strong>What will be applied:</strong> Address · Property Tax · Rent per unit (all units) · Sq ft / Year Built stored as reference. You can override any values after applying.
+                ✏️ <strong>What will be applied:</strong> Address · Property Tax · Rent estimate for any unit without a rent yet · Sq ft / Year Built stored as reference. You can override any values after applying.
               </div>
               <div style={{display:'flex',gap:8,padding:12}}>
                 <button onClick={applyPreview} style={{flex:1,background:'var(--green)',color:'#fff',border:'none',borderRadius:6,padding:'9px 0',fontWeight:700,fontSize:13,cursor:'pointer'}}>

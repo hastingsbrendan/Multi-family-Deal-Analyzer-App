@@ -73,9 +73,9 @@ function DisclaimerModal({ user, onAcknowledged }) {
         <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 24, lineHeight: 1.5 }}>
           By clicking below, you acknowledge that you have read and understood this disclaimer.
           View our full{' '}
-          <a href="/legal/tos.html" target="_blank" style={{ color: 'var(--accent)' }}>Terms of Service</a>
+          <a href="/legal/tos" target="_blank" style={{ color: 'var(--accent)' }}>Terms of Service</a>
           {' '}and{' '}
-          <a href="/legal/privacy.html" target="_blank" style={{ color: 'var(--accent)' }}>Privacy Policy</a>.
+          <a href="/legal/privacy" target="_blank" style={{ color: 'var(--accent)' }}>Privacy Policy</a>.
         </div>
 
         <button

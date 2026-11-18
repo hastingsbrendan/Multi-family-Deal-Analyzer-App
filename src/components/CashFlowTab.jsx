@@ -9,7 +9,7 @@ import CFSectionHeader from './ui/CFSectionHeader';
 // Map Cash-Flow row labels (or label prefixes) to a glossary tip key.
 // The R helper looks up by exact label first, then by prefix-match.
 const ROW_TIPS = {
-  'Gross Rent':           "Total annual rent from all units assuming 100% occupancy and Yr-1 rent.",
+  'Gross Rent':           "Total annual rent from all units at 100% occupancy, growing each year at your rent growth rate.",
   'Vacancy Loss (tenant units)': GLOSSARY.vacancyRate,
   'EGI':                  GLOSSARY.egi,
   'NOI':                  GLOSSARY.noi,
@@ -20,7 +20,7 @@ const ROW_TIPS = {
   'Total Equity':         "Property value minus remaining loan balance — your accumulated stake in the property.",
   '= Taxable Income (Gross)':  "NOI plus owner-expense add-back, minus mortgage interest and depreciation. Your starting point for federal tax.",
   '= Eff. Taxable Income':"Taxable income after applying any prior-year suspended losses (PAL carryforward).",
-  '= Taxable RE Income':  "NOI minus mortgage interest minus depreciation. Your federal tax basis for this rental.",
+  '= Taxable RE Income':  "NOI minus mortgage interest, PMI/MIP and depreciation. Your federal tax basis for this rental.",
   '− QBI Deduction (20%)':GLOSSARY.qbi,
   'PAL Carryforward Balance': GLOSSARY.palCarryforward,
 };
@@ -135,7 +135,7 @@ function CashFlowTab({result,deal}){
         </button>
       </div>
     )}
-    {!isMobile && <div style={{fontSize:11,color:"var(--muted)",marginBottom:8}}>← Swipe to see all years</div>}
+    {!isMobile && <div style={{fontSize:11,color:"var(--muted)",marginBottom:8}}>Scroll sideways to see every year →</div>}
     <div style={{position:"relative"}}>
     <div ref={scrollRef} style={{overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
       <table style={{borderCollapse:"collapse",fontSize:11}}>
@@ -260,6 +260,8 @@ function CashFlowTab({result,deal}){
 
           {/* Mortgage Interest — prorated to rental units only during OO years */}
           <tr><td style={tdL(false,false)}>− Mortgage Interest {oo&&result.years[0]?.ooTaxProrateRatio<1?`(${Math.round(result.years[0].ooTaxProrateRatio*100)}% rental share)`:""}</td>{visibleYears.map(y=><td key={y.yr} style={tdR(false,"red")}>{FMT_USD(y.interest*y.ooTaxProrateRatio)}</td>)}</tr>
+          {/* PMI/MIP is deducted in the engine (rental share) — show it so the rows add up */}
+          {visibleYears.some(y=>y.pmi>0)&&<tr><td style={tdL(false,false)}>− PMI / MIP {oo&&result.years[0]?.ooTaxProrateRatio<1?`(${Math.round(result.years[0].ooTaxProrateRatio*100)}% rental share)`:""}</td>{visibleYears.map(y=><td key={y.yr} style={tdR(false,"red")}>{y.pmi>0?FMT_USD(y.pmi*y.ooTaxProrateRatio):"—"}</td>)}</tr>}
 
           {/* Depreciation — clickable to expand */}
           <tr style={{cursor:"pointer"}} onClick={()=>setShowTaxDetail(v=>!v)}>

@@ -64,6 +64,20 @@ function App() {
   const [showSyncDetail, setShowSyncDetail] = useState(false);
   const [syncToastShown, setSyncToastShown] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(null);
+  // Exports load their library on first use (jsPDF / xlsx are large), so show progress
+  // and report failures; they used to do nothing visible and fail silently.
+  const [exportStatus, setExportStatus] = useState(null); // { state:'working'|'error', label }
+  const runExport = useCallback(async (label, load, run) => {
+    setExportStatus({ state: 'working', label });
+    try {
+      const m = await load();
+      await run(m);
+      setExportStatus(null);
+    } catch (e) {
+      Sentry.captureException(e, { tags: { origin: 'App.export', label } });
+      setExportStatus({ state: 'error', label });
+    }
+  }, []);
   const [prefs, setPrefs] = useState(DEFAULT_PREFS);
   const [activeDealId, setActiveDealId] = useState(null);
   const [portfolioFilter, setPortfolioFilter] = useState("All");
@@ -201,14 +215,34 @@ function App() {
       .catch(() => {});
   }, [activeGroup?.id, prefs]);
 
+  // Like personal deals: the server change waits until the Undo toast is gone, and
+  // Undo (which restores via reorder) cancels it. Removing at once meant Undo only
+  // restored the card while the deal had already left the group.
+  const pendingGroupRemovals = useRef(new Map());
   const deleteGroupDeal = useCallback((id) => {
     const deal = (groupDeals||[]).find(d => d.id === id);
-    if (deal?._deal_id) sbRemoveDealFromGroup(deal._deal_id, activeGroup.id).catch(() => {});
-    groupSync.forgetDeal(id);
+    const groupId = activeGroup?.id;
     setGroupDeals(prev => prev.filter(d => d.id !== id));
+    const run = () => {
+      pendingGroupRemovals.current.delete(id);
+      groupSync.forgetDeal(id);
+      if (deal?._deal_id && groupId) sbRemoveDealFromGroup(deal._deal_id, groupId)
+        .catch(e => Sentry.captureException(e, { tags: { origin: 'App.removeGroupDeal' } }));
+    };
+    pendingGroupRemovals.current.set(id, { timer: setTimeout(run, 6000), run });
   }, [groupDeals, activeGroup?.id]);
 
+  useEffect(() => {
+    const flushAll = () => pendingGroupRemovals.current.forEach(({ timer, run }) => { clearTimeout(timer); run(); });
+    window.addEventListener('pagehide', flushAll);
+    return () => window.removeEventListener('pagehide', flushAll);
+  }, []);
+
   const reorderGroupDeals = useCallback((next) => {
+    (next || []).forEach(d => {
+      const pending = pendingGroupRemovals.current.get(d.id);
+      if (pending) { clearTimeout(pending.timer); pendingGroupRemovals.current.delete(d.id); }
+    });
     setGroupDeals(next);
     const orderedIds = next.map(d => d._deal_id).filter(Boolean);
     if (orderedIds.length && activeGroup) sbReorderGroupDeals(activeGroup.id, orderedIds).catch(() => {});
@@ -232,7 +266,7 @@ function App() {
   }, [authIntent]);
   useEffect(() => { setAuthIntent(i => consumeAuthIntent(i, user)); }, [user]);
   useEffect(() => {
-    if (gate === 'redirect') window.location.replace('/landing.html');
+    if (gate === 'redirect') window.location.replace('/landing');
   }, [gate]);
 
   if (deals === null) {
@@ -255,14 +289,14 @@ function App() {
 
   // Auth gate
   if (authLoading) return (
-    <div data-theme="dark">
+    <div data-theme="dark" style={{color:"var(--text)"}}>
       <Spinner fullPage/>
     </div>
   );
   if (!user) {
     // #app / #signup = landing-page CTA; callback = email verify / password reset
     if (gate === 'auth') return (
-      <div data-theme="dark" style={{minHeight:"100vh"}}>
+      <div data-theme="dark" style={{minHeight:"100vh",color:"var(--text)"}}>
         <AuthScreen onAuth={setUser} initialMode={authIntent === 'signup' ? "signup" : authIntent === 'login' ? "login" : undefined}/>
       </div>
     );
@@ -296,7 +330,8 @@ function App() {
             onOpenGroups={()=>{ setShowSettings(false); setShowGroups(true); }}
             onSave={(newPrefs, pushFields)=>{
               setPrefs(newPrefs);
-              sbWritePrefs(newPrefs).catch(()=>{});
+              const saving = sbWritePrefs(newPrefs);
+              saving.catch(e => Sentry.captureException(e, { tags: { origin: 'App.sbWritePrefs' } }));
               if (pushFields && pushFields.size > 0 && deals?.length > 0) {
                 const has = (k) => pushFields.has(k);
                 const updated = deals.map(d => {
@@ -326,6 +361,7 @@ function App() {
                 });
                 setDeals(updated);
               }
+              return saving;
             }}
           />
         </Suspense>
@@ -343,7 +379,7 @@ function App() {
       <div style={{borderBottom:"1px solid var(--border)",padding:"0 20px",height:60,display:"flex",alignItems:"center",justifyContent:"space-between",background:dark?"var(--card)":"rgba(253,250,246,0.95)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",position:"sticky",top:0,zIndex:100}}>
         {/* Left: logo + breadcrumb */}
         <div style={{display:"flex",alignItems:"center",gap:10,flex:"0 0 auto"}}>
-          <a href="/landing.html" style={{display:"flex",alignItems:"center",gap:8,textDecoration:"none"}}>
+          <a href="/landing" style={{display:"flex",alignItems:"center",gap:8,textDecoration:"none"}}>
             <div style={{width:28,height:28,background:"var(--accent)",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>🏠</div>
             <span style={{fontFamily:"'Fraunces',serif",fontWeight:900,fontSize:18,color:"var(--text)",letterSpacing:"-0.5px"}}><span>Rent</span><span style={{color:"var(--accent)"}}>Hack</span></span>
           </a>
@@ -353,8 +389,8 @@ function App() {
         {/* Centre: primary nav links — hidden on mobile or when a deal is open */}
         {!activeDeal&&!isMobile&&<nav style={{display:"flex",alignItems:"center",gap:28,position:"absolute",left:"50%",transform:"translateX(-50%)"}}>
           {[
-            {label:"How it Works", href:"/landing.html#how"},
-            {label:"Pricing",      href:"/landing.html#pricing"},
+            {label:"How it Works", href:"/landing#how"},
+            {label:"Pricing",      href:"/landing#pricing"},
             {label:"Blog",         href:"/blog/"},
           ].map(({label,href})=>(
             <a key={label} href={href}
@@ -478,6 +514,14 @@ function App() {
       </div>
       <div style={{padding:"18px 16px 0"}}>
         <TrialBanner userEmail={user?.email}/>
+        {exportStatus && (
+          <div role="status" style={{background:exportStatus.state==='error'?"var(--warn-bg)":"var(--accent-soft)",border:"1px solid var(--border)",borderRadius:10,padding:"10px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:12,fontSize:13}}>
+            <span style={{color:"var(--text)",fontWeight:700}}>
+              {exportStatus.state==='error' ? `Couldn't create the ${exportStatus.label}. Please try again.` : `Preparing your ${exportStatus.label}…`}
+            </span>
+            {exportStatus.state==='error' && <button onClick={()=>setExportStatus(null)} aria-label="Dismiss" style={{background:"none",border:"none",color:"var(--muted)",cursor:"pointer",fontSize:16,padding:"0 4px"}}>×</button>}
+          </div>
+        )}
         {shareSuccess && (
           <div style={{background:"rgba(13,148,136,0.12)",border:"1px solid rgba(13,148,136,0.35)",borderRadius:10,padding:"10px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:12,fontSize:13}}>
             <span style={{color:"var(--text)",fontWeight:700}}>✓ Deal shared to "{shareSuccess}" successfully.</span>
@@ -513,8 +557,8 @@ function App() {
               onSelect={id=>setActiveDealId(id)}
               onAdd={activeGroup ? addGroupDeal : addDeal}
               onAddSample={activeGroup ? null : addSampleDeal}
-              onDelete={activeGroup ? deleteGroupDeal : deleteDeal}
-              onExport={()=>import('../lib/export').then(m=>m.exportPortfolioXLSX(activeGroup ? groupDeals : deals, user))}
+              onDelete={activeGroup ? deleteGroupDeal : (id => deleteDeal(id, (deals||[]).find(d => d.id === id)?._deal_id))}
+              onExport={()=>runExport('Excel file', ()=>import('../lib/export/portfolioXLSX'), m=>m.exportPortfolioXLSX(activeGroup ? groupDeals : deals, user))}
               onReorder={activeGroup ? reorderGroupDeals : reorderDeals}
               dark={dark} setDark={setDark}
               filterState={[portfolioFilter,setPortfolioFilter]}
@@ -528,8 +572,8 @@ function App() {
               deal={activeDeal}
               onUpdate={activeGroup ? updateGroupDeal : updateDeal}
               onBack={()=>setActiveDealId(null)}
-              onExport={()=>import('../lib/export').then(m=>{ trackCSVExported(activeDeal.id); m.exportDealXLSX(activeDeal, user); })}
-              onExportPDF={()=>import('../lib/export').then(m=>{ trackPDFExported(activeDeal.id); m.exportDealPDF(activeDeal, user); })}
+              onExport={()=>runExport('Excel file', ()=>import('../lib/export/dealXLSX'), m=>{ trackCSVExported(activeDeal.id); return m.exportDealXLSX(activeDeal, user); })}
+              onExportPDF={()=>runExport('PDF report', ()=>import('../lib/export/dealPDF'), m=>{ trackPDFExported(activeDeal.id); return m.exportDealPDF(activeDeal, user); })}
               onShare={()=>setShowShareModal(activeDeal)}
               groupRole={activeGroup?.role}
               activeGroup={activeGroup}
@@ -560,9 +604,9 @@ function App() {
       <div style={{borderTop:'1px solid var(--border)',padding: isMobile ? '5px 16px' : '7px 20px',background:dark?'var(--card)':'rgba(253,250,246,0.95)',textAlign:'center',position:'sticky',bottom:0,zIndex:50}}>
         <span style={{fontSize:isMobile ? 9 : 10,color:'var(--muted)',lineHeight:1.5}}>
           For informational purposes only. Not financial, legal, or tax advice.{!isMobile && ' Consult qualified professionals before making investment decisions.'}{' '}
-          <a href="/legal/tos.html" target="_blank" style={{color:'var(--muted)',textDecoration:'underline'}}>Terms</a>
+          <a href="/legal/tos" target="_blank" style={{color:'var(--muted)',textDecoration:'underline'}}>Terms</a>
           {' · '}
-          <a href="/legal/privacy.html" target="_blank" style={{color:'var(--muted)',textDecoration:'underline'}}>Privacy</a>
+          <a href="/legal/privacy" target="_blank" style={{color:'var(--muted)',textDecoration:'underline'}}>Privacy</a>
         </span>
       </div>
     </div>

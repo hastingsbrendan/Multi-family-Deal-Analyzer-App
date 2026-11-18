@@ -124,15 +124,19 @@ function DealCard({ d, r, onSelect, onDelete, onShareDeal, inCompare, onToggleCo
     const pAndI  = r.monthlyPayment || 0;
     const taxMo  = (r.baseExpBreakdown?.propertyTax || 0) / 12;
     const insMo  = (r.baseExpBreakdown?.insurance   || 0) / 12;
-    const piti   = pAndI + taxMo + insMo;
+    // PMI included, matching Deal Summary's "Your Effective Mortgage"
+    const piti   = pAndI + taxMo + insMo + (+a.pmi || 0);
     const vac    = (+a.vacancyRate || 0) / 100;
     const ooUnit = r.ooUnit ?? 0;
     const egiExOO = a.units.slice(0, a.numUnits).reduce((s, u, i) =>
       i === ooUnit ? s : s + (+(u.rent || u.listedRent) || 0) * (1 - vac), 0);
-    heroLabel = 'Your monthly housing cost';
     heroValue = piti - egiExOO;
-    heroColor = 'var(--accent)';
-    heroSub   = 'After tenant rent offsets your mortgage';
+    // When tenants cover more than the payment, say so instead of showing the
+    // surplus as a "housing cost" (the sign used to be dropped).
+    const paidToLive = heroValue < 0;
+    heroLabel = paidToLive ? 'Tenants cover your mortgage' : 'Your monthly housing cost';
+    heroColor = paidToLive ? 'var(--green)' : 'var(--accent)';
+    heroSub   = paidToLive ? 'Rent left over after PITI' : 'After tenant rent offsets your mortgage';
   } else {
     const cf = r.years?.[0]?.monthlyCashFlow ?? 0;
     heroLabel = 'Monthly cash flow · Yr 1';
@@ -185,7 +189,7 @@ function DealCard({ d, r, onSelect, onDelete, onShareDeal, inCompare, onToggleCo
       <div style={{ background: 'var(--accent-soft)', borderRadius: 10, padding: '10px 12px', borderLeft: '3px solid var(--accent)' }}>
         <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 4 }}>{heroLabel}</div>
         <div style={{ fontSize: 26, fontWeight: 900, color: heroColor, letterSpacing: '-1px', lineHeight: 1 }}>
-          {ooEnabled ? '' : (heroValue >= 0 ? '+' : '-')}
+          {ooEnabled ? (heroValue < 0 ? '+' : '') : (heroValue >= 0 ? '+' : '-')}
           {FMT_USD(Math.abs(heroValue))}
           <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--muted)' }}>/mo</span>
         </div>

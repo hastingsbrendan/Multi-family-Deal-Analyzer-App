@@ -128,6 +128,27 @@ function MarketTab({deal, onChange}) {
     }
   }, []);
 
+  // Census ACS (free, no key): ZIP + national + state (if stateFips known). Separate
+  // from the Rentcast fetch so it also runs when market data came from the deal's
+  // cache; it used to run only after a fresh Rentcast call, so Demographics and
+  // Housing Stock vanished on every later visit (2026-11 review).
+  const fetchCensus = useCallback(async (zipCode) => {
+    try {
+      const sf = dealRef.current?.assumptions?.stateFips;
+      const censusBase = `https://api.census.gov/data/2023/acs/acs5?get=${CENSUS_VARS}`;
+      const [censusRes, nationalRes, stateRes] = await Promise.all([
+        fetch(`${censusBase}&for=zip%20code%20tabulation%20area:${zipCode}`),
+        fetch(`${censusBase}&for=us:1`),
+        sf ? fetch(`${censusBase}&for=state:${sf}`) : Promise.resolve(null),
+      ]);
+      if (censusRes.ok) setCensusData(parseCensusObj(await censusRes.json()));
+      if (nationalRes?.ok) setNationalCensusData(parseCensusObj(await nationalRes.json()));
+      if (stateRes?.ok) setStateCensusData(parseCensusObj(await stateRes.json()));
+    } catch (e) {
+      Sentry.captureException(e, { tags: { origin: 'MarketTab.fetchCensus' } });
+    }
+  }, []);
+
   const fetchAll = useCallback(async (zipCode) => {
     setLoading(true); setError(null); setApiPaused(false);
     try {
@@ -153,26 +174,6 @@ function MarketTab({deal, onChange}) {
         d.assumptions.marketData = { zipCode, fetchedAt, data };
         onChange(d);
       }
-      // Census ACS — fetch ZIP + national + state (if stateFips known) in parallel
-      const sf = dealRef.current?.assumptions?.stateFips;
-      const censusBase = `https://api.census.gov/data/2023/acs/acs5?get=${CENSUS_VARS}`;
-      const [censusRes, nationalRes, stateRes] = await Promise.all([
-        fetch(`${censusBase}&for=zip%20code%20tabulation%20area:${zipCode}`),
-        fetch(`${censusBase}&for=us:1`),
-        sf ? fetch(`${censusBase}&for=state:${sf}`) : Promise.resolve(null),
-      ]);
-      if (censusRes.ok) {
-        const raw = await censusRes.json();
-        setCensusData(parseCensusObj(raw));
-      }
-      if (nationalRes?.ok) {
-        const raw = await nationalRes.json();
-        setNationalCensusData(parseCensusObj(raw));
-      }
-      if (stateRes?.ok) {
-        const raw = await stateRes.json();
-        setStateCensusData(parseCensusObj(raw));
-      }
     } catch (e) {
       setError(e.message);
       Sentry.captureException(e, { tags: { origin: 'MarketTab.fetchAll' } });
@@ -186,6 +187,13 @@ function MarketTab({deal, onChange}) {
   const msaName    = deal?.assumptions?.msaName;
 
   useEffect(() => { if (zip && zip !== lastZip && !loading) fetchAll(zip); }, [zip, lastZip, loading, fetchAll]);
+  // Census for the current ZIP, whether market data was fetched or cached
+  const censusZipRef = useRef(null);
+  useEffect(() => {
+    if (!zip || censusZipRef.current === zip) return;
+    censusZipRef.current = zip;
+    fetchCensus(zip);
+  }, [zip, fetchCensus]);
   useEffect(() => { fetchFred(); }, [fetchFred]);
   useEffect(() => {
     if (stateFips && countyFips) fetchBls(stateFips, countyFips);
