@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { iSty } from './ui/InputRow';
 import Tip from './ui/Tip';
 import { FMT_USD, FMT_PCT } from '../lib/constants';
+import { rate, RATING_COLOR } from '../lib/benchmarks';
 import { GLOSSARY } from '../lib/glossary';
 import { useIsMobile } from '../lib/hooks';
 import CFSectionHeader from './ui/CFSectionHeader';
@@ -105,12 +106,15 @@ function CashFlowTab({result,deal}){
         {[
           {label:"Monthly Cash Flow", value: result.years[0].monthlyCashFlow, fmt:"usd", sign:true, tip: GLOSSARY.cashFlow},
           {label:"NOI", value: result.noi, fmt:"usd", tip: GLOSSARY.noi},
-          {label:"DSCR", value: result.dscr, fmt:"x", tip: GLOSSARY.dscr},
-          {label:"CoC Return", value: result.cocReturn, fmt:"pct", tip: GLOSSARY.cocReturn},
-        ].map(({label, value, fmt, sign, tip}) => {
-          const isGood = fmt==="usd"&&sign ? value>=0 : fmt==="x" ? value>=1.25 : fmt==="pct" ? value>=0.06 : true;
-          const color = (fmt==="usd"&&sign) || fmt==="x" || fmt==="pct" ? (isGood?"var(--green)":"var(--red)") : "var(--text)";
-          const display = fmt==="usd" ? FMT_USD(Math.abs(value||0)) : fmt==="pct" ? FMT_PCT(value) : fmt==="x" ? (value!=null?(+value).toFixed(2)+"x":"—") : "—";
+          // Lender view (all units rented), with the owner's view alongside for house hacks
+          {label:"DSCR · Lender View", value: result.years[0].debtService>0?result.dscrLenderView:null, fmt:"x", metric:"dscr", tip: GLOSSARY.dscr},
+          ...(result.ooEnabled&&result.years[0].debtService>0?[{label:"DSCR · Your View", value: result.dscr, fmt:"x", metric:"dscr", tip: GLOSSARY.dscr}]:[]),
+          {label:"CoC Return", value: result.cocReturn, fmt:"pct", metric:"coc", tip: GLOSSARY.cocReturn},
+        ].map(({label, value, fmt, sign, metric, tip}) => {
+          // Shared benchmarks (src/lib/benchmarks.js), same cut-offs as every other screen
+          const r = sign ? (value>=0?"good":"weak") : metric ? rate(metric, value) : null;
+          const color = r ? RATING_COLOR[r] : "var(--text)";
+          const display = fmt==="usd" ? FMT_USD(Math.abs(value||0)) : fmt==="pct" ? FMT_PCT(value) : fmt==="x" ? (value!=null?(+value).toFixed(2)+"x":"n/a") : "—";
           return (
             <div key={label} style={{flex:"1 1 120px",minWidth:100}}>
               <div style={{fontSize:10,color:"var(--muted)",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3,display:"flex",alignItems:"center"}}>{label}{tip&&<Tip text={tip}/>}</div>

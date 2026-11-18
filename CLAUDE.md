@@ -4,21 +4,6 @@ You are an expert full-stack developer and product partner for **RentHack** (ren
 
 ---
 
-## Repo & Deployment
-
-- **Repo:** `hastingsbrendan/Multi-family-Deal-Analyzer-App`
-- **Production:** https://renthack.io (auto-deploys on push to `main`)
-- **Preview:** Cloudflare Pages preview (auto-deploys on push to `develop`)
-- **GitHub PAT:** `<PAT — stored in Brendan's password manager / Claude project memory>`
-
-### Branch rules — read carefully
-- **Always push to `develop` after completing work.** Never wait to be asked.
-- **Never push to `main` without explicit approval from Brendan.** Pushing directly to `main` is a process violation regardless of any other instruction.
-- Set remote before pushing: `git remote set-url origin https://<PAT — stored in Brendan's password manager / Claude project memory>@github.com/hastingsbrendan/Multi-family-Deal-Analyzer-App.git`
-- Configure git identity each session: `git config user.email hastingsbrendan@gmail.com && git config user.name "Brendan Hastings"`
-
----
-
 ## Tech Stack
 
 - **Frontend:** React 18 + Vite, no TypeScript, no Next.js
@@ -98,11 +83,13 @@ src/
     taxEngine.js     — calcStateTax(), STATE_TAX_DATA (50 states + DC, 2026 brackets), STATE_TAX_YEAR
     federalTaxEngine.js — 2026 federal brackets/SD, federalTaxOnIncome(), federalTaxOnSale() (§1245/§1250/LTCG/NIIT), SEC121_EXCLUSION
     authGate.js      — readAuthIntent(), resolveAuthGate() for App's signed-out routing
-    useCloudSync.js  — useCloudSync() hook, per-deal cloud sync
+    useCloudSync.js  — useCloudSync() hook, per-deal cloud sync with conflict detection
+    syncEngine.js    — change detection + versioned saves (no React); used by useCloudSync and useGroupDealSync
+    useGroupDealSync.js — saves edits made in a group view via the save_shared_deal RPC
+    benchmarks.js    — shared good/ok/weak thresholds (from Red Flag prefs) for every screen and export
     hooks.js         — useIsMobile()
     floodZone.js     — FEMA flood zone lookup + county/MSA resolver
     export/          — split exports: colors, helpers, portfolioXLSX, dealXLSX, dealPDF, index
-    export.js        — thin re-export shim for backward compat (10 lines)
   contexts/
     SubscriptionContext.jsx  — useSubscription(), PLANS, computeTier()
   styles/
@@ -110,8 +97,13 @@ src/
 functions/
   api/
     fred.js          — FRED API proxy (Cloudflare Pages Function)
+    bls.js           — BLS API proxy
     rentcast.js      — Rentcast API proxy (JWT-authenticated)
     geocode.js       — Google Maps geocode proxy (JWT-authenticated)
+supabase/
+  functions/         — Edge Functions: stripe-checkout, stripe-webhook, submit-feedback, delete-account
+  sql/, tests/       — SQL changes and their rolled-back RLS tests
+docs/deployment.md   — secrets, deploy and Supabase notes
 ```
 
 ---
@@ -178,7 +170,7 @@ Gate with `<BlurGate feature="X">` or `useFeatureCheck('X')`.
 | 5 | Showing | |
 | 6 | Red Flags | |
 | 7 | Sensitivity | gated: sensitivity |
-| 8 | Loan Type | |
+| 8 | Loan Type | dev-only for now (`devOnly: true`; hidden in production) |
 
 All tabs are `React.lazy()` loaded. Pattern: `{tab===N && <ComponentTab deal={deal} .../>}`
 
@@ -186,7 +178,7 @@ All tabs are `React.lazy()` loaded. Pattern: `{tab===N && <ComponentTab deal={de
 
 ## Cloudflare API Proxies
 
-Three server-side proxy Workers live in `functions/api/`. All require a Supabase JWT in the `Authorization: Bearer <token>` header. Required Cloudflare Pages environment variables (set as **Secrets**):
+Four server-side proxies live in `functions/api/`. `rentcast` and `geocode` require a Supabase JWT in the `Authorization: Bearer <token>` header; `fred` and `bls` don't yet. Required Cloudflare Pages environment variables (set as **Secrets**; see docs/deployment.md):
 
 | Variable | Used by |
 |----------|---------|
@@ -195,6 +187,7 @@ Three server-side proxy Workers live in `functions/api/`. All require a Supabase
 | `SUPABASE_URL` | Both proxies (JWT verify) — no trailing slash |
 | `SUPABASE_ANON_KEY` | Both proxies (JWT verify) |
 | `FRED_API_KEY` | `/api/fred` |
+| `BLS_API_KEY` | `/api/bls` |
 
 `VITE_GMAPS_KEY` remains a client-side env var for `PortfolioMap.jsx` (Maps JS SDK script embed — cannot be proxied). `VITE_RENTCAST_KEY` has been removed.
 
@@ -219,57 +212,6 @@ Three server-side proxy Workers live in `functions/api/`. All require a Supabase
 
 ---
 
-## Build Process — Story Decomposition
-
-Before writing any code on a **Medium (M) or larger** backlog item, decompose it into discrete sub-tasks and confirm the plan with Brendan before starting.
-
-**Format:**
-```
-BACK-XXX sub-tasks:
-  a. [calc/data layer change] — what changes in calc.js or lib files
-  b. [component change] — what changes in which .jsx file(s)
-  c. [UI/display] — specific rows, panels, or states to add
-  d. [edge cases / AC] — conditions to verify before marking done
-```
-
-**Rules:**
-- Sub-tasks should be independently verifiable (clear pass/fail)
-- No sub-task should touch more than 2 files
-- Get explicit confirmation on the plan before any git commit
-- Small (S) items and obvious single-file changes can skip decomposition
-
----
-
-## Product Backlog
-
-**Source of truth: `RentHack_Product_Backlog_v27.xlsx`** (project root). Do not duplicate the backlog in this file — read/edit the Excel directly.
-
-**Workflow when shipping a backlog item:**
-1. Find the row by ID in the `Product Backlog` sheet.
-2. Update its `Status` column to `Done (PROD)` (after merge to main) or `Done` (still on develop).
-3. Append a `◇ Build complete: ...` note to the `Acceptance Criteria / Build Notes` column with the file paths touched and a short summary of what was actually built.
-4. If shipping new work that didn't have an existing ID, append a new row using the next sequential `BACK-NNN` or `UX-NNN` number (highest in v27: BACK-121, UX-059).
-
-**Updating the Excel from a Claude session:**
-
-```bash
-python Technical/update_backlog.py    # see this file as a template
-```
-
-The script copies the current vN.xlsx → new vN+1.xlsx, applies row updates and new-row appends, and preserves cell styling via openpyxl. After running, upload the new vN+1.xlsx to Google Drive manually (folder ID in the Key Resources table below) and bump the version reference everywhere — including the file ref in this section heading.
-
-**Sheets in the workbook:**
-- `Product Backlog` — main item list (10 columns: ID, Epic, Feature/Task, Priority, Status, Effort, User Story, AC/Build Notes, Why It Matters, Dependencies)
-- `Roadmap` — phase planning
-- `Legend` — priority and effort definitions
-- `Error Log` — tracked bugs with root cause + fix
-- `Data Dictionary` — field-level documentation
-- `Blog Topics` — content calendar
-
-Status key: `Done (PROD)` = on main/production · `Done` = completed, may be on develop · `Backlog` = not started · `In Progress` = active · `Deferred` = intentionally postponed · `Needs Design` = awaiting design spec.
-
----
-
 ## Domain Knowledge
 
 App targets buyers and investors of 2–4 unit multifamily properties (expanding to SFR). Key loan types: Conventional, FHA, VA, Jumbo, FHA 203(k), HomeStyle Renovation, CHOICERenovation, HomeReady/Home Possible, DSCR, Bank Statement, Hard Money/Bridge. USDA disabled (SFR-only, not yet built). Full loan metadata in `src/lib/loanEngine.js`.
@@ -285,15 +227,13 @@ App targets buyers and investors of 2–4 unit multifamily properties (expanding
 
 ---
 
-## Key Resources
+---
 
-| Resource | Value |
-|----------|-------|
-| GitHub PAT | `<PAT — stored in Brendan's password manager / Claude project memory>` |
-| Supabase project ref | `lxkwvayalxuoryuwxtsq` |
-| Sentry DSN | `https://1427d8f17bc8fb78a755d240cdf1741f@o4511005787357184.ingest.us.sentry.io/4511005788930048` |
-| HUD USPS Crosswalk API token | Stored in Claude project memory (expires ~2036) |
-| RentHack Google Drive folder | `1yPTWxdM_kKSjkqGnVAUM_85URrQ3wEeR` |
-| Backlog Excel | `RentHack_Product_Backlog_v27.xlsx` (source of truth) — bump version on each update; upload to Drive manually |
-| Backlog updater | `Technical/update_backlog.py` — copies vN → vN+1, applies row updates and appends |
-| PostHog | Integrated via `src/lib/analytics.js` |
+## Tests and checks
+
+`npm test` (Vitest), `npm run lint` (ESLint: hook rules are errors), `npm run build`. CI runs all three plus `npm audit --omit=dev` on every push and PR (`.github/workflows/ci.yml`).
+
+---
+
+<!-- Private working notes (git-ignored): branch rules, backlog workflow, resources -->
+@CLAUDE.local.md

@@ -8,16 +8,18 @@ import { FMT_PCT, FMT_USD, FMT_X, STATUS_COLORS, STATUS_BG_VARS, STATUS_OPTIONS 
 import { useIsMobile } from '../lib/hooks';
 import { calcDeal } from '../lib/calc';
 import DSCRBadge from './ui/DSCRBadge';
+import { ratingColor } from '../lib/benchmarks';
 import PortfolioMap from './PortfolioMap';
 import UndoToast from './ui/UndoToast';
 
 // ─── Traffic-light helpers ────────────────────────────────────────────────────
-const cocColor = v => (v == null ? 'var(--muted)' : v >= 0.06 ? 'var(--green)' : v >= 0.03 ? 'var(--accent2)' : 'var(--red)');
-const irrColor = v => (v == null ? 'var(--muted)' : v >= 0.12 ? 'var(--green)' : v >= 0.08 ? 'var(--accent2)' : 'var(--red)');
-const capColor = v => (v == null ? 'var(--muted)' : v >= 0.05 ? 'var(--green)' : v >= 0.04 ? 'var(--accent2)' : 'var(--red)');
+// Shared thresholds (src/lib/benchmarks.js), driven by the user's Red Flag settings.
+const tone = (metric, v, prefs) => (v == null ? 'var(--muted)' : ratingColor(metric, v, prefs));
+// DSCR on cards and in Compare is the lender view (all units rented), same as Red Flags.
+const lenderDscr = r => r.dscrLenderView ?? r.dscr;
 
 // ─── ComparePanel ─────────────────────────────────────────────────────────────
-function ComparePanel({ deals, results, onClose, onSelect }) {
+function ComparePanel({ deals, results, onClose, onSelect, prefs }) {
   const MAX = 3;
   const cols = deals.slice(0, MAX);
 
@@ -37,16 +39,16 @@ function ComparePanel({ deals, results, onClose, onSelect }) {
       rows: [
         { label: 'Monthly Cash Flow', fmt: (_d, r) => { const v = r.years?.[0]?.monthlyCashFlow ?? 0; return (v >= 0 ? '+' : '') + FMT_USD(v) + '/mo'; }, colorFn: (_d, r) => { const v = r.years?.[0]?.monthlyCashFlow ?? 0; return v >= 0 ? 'var(--green)' : 'var(--red)'; } },
         { label: 'NOI',              fmt: (_d, r) => FMT_USD(r.years?.[0]?.noi ?? 0) + '/yr' },
-        { label: 'CoC Return',       fmt: (_d, r) => FMT_PCT(r.cocReturn),               colorFn: (_d, r) => cocColor(r.cocReturn) },
-        { label: 'Cap Rate',         fmt: (_d, r) => FMT_PCT(r.capRate),                 colorFn: (_d, r) => capColor(r.capRate) },
-        { label: 'DSCR',             fmt: (_d, r) => r.dscr != null && r.dscr > 0 ? r.dscr.toFixed(2) + 'x' : '—', colorFn: (_d, r) => r.dscr >= 1.25 ? 'var(--green)' : r.dscr >= 1.0 ? 'var(--accent2)' : 'var(--red)' },
-        { label: 'Expense Ratio',    fmt: (_d, r) => { const yr = r.years?.[0]; return yr?.egi > 0 ? FMT_PCT(yr.expenses / yr.egi) : '—'; }, colorFn: (_d, r) => { const yr = r.years?.[0]; if (!yr?.egi) return 'var(--muted)'; const er = yr.expenses / yr.egi; return er > 0.5 ? 'var(--red)' : er > 0.4 ? 'var(--accent2)' : 'var(--green)'; } },
+        { label: 'CoC Return',       fmt: (_d, r) => FMT_PCT(r.cocReturn),               colorFn: (_d, r) => tone('coc', r.cocReturn, prefs) },
+        { label: 'Cap Rate',         fmt: (_d, r) => FMT_PCT(r.capRate),                 colorFn: (_d, r) => tone('capRate', r.capRate, prefs) },
+        { label: 'DSCR (lender view)', fmt: (_d, r) => lenderDscr(r) > 0 ? lenderDscr(r).toFixed(2) + 'x' : '—', colorFn: (_d, r) => lenderDscr(r) > 0 ? tone('dscr', lenderDscr(r), prefs) : 'var(--muted)' },
+        { label: 'Expense Ratio',    fmt: (_d, r) => r.expenseRatio > 0 ? FMT_PCT(r.expenseRatio) : '—', colorFn: (_d, r) => r.expenseRatio > 0 ? tone('expenseRatio', r.expenseRatio, prefs) : 'var(--muted)' },
       ],
     },
     {
       label: 'Hold-Period Returns',
       rows: [
-        { label: 'IRR',             fmt: (_d, r) => FMT_PCT(r.irr),           colorFn: (_d, r) => irrColor(r.irr) },
+        { label: 'IRR',             fmt: (_d, r) => FMT_PCT(r.irr),           colorFn: (_d, r) => tone('irr', r.irr, prefs) },
         { label: 'Equity Multiple', fmt: (_d, r) => FMT_X(r.equityMultiple),  colorFn: (_d, r) => (r.equityMultiple ?? 0) >= 2 ? 'var(--green)' : (r.equityMultiple ?? 0) >= 1.5 ? 'var(--accent2)' : 'var(--red)' },
       ],
     },
@@ -114,7 +116,7 @@ function ComparePanel({ deals, results, onClose, onSelect }) {
 }
 
 // ─── DealCard ─────────────────────────────────────────────────────────────────
-function DealCard({ d, r, onSelect, onDelete, onShareDeal, inCompare, onToggleCompare }) {
+function DealCard({ d, r, onSelect, onDelete, onShareDeal, inCompare, onToggleCompare, prefs }) {
   const a = d.assumptions;
   const ooEnabled = r.ooEnabled;
 
@@ -199,9 +201,9 @@ function DealCard({ d, r, onSelect, onDelete, onShareDeal, inCompare, onToggleCo
       {/* Metrics grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
         {[
-          { label: 'CoC', tip: 'Cash-on-Cash Return — your first-year cash income as a % of cash invested', val: FMT_PCT(r.cocReturn), color: cocColor(r.cocReturn) },
-          { label: 'IRR', tip: 'Internal Rate of Return — annualized return including appreciation and equity over the hold period', val: FMT_PCT(r.irr), color: irrColor(r.irr) },
-          { label: 'Cap Rate', tip: 'Cap Rate — annual NOI divided by purchase price, measures income yield', val: FMT_PCT(r.capRate), color: capColor(r.capRate) },
+          { label: 'CoC', tip: 'Cash-on-Cash Return — your first-year cash income as a % of cash invested', val: FMT_PCT(r.cocReturn), color: tone('coc', r.cocReturn, prefs) },
+          { label: 'IRR', tip: 'Internal Rate of Return — annualized return including appreciation and equity over the hold period', val: FMT_PCT(r.irr), color: tone('irr', r.irr, prefs) },
+          { label: 'Cap Rate', tip: 'Cap Rate — the building’s Year 1 NOI with every unit rented, divided by purchase price', val: FMT_PCT(r.capRate), color: tone('capRate', r.capRate, prefs) },
         ].map(({ label, tip, val, color }) => (
           <div key={label} style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: 2, display:'flex', alignItems:'center', justifyContent:'center', gap:2 }}>{label}<Tip text={tip}/></div>
@@ -212,7 +214,7 @@ function DealCard({ d, r, onSelect, onDelete, onShareDeal, inCompare, onToggleCo
 
       {/* Footer */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, borderTop: '1px solid var(--border-faint)' }}>
-        {(r.dscr != null && r.dscr > 0) ? <DSCRBadge dscr={r.dscr} /> : <span style={{ fontSize: 11, color: 'var(--muted)', display:'flex', alignItems:'center', gap:2 }}>DSCR —<Tip text="Debt Service Coverage Ratio — NOI divided by annual mortgage payment. Lenders require ≥1.25x"/></span>}
+        {lenderDscr(r) > 0 ? <DSCRBadge dscr={lenderDscr(r)} prefs={prefs} /> : <span style={{ fontSize: 11, color: 'var(--muted)', display:'flex', alignItems:'center', gap:2 }}>DSCR n/a<Tip text="Debt Service Coverage Ratio — NOI with every unit rented, divided by the annual mortgage payment. Not applicable without a loan."/></span>}
         <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
           {onShareDeal && <button onClick={() => onShareDeal(d)} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 16, padding: '2px 4px', cursor: 'pointer' }} title="Share">👥</button>}
           <button onClick={() => onDelete(d.id)} style={{ background: 'none', border: 'none', color: 'var(--red)', fontSize: 16, padding: '2px 4px', cursor: 'pointer' }} title="Delete">✕</button>
@@ -241,7 +243,7 @@ function ViewToggle({ view, setView }) {
 }
 
 // ─── PortfolioPage ────────────────────────────────────────────────────────────
-function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport, onReorder, dark, setDark, filterState, onTour, activeGroup, onExitGroup, onShareDeal, onOpenGroups }) {
+function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport, onReorder, dark, setDark, filterState, onTour, activeGroup, onExitGroup, onShareDeal, onOpenGroups, prefs }) {
   const [filter, setFilter] = filterState;
   const [viewMode, setViewMode] = useState('cards');
   const [compareIds, setCompareIds] = useState(new Set());
@@ -386,7 +388,7 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
           <div data-tour="portfolio-list" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {filtered.map((d, i) => (
               <div key={d.id} style={{ position: 'relative' }}>
-                <DealCard d={d} r={resultsByDealId[d.id] || {}} onSelect={onSelect} onDelete={handleDelete} onShareDeal={onShareDeal} />
+                <DealCard d={d} r={resultsByDealId[d.id] || {}} onSelect={onSelect} onDelete={handleDelete} onShareDeal={onShareDeal} prefs={prefs} />
                 <div style={{ position: 'absolute', top: 14, right: 48, display: 'flex', gap: 3 }} onClick={e => e.stopPropagation()}>
                   <button onClick={() => moveItem(i, -1)} disabled={i === 0} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 4, width: 24, height: 24, fontSize: 11, color: i === 0 ? 'var(--border)' : 'var(--muted)', cursor: i === 0 ? 'default' : 'pointer' }}>↑</button>
                   <button onClick={() => moveItem(i, 1)} disabled={i === filtered.length - 1} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 4, width: 24, height: 24, fontSize: 11, color: i === filtered.length - 1 ? 'var(--border)' : 'var(--muted)', cursor: i === filtered.length - 1 ? 'default' : 'pointer' }}>↓</button>
@@ -445,6 +447,7 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
           results={resultsByDealId}
           onClose={() => { setShowCompare(false); setCompareIds(new Set()); }}
           onSelect={onSelect}
+          prefs={prefs}
         />
       )}
 
@@ -460,7 +463,7 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
         // ── Card grid ──────────────────────────────────────────────────────────
         <div data-tour="portfolio-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
           {filtered.map(d => (
-            <DealCard key={d.id} d={d} r={resultsByDealId[d.id] || {}} onSelect={onSelect} onDelete={handleDelete} onShareDeal={onShareDeal} inCompare={compareIds.has(d.id)} onToggleCompare={toggleCompare} />
+            <DealCard key={d.id} d={d} r={resultsByDealId[d.id] || {}} onSelect={onSelect} onDelete={handleDelete} onShareDeal={onShareDeal} inCompare={compareIds.has(d.id)} onToggleCompare={toggleCompare} prefs={prefs} />
           ))}
         </div>
       ) : (
@@ -497,11 +500,11 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
                     <td style={{ padding: '12px', color: 'var(--text)' }}>{FMT_USD(+d.assumptions.purchasePrice)}</td>
                     <td style={{ padding: '12px', color: 'var(--text)' }}>{FMT_USD(r.totalCash)}</td>
                     <td style={{ padding: '12px', color: 'var(--text)' }}>{FMT_USD(r.noi)}</td>
-                    <td style={{ padding: '12px', fontWeight: 700, color: cocColor(r.cocReturn) }}>{FMT_PCT(r.cocReturn)}</td>
-                    <td style={{ padding: '12px', color: capColor(r.capRate) }}>{FMT_PCT(r.capRate)}</td>
-                    <td style={{ padding: '12px', fontWeight: 700, color: irrColor(r.irr) }}>{FMT_PCT(r.irr)}</td>
+                    <td style={{ padding: '12px', fontWeight: 700, color: tone('coc', r.cocReturn, prefs) }}>{FMT_PCT(r.cocReturn)}</td>
+                    <td style={{ padding: '12px', color: tone('capRate', r.capRate, prefs) }}>{FMT_PCT(r.capRate)}</td>
+                    <td style={{ padding: '12px', fontWeight: 700, color: tone('irr', r.irr, prefs) }}>{FMT_PCT(r.irr)}</td>
                     <td style={{ padding: '12px', color: 'var(--text)' }}>{FMT_X(r.equityMultiple)}</td>
-                    <td style={{ padding: '12px' }}>{(r.dscr != null && r.dscr > 0) ? <DSCRBadge dscr={r.dscr} /> : '—'}</td>
+                    <td style={{ padding: '12px' }}>{lenderDscr(r) > 0 ? <DSCRBadge dscr={lenderDscr(r)} prefs={prefs} /> : '—'}</td>
                     <td style={{ padding: '12px' }}>
                       <button onClick={e => { e.stopPropagation(); setConfirmDeleteId(d.id); }} style={{ background: 'none', border: 'none', color: 'var(--red)', fontSize: 16, padding: 0, cursor: 'pointer' }}>✕</button>
                       {onShareDeal && <button onClick={e => { e.stopPropagation(); onShareDeal(d); }} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 14, padding: '0 2px', cursor: 'pointer' }}>👥</button>}

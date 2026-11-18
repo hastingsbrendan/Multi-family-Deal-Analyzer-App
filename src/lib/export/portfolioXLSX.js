@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx-js-style';
 import { calcDeal } from '../calc';
 import { FMT_USD, FMT_PCT, STATUS_OPTIONS } from '../constants';
 import { COLORS } from './colors';
+import { benchmarks } from '../benchmarks';
 
 function exportPortfolioXLSX(deals, user) {
   const { NAVY, TEAL, TEAL_300, INK, WHITE, SLATE, SLATE_LT, OFF_WHITE,
@@ -137,7 +138,7 @@ function exportPortfolioXLSX(deals, user) {
     { v: 'Cash Flow (Yr1)',         align: 'right' },
     { v: 'Cap Rate',                align: 'right' },
     { v: 'Cash-on-Cash',            align: 'right' },
-    { v: 'DSCR',                    align: 'right' },
+    { v: 'DSCR (lender)',           align: 'right' },
     { v: 'IRR',                     align: 'right' },
     { v: 'Equity Multiple',         align: 'right' },
   ];
@@ -152,9 +153,10 @@ function exportPortfolioXLSX(deals, user) {
     const yr1  = res.years[0] || {};
 
     // Thresholds for KPI coloring
-    const cocGood  = res.cocReturn >= 0.06;
-    const dscrGood = res.dscr >= 1.25;
-    const irrGood  = res.irr >= 0.08;
+    const BM = benchmarks();
+    const cocGood  = res.cocReturn >= BM.coc.good;
+    const dscrGood = res.dscrLenderView >= BM.dscr.good;
+    const irrGood  = res.irr >= BM.irr.good;
     const cfGood   = (yr1.cashFlow || 0) >= 0;
 
     W(ws1, 0,  dataRow, Cell(deal.address || '—',                null,  false, bg, INK,   'left'));
@@ -167,7 +169,7 @@ function exportPortfolioXLSX(deals, user) {
     W(ws1, 7,  dataRow, cfGood  ? KpiCell(yr1.cashFlow, USD)   : Cell(yr1.cashFlow||0, USD, false, RED_BG, RED_C));
     W(ws1, 8,  dataRow, Cell(res.capRate,                        PCT1,  false, bg, INK));
     W(ws1, 9,  dataRow, cocGood ? KpiCell(res.cocReturn, PCT1)  : Cell(res.cocReturn, PCT1, false, bg, SLATE));
-    W(ws1, 10, dataRow, dscrGood? KpiCell(res.dscr, N2)         : Cell(res.dscr, N2, false, bg, SLATE));
+    W(ws1, 10, dataRow, dscrGood? KpiCell(res.dscrLenderView, N2)         : Cell(res.dscrLenderView, N2, false, bg, SLATE));
     W(ws1, 11, dataRow, irrGood ? KpiCell(res.irr, PCT1)        : Cell(res.irr, PCT1, false, bg, SLATE));
     W(ws1, 12, dataRow, Cell(res.equityMultiple,                 X2,    false, bg, INK));
     dataRow++;
@@ -201,7 +203,7 @@ function exportPortfolioXLSX(deals, user) {
     W(ws1, 7,  dataRow, FootCell(sum(r => (r.years[0] || {}).cashFlow || 0), USD));
     W(ws1, 8,  dataRow, FootCell(avg(r => r.capRate), PCT1));
     W(ws1, 9,  dataRow, FootCell(avg(r => r.cocReturn), PCT1, true));
-    W(ws1, 10, dataRow, FootCell(avg(r => r.dscr), N2));
+    W(ws1, 10, dataRow, FootCell(avg(r => r.dscrLenderView), N2));
     W(ws1, 11, dataRow, FootCell(avg(r => r.irr), PCT1, true));
     W(ws1, 12, dataRow, FootCell(avg(r => r.equityMultiple), X2));
     dataRow++;
@@ -261,7 +263,7 @@ function exportPortfolioXLSX(deals, user) {
     mg2.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 7 } });
 
     // Column headers
-    ['Rank', 'Address', 'IRR', 'CoC Return', 'Cash Flow/mo', 'Cap Rate', 'DSCR', 'Equity Multiple']
+    ['Rank', 'Address', 'IRR', 'CoC Return', 'Cash Flow/mo', 'Cap Rate', 'DSCR (lender)', 'Equity Multiple']
       .forEach((h, i) => W(ws2, i, 3, TblHdr(h, i <= 1 ? 'left' : 'right')));
 
     ranked.forEach(({ d, r }, i) => {
@@ -274,7 +276,7 @@ function exportPortfolioXLSX(deals, user) {
       W(ws2, 3, i + 4, i === 0 ? KpiCell(r.cocReturn, PCT1)     : Cell(r.cocReturn,       PCT1, false, bg, INK));
       W(ws2, 4, i + 4, i === 0 ? KpiCell(yr1.monthlyCashFlow, USD): Cell(yr1.monthlyCashFlow||0, USD, false, bg, INK));
       W(ws2, 5, i + 4, Cell(r.capRate,          PCT1, false, bg, INK));
-      W(ws2, 6, i + 4, Cell(r.dscr,             N2,   false, bg, INK));
+      W(ws2, 6, i + 4, Cell(r.dscrLenderView,             N2,   false, bg, INK));
       W(ws2, 7, i + 4, Cell(r.equityMultiple,   X2,   false, bg, INK));
     });
 

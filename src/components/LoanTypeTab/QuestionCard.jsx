@@ -4,9 +4,9 @@ import ProgressBar from '../ui/ProgressBar';
 
 function QuestionCard({ question, value, onChange, onNext, onBack, stepIndex, totalSteps, purchasePrice }) {
   const q = QUESTIONS[question];
+  // Hook before the early return so the hook order never changes between renders
+  const [sliderVal, setSliderVal] = useState(value ?? q?.default ?? 20);
   if (!q) return null;
-
-  const [sliderVal, setSliderVal] = useState(value ?? q.default ?? 20);
 
   const handleSliderNext = () => { onChange(sliderVal); onNext(); };
 

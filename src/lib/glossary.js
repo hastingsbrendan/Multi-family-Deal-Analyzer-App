@@ -14,8 +14,9 @@ export const GLOSSARY = {
     "Internal Rate of Return — annualized total return including cash flow, principal " +
     "paydown, appreciation, and exit proceeds. Above 12% is strong; below 8% is weak.",
   capRate:
-    "Cap Rate — annual income (after expenses, before mortgage) divided by purchase price. " +
-    "It measures the property's yield. Above 5% is healthy in most markets.",
+    "Cap Rate — the building's annual income with every unit rented (after vacancy and " +
+    "expenses, before mortgage) divided by purchase price. It measures the property's yield, " +
+    "so for a house hack it counts your unit at market rent. Your Red Flag settings set the target.",
   noi:
     "Net Operating Income — annual rent minus vacancy and operating expenses, " +
     "BEFORE mortgage payments. Lenders use NOI to size loans.",
@@ -38,15 +39,15 @@ export const GLOSSARY = {
   // ── Risk metrics ────────────────────────────────────────────────────────────
   dscr:
     "Debt Service Coverage Ratio — annual income (after expenses) divided by annual " +
-    "mortgage payments (P&I). Lenders typically require ≥1.25x. Below 1.0x means rent " +
-    "doesn't cover the loan. For house-hacks this app shows two views: yours (owner " +
-    "unit rent excluded) and the lender's (all units counted as rented).",
+    "mortgage payments (P&I). Lenders typically want 1.20–1.25x or more; below 1.0x the rent " +
+    "doesn't cover the loan. The lender view counts every unit as rented; for a house hack, " +
+    "\"your view\" leaves out your own unit's rent while you live there.",
   dscrLenderView:
     "Lender-view DSCR uses 100% of building rent (no owner-unit deduction) — this is " +
     "what your lender will see when underwriting your loan.",
   expenseRatio:
-    "Operating expenses as a percentage of effective gross income. Above 50% suggests " +
-    "the property is expensive to run; below 35% is unusually lean.",
+    "Operating expenses as a percentage of income with every unit rented (after vacancy). " +
+    "Above 50% suggests the property is expensive to run; below 35% is unusually lean.",
   vacancyRate:
     "Assumed % of the year a unit sits empty between tenants. 5% is a common default; " +
     "C-class properties may need 8–10%.",

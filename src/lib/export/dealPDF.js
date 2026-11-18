@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable';
 import { calcDeal } from '../calc';
 import { FMT_USD, FMT_PCT } from '../constants';
 import { COLORS } from './colors';
+import { benchmarks } from '../benchmarks';
 
 function exportDealPDF(deal, user) {
   const r = calcDeal(deal);
@@ -114,7 +115,7 @@ function exportDealPDF(deal, user) {
     { label: 'NOI  (Year 1)',    value: fmt$(r.noi) },
     { label: 'Cap Rate',         value: fmtPct(r.capRate) },
     { label: 'Cash-on-Cash',     value: fmtPct(r.cocReturn) },
-    { label: 'DSCR',             value: r.dscr > 0 ? r.dscr.toFixed(2) + 'x' : '—' },
+    { label: 'DSCR (lender view)', value: r.dscrLenderView > 0 ? r.dscrLenderView.toFixed(2) + 'x' : 'n/a' },
     { label: `IRR (${holdYrs}-Year)`,  value: fmtPct(r.irr) },
     { label: 'Equity Multiple',        value: fmtX(r.equityMultiple) },
     { label: 'Loan Amount',            value: fmt$(r.loanAmt) },
@@ -198,11 +199,12 @@ function exportDealPDF(deal, user) {
 
   // ── Headline KPI bar — 4 big numbers across ───────────────────────────────
   // These are the "at a glance" numbers — large, prominent
+  const BM = benchmarks();
   const heroKpis = [
     { label: 'Monthly Cash Flow',  value: fmt$(r.years[0]?.cashFlow != null ? r.years[0].cashFlow / 12 : null), accent: (r.years[0]?.cashFlow || 0) >= 0 },
-    { label: 'Cap Rate',           value: fmtPct(r.capRate),    accent: (r.capRate || 0) >= 0.05 },
-    { label: 'Cash-on-Cash Yr 1',  value: fmtPct(r.cocReturn),  accent: (r.cocReturn || 0) >= 0.06 },
-    { label: 'DSCR Yr 1',          value: r.dscr > 0 ? r.dscr.toFixed(2) + 'x' : '—', accent: (r.dscr || 0) >= 1.25 },
+    { label: 'Cap Rate',           value: fmtPct(r.capRate),    accent: (r.capRate || 0) >= BM.capRate.good },
+    { label: 'Cash-on-Cash Yr 1',  value: fmtPct(r.cocReturn),  accent: (r.cocReturn || 0) >= BM.coc.good },
+    { label: 'DSCR Yr 1 (lender)', value: r.dscrLenderView > 0 ? r.dscrLenderView.toFixed(2) + 'x' : 'n/a', accent: (r.dscrLenderView || 0) >= BM.dscr.good },
   ];
 
   const heroW = BODY_W / 4;
@@ -514,7 +516,7 @@ function exportDealPDF(deal, user) {
     ...(r.years.some(y => y.ooUtilities > 0) ? [{ label: 'Owner Utilities', data: r.years.map(y => y.ooUtilities > 0 ? fmtK(y.ooUtilities) : '—'), bold: false, teal: false }] : []),
     { label: 'Cash Flow',     data: r.years.map(y => fmtK(y.cashFlow)),     bold: true,  teal: true,  top: true },
     { label: 'CoC Return',    data: r.years.map(y => fmtRate(y.cocReturn)), bold: false, teal: false },
-    { label: 'DSCR',          data: r.years.map(y => y.dscr.toFixed(2)),   bold: false, teal: false },
+    { label: 'DSCR (lender)', data: r.years.map(y => y.debtService > 0 ? y.dscrLenderView.toFixed(2) : '—'), bold: false, teal: false },
     { label: 'Prop. Value',   data: r.years.map(y => fmtK(y.propertyValue)),bold: false, teal: false, top: true },
     { label: 'Loan Balance',  data: r.years.map(y => fmtK(y.balance)),  bold: false, teal: false },
     { label: 'Equity',        data: r.years.map(y => fmtK(y.equity)),       bold: true,  teal: true },

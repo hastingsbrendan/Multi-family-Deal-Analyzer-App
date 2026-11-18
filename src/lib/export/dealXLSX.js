@@ -3,6 +3,7 @@ import { calcDeal } from '../calc';
 import { FEDERAL_TAX_YEAR } from '../federalTaxEngine';
 import { FMT_USD, FMT_PCT, STATUS_OPTIONS } from '../constants';
 import { COLORS } from './colors';
+import { benchmarks } from '../benchmarks';
 
 function exportDealXLSX(deal, user) {
   const r  = calcDeal(deal);
@@ -255,14 +256,16 @@ function exportDealXLSX(deal, user) {
   mg1.push({ s: { r: row-1, c: 2 }, e: { r: row-1, c: COLS } });
   row++;
 
+  // Same benchmarks as the app (src/lib/benchmarks.js)
+  const BM = benchmarks();
   const kpiRows = [
-    [`IRR (${holdYrs}-Year)`,             r.irr,                 PCT1,  true,  `Benchmark: ≥8% annually over ${holdYrs}-year hold`],
+    [`IRR (${holdYrs}-Year)`,             r.irr,                 PCT1,  true,  `Benchmark: ${BM.irr.label} annually over ${holdYrs}-year hold`],
     ['Equity Multiple',                    r.equityMultiple,      X2,    true,  'Benchmark: ≥1.5x over hold period'],
-    ['Cash-on-Cash Return (Yr 1)',         r.cocReturn,           PCT1,  true,  'Benchmark: ≥6–8% annually'],
+    ['Cash-on-Cash Return (Yr 1)',         r.cocReturn,           PCT1,  true,  `Benchmark: ${BM.coc.label}`],
     ['Monthly Cash Flow (Yr 1)',           yr1.monthlyCashFlow,   USD,   true,  'Target: positive (> $0)'],
-    ['Cap Rate (Yr 1)',                    r.capRate,             PCT1,  false, 'Benchmark: ≥4–5% (market dependent)'],
-    ['DSCR (Yr 1)',                        r.dscr,                N2,    false, 'Lender minimum: 1.25x'],
-    ['Break-Even Occupancy',               r.breakEvenOccupancy,  PCT1,  false, 'Lower is better; ideal < vacancy rate'],
+    ['Cap Rate (Yr 1, all units rented)',  r.capRate,             PCT1,  false, `Benchmark: ${BM.capRate.label} (market dependent)`],
+    ['DSCR (Yr 1, lender view)',           r.dscrLenderView,      N2,    false, `Benchmark: ${BM.dscr.label}; lenders often want 1.20–1.25x`],
+    ['Break-Even Occupancy',               r.breakEvenOccupancy,  PCT1,  false, 'Lower is better; should sit below your expected occupancy (100% − vacancy)'],
     ['Annual NOI (Yr 1)',                  r.noi,                 USD,   false, 'Before debt service'],
     [`Net Proceeds (Exit Yr ${holdYrs})`,  r.netProceeds,         USD,   true,  'After selling costs, depreciation recapture, and capital gains tax'],
   ];

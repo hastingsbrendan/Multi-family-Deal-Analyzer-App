@@ -18,9 +18,11 @@ const FLAG_TIPS = {
 function RedFlagsTab({deal,result,onChange,prefs=DEFAULT_PREFS}){
   const [exp,setExp]=useState({});
   const yr1=result.years?.[0];
-  const expR=yr1&&yr1.egi>0?yr1.expenses/yr1.egi:null;
-  // BACK-018: Red Flags uses lender-view DSCR (full-building rent, no OO deduction) — how a lender underwrites
-  const dscr=yr1?.dscrLenderView??yr1?.dscr??null;
+  // All three are property-level (every unit rented), the way a lender or buyer would
+  // judge the building. Cap rate and expense ratio used the owner-reduced income, so
+  // every house hack got "critical" flags (2026-11 review).
+  const expR=yr1&&yr1.egiMarket>0?yr1.expenseRatio:null;
+  const dscr=yr1&&yr1.debtService>0?(yr1.dscrLenderView??yr1.dscr):null;
   const cr=yr1?.capRate??null;
   const dscrFloor = prefs.dscrFloor ?? 1.2;
   const crFloor   = prefs.capRateFloor ?? 0.06;
@@ -30,8 +32,8 @@ function RedFlagsTab({deal,result,onChange,prefs=DEFAULT_PREFS}){
   const floodTriggered = fzi && (fzi.risk === 'high' || fzi.risk === 'critical');
 
   const AF=[
-    {key:"dscr",label:`DSCR Below ${dscrFloor.toFixed(2)}x`,triggered:dscr!==null&&dscr<dscrFloor,severity:dscr!==null&&dscr<dscrFloor*0.85?"critical":"warning",detail:dscr!==null?`Yr 1 DSCR is ${dscr.toFixed(2)}x — debt service may not be covered by NOI.`:"No data",actual:dscr!==null?`${dscr.toFixed(2)}x`:"—",threshold:`${dscrFloor.toFixed(2)}x`},
-    {key:"caprate",label:`Cap Rate Below ${(crFloor*100).toFixed(1)}%`,triggered:cr!==null&&cr<crFloor,severity:cr!==null&&cr<crFloor*0.67?"critical":"warning",detail:cr!==null?`Yr 1 Cap Rate is ${(cr*100).toFixed(2)}% — low return relative to purchase price.`:"No data",actual:cr!==null?`${(cr*100).toFixed(2)}%`:"—",threshold:`${(crFloor*100).toFixed(1)}%`},
+    {key:"dscr",label:`DSCR Below ${dscrFloor.toFixed(2)}x`,triggered:dscr!==null&&dscr<dscrFloor,severity:dscr!==null&&dscr<dscrFloor*0.85?"critical":"warning",detail:dscr!==null?`Yr 1 DSCR (lender view, all units rented) is ${dscr.toFixed(2)}x — debt service may not be covered by NOI.`:"No data",actual:dscr!==null?`${dscr.toFixed(2)}x`:"—",threshold:`${dscrFloor.toFixed(2)}x`},
+    {key:"caprate",label:`Cap Rate Below ${(crFloor*100).toFixed(1)}%`,triggered:cr!==null&&cr<crFloor,severity:cr!==null&&cr<crFloor*0.67?"critical":"warning",detail:cr!==null?`Yr 1 Cap Rate (all units rented) is ${(cr*100).toFixed(2)}% — low return relative to purchase price.`:"No data",actual:cr!==null?`${(cr*100).toFixed(2)}%`:"—",threshold:`${(crFloor*100).toFixed(1)}%`},
     {key:"expratio",label:`Expense Ratio Above ${(expCeil*100).toFixed(0)}%`,triggered:expR!==null&&expR>expCeil,severity:expR!==null&&expR>expCeil*1.3?"critical":"warning",detail:expR!==null?`Yr 1 Expense Ratio is ${(expR*100).toFixed(1)}% — high expenses relative to income.`:"No data",actual:expR!==null?`${(expR*100).toFixed(1)}%`:"—",threshold:`${(expCeil*100).toFixed(0)}%`},
     ...(fzi ? [{
       key: "floodzone",

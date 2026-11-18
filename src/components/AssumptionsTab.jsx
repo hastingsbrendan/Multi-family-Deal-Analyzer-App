@@ -78,6 +78,7 @@ function AssumptionsTab({deal,onChange}){
   // Hoisted from the Advanced Tax IIFE — hooks may not live inside the
   // conditionally-rendered advanced block (Rules of Hooks)
   const [taxOpen, setTaxOpen] = useState(false);
+  const [ccOpen, setCcOpen] = useState(false); // closing-costs panel (hoisted for the same reason)
   const upd=(path,val)=>{const d=structuredClone(deal);const parts=path.split(".");let obj=d.assumptions;for(let i=0;i<parts.length-1;i++){if(obj[parts[i]]==null||typeof obj[parts[i]]!=="object")obj[parts[i]]={};obj=obj[parts[i]];}obj[parts[parts.length-1]]=val;onChange(d);};
   // Auto-populate state from deal.address whenever address changes and state is not yet set.
   // Matches the 2-letter state code from formatted addresses like "123 Main St, Chicago, IL 60601".
@@ -561,7 +562,6 @@ function AssumptionsTab({deal,onChange}){
       <div style={{fontSize:12,color:"var(--muted)",padding:"6px 0"}}>Year 1 computed total: <strong style={{color:"var(--text)"}}>{FMT_USD(resolveExpenses(a,grossRentYear0).total)}</strong></div>
     </Section>
     {(()=>{
-      const [ccOpen, setCcOpen] = React.useState(false);
       // Compute all closing costs including optional insurance upfront
       const insUpfrontAmt = a.insuranceUpfront ? (+a.expenses?.insurance||0) : 0;
       const ccLineTotal = Object.values(a.closingCosts||{}).reduce((s,v)=>s+(+v||0),0);
@@ -728,7 +728,7 @@ function AssumptionsTab({deal,onChange}){
           <div key={path}>
             <label style={{...lblSt,display:"flex",alignItems:"center"}}>{label}{tip&&<Tip text={tip}/>}</label>
             <div style={{display:"flex",alignItems:"center",gap:4}}>
-              <DraftInput value={value||""} allow={/[^0-9.\-]/g} onCommit={v=>upd(path,v)}
+              <DraftInput value={value||""} allow={/[^0-9.-]/g} onCommit={v=>upd(path,v)}
                 style={{...fldSt,flex:1}}/>
               <span style={{fontSize:12,color:"var(--muted)",whiteSpace:"nowrap"}}>{suffix}</span>
             </div>

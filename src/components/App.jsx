@@ -553,6 +553,7 @@ function App() {
         )}
         {!activeDeal
           ?(!deals ? <Spinner fullPage/> : <PortfolioPage
+              prefs={prefs}
               deals={activeGroup ? groupDeals : deals}
               onSelect={id=>setActiveDealId(id)}
               onAdd={activeGroup ? addGroupDeal : addDeal}
