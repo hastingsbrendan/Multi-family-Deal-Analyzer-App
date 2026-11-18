@@ -9,3 +9,9 @@ API Keys*
 *.docx
 *.xlsx
 .env.*.local
+
+# Private Claude notes (personal details, process rules)
+CLAUDE.local.md
+
+# Local backlog tooling and notes (edits a git-ignored spreadsheet)
+Technical/
