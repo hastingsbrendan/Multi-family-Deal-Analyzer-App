@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
+  <meta name="robots" content="noindex"/>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
   <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png"/>
   <link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
@@ -9,7 +10,6 @@
   <title>Confirm Your Email — RentHack</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <style>
     :root {
       --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a;
@@ -119,14 +119,8 @@
         status.className = 'status loading';
         status.textContent = 'Verifying your email address…';
 
-        // Use the Supabase JS client to verify the OTP with token_hash
-        var supabase = window.supabase.createClient(
-          'https://lxkwvayalxuoryuwxtsq.supabase.co',
-          'placeholder'  // anon key loaded below
-        );
-
-        // We need to call the verify endpoint directly since we may not
-        // have the correct anon key hardcoded. Use the raw REST endpoint.
+        // Hand off to Supabase's verify endpoint, which verifies the token and
+        // redirects back to the app with a session. (No client library needed.)
         // The correct param name is "token" (not "token_hash") per Supabase docs.
         var verifyUrl = 'https://lxkwvayalxuoryuwxtsq.supabase.co/auth/v1/verify'
           + '?token=' + encodeURIComponent(tokenHash)
