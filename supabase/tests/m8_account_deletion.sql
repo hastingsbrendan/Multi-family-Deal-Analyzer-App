@@ -31,6 +31,8 @@ begin
   end;
   reset role;
 
+  -- as the Edge Function calls it: service role, no signed-in user
+  perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
   r := public.prepare_account_deletion(leaver);
 
   select role into v_role from public.group_members where group_id = g_shared and user_id = early;
