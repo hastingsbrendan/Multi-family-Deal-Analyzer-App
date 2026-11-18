@@ -52,7 +52,19 @@ begin
   update public.group_deal_refs set sort_order = 5 where group_id = g_attacker and deal_id = d_own;
   get diagnostics n = row_count;
   if n = 1 then passed := passed + 1; else nfail := nfail + 1; failed := failed || 'reorder blocked; '; end if;
+  -- (000004) shared_by can't be rewritten; shared_at can (owner re-sharing)
+  begin
+    update public.group_deal_refs set shared_by = owner where group_id = g_attacker and deal_id = d_own;
+    nfail := nfail + 1; failed := failed || 'shared_by rewritten; ';
+  exception when insufficient_privilege then passed := passed + 1; end;
+  update public.group_deal_refs set shared_at = now() + interval '1 minute' where group_id = g_attacker and deal_id = d_own;
+  get diagnostics n = row_count;
+  if n = 1 then passed := passed + 1; else nfail := nfail + 1; failed := failed || 're-share blocked; '; end if;
+  -- (000004) deleting the deal removes its links
+  delete from public.deals where deal_id = d_own;
   reset role;
+  select count(*) into n from public.group_deal_refs where deal_id = d_own;
+  if n = 0 then passed := passed + 1; else nfail := nfail + 1; failed := failed || 'link outlived its deal; '; end if;
 
   select count(*) into n from public.deals where deal_id = d_victim and deal_data->>'address' = 'victim';
   if n = 1 then passed := passed + 1; else nfail := nfail + 1; failed := failed || 'victim deal changed; '; end if;
