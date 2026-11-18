@@ -1,7 +1,7 @@
 import { describe, test, expect, vi } from 'vitest';
 import { onRequest as rentcast } from '../../../functions/api/rentcast.js';
 import { onRequest as fred } from '../../../functions/api/fred.js';
-import { isAllowedOrigin, tierOf } from '../../../server/proxyAuth.js';
+import { isAllowedOrigin, tierOf, useDailyAllowance } from '../../../server/proxyAuth.js';
 
 // M6 (2026-11): Rentcast calls cost money. The proxy must check sign-in, plan and a
 // daily allowance, and forward only the endpoints and parameters the app uses.
@@ -100,5 +100,20 @@ describe('proxy helpers', () => {
     expect(tierOf(user({ app_metadata: { plan: 'pro' } }))).toBe('pro');
     expect(tierOf(user())).toBe('trial');
     expect(tierOf(user({ created_at: '2020-01-01T00:00:00Z', user_metadata: { plan: 'pro' } }))).toBe('locked');
+  });
+});
+
+describe('daily allowance fails closed', () => {
+  const env = { SUPABASE_URL: 'https://sb.test', SUPABASE_ANON_KEY: 'anon' };
+  const reply = (status, body) => async () => new Response(JSON.stringify(body), { status });
+
+  test('database errors refuse the call', async () => {
+    expect((await useDailyAllowance(env, 't', 'rentcast', 60, reply(500, { code: 'XX000' }))).ok).toBe(false);
+    expect((await useDailyAllowance(env, 't', 'rentcast', 60, async () => { throw new Error('down'); })).ok).toBe(false);
+    expect((await useDailyAllowance(env, 't', 'rentcast', 60, reply(200, 'oops'))).ok).toBe(false);
+  });
+
+  test('only a not-yet-installed function lets calls through', async () => {
+    expect((await useDailyAllowance(env, 't', 'rentcast', 60, reply(404, { code: 'PGRST202' }))).ok).toBe(true);
   });
 });

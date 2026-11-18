@@ -74,8 +74,10 @@ export function tierOf(user, now = Date.now()) {
 }
 
 // Counts one call against the user's daily allowance via a Supabase RPC run with the
-// user's own token. Returns { ok: true, used } or { ok: false, used }.
-// If the RPC isn't installed yet, allows the call (fail open) rather than breaking lookups.
+// user's own token. Returns { ok, used }.
+// Fails closed: any error refuses the call. The one exception is the function not
+// being installed yet (PostgREST PGRST202), so lookups keep working between deploying
+// this code and applying supabase/sql/m6_api_allowance.sql.
 export async function useDailyAllowance(env, token, kind, limit, fetchImpl = fetch) {
   try {
     const res = await fetchImpl(`${env.SUPABASE_URL}/rest/v1/rpc/use_api_allowance`, {
@@ -83,10 +85,14 @@ export async function useDailyAllowance(env, token, kind, limit, fetchImpl = fet
       headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ p_kind: kind, p_limit: limit }),
     });
-    if (!res.ok) return { ok: true, used: null };
+    if (!res.ok) {
+      let code = null;
+      try { code = (await res.json())?.code; } catch { /* non-JSON error body */ }
+      return { ok: code === 'PGRST202', used: null };
+    }
     const used = await res.json();
-    return { ok: typeof used === 'number' ? used <= limit : true, used };
+    return { ok: typeof used === 'number' && used <= limit, used };
   } catch {
-    return { ok: true, used: null };
+    return { ok: false, used: null };
   }
 }
