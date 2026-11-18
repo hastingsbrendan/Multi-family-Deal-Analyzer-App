@@ -23,6 +23,7 @@ function parseInputValue(str) {
 function InputRow({label,value,onChange,type="number",prefix,suffix,tip}){
   const isMobile=useIsMobile();
   const [focused,setFocused]=useState(false);
+  const inputId = React.useId(); // label ↔ input association for screen readers (M9e)
   const isNumeric = type==="number";
   const displayVal = isNumeric
     ? (focused ? (String(value)==="0"||value===0?"":String(value).replace(/,/g,"")) : fmtInputDisplay(value))
@@ -30,6 +31,7 @@ function InputRow({label,value,onChange,type="number",prefix,suffix,tip}){
   const handleChange = e => onChange(isNumeric ? parseInputValue(e.target.value) : e.target.value);
   const inputEl = (mobile) => (
     <input
+      id={inputId}
       type="text"
       inputMode={isNumeric?"decimal":"text"}
       value={displayVal}
@@ -40,8 +42,8 @@ function InputRow({label,value,onChange,type="number",prefix,suffix,tip}){
       style={{...iSty,fontSize:14}}
     />
   );
-  if(isMobile){return(<div style={{padding:"10px 0",borderBottom:"1px solid var(--border-faint)"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><label style={{fontSize:13,color:"var(--muted)",fontWeight:600,display:"flex",alignItems:"center"}}>{label}{tip&&<Tip text={tip}/>}</label></div><div style={{display:"flex",alignItems:"center",gap:4}}>{prefix&&<span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap",flexShrink:0}}>{prefix}</span>}{inputEl(true)}{suffix&&<span style={{fontSize:12,color:"var(--muted)",whiteSpace:"nowrap",flexShrink:0,marginLeft:2}}>{suffix}</span>}</div></div>);}
-  return(<div style={{display:"grid",gridTemplateColumns:"200px 1fr",gap:8,alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--border-faint)"}}><label style={{fontSize:13,color:"var(--muted)",fontWeight:500,display:"flex",alignItems:"center"}}>{label}{tip&&<Tip text={tip}/>}</label><div style={{display:"flex",alignItems:"center",gap:4}}>{prefix&&<span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap"}}>{prefix}</span>}{inputEl(false)}{suffix&&<span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap"}}>{suffix}</span>}</div></div>);
+  if(isMobile){return(<div style={{padding:"10px 0",borderBottom:"1px solid var(--border-faint)"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><label htmlFor={inputId} style={{fontSize:13,color:"var(--muted)",fontWeight:600,display:"flex",alignItems:"center"}}>{label}{tip&&<Tip text={tip}/>}</label></div><div style={{display:"flex",alignItems:"center",gap:4}}>{prefix&&<span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap",flexShrink:0}}>{prefix}</span>}{inputEl(true)}{suffix&&<span style={{fontSize:12,color:"var(--muted)",whiteSpace:"nowrap",flexShrink:0,marginLeft:2}}>{suffix}</span>}</div></div>);}
+  return(<div style={{display:"grid",gridTemplateColumns:"200px 1fr",gap:8,alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--border-faint)"}}><label htmlFor={inputId} style={{fontSize:13,color:"var(--muted)",fontWeight:500,display:"flex",alignItems:"center"}}>{label}{tip&&<Tip text={tip}/>}</label><div style={{display:"flex",alignItems:"center",gap:4}}>{prefix&&<span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap"}}>{prefix}</span>}{inputEl(false)}{suffix&&<span style={{fontSize:13,color:"var(--muted)",whiteSpace:"nowrap"}}>{suffix}</span>}</div></div>);
 }
 
 export { fmtInputDisplay, parseInputValue, iSty, srcSty, btnSm, Tip };

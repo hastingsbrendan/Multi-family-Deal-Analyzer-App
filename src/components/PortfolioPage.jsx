@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import InputRow, { iSty } from './ui/InputRow';
 import Tip from './ui/Tip';
 import EmptyState from './ui/EmptyState';
@@ -153,6 +153,12 @@ function DealCard({ d, r, onSelect, onDelete, onShareDeal, inCompare, onToggleCo
   return (
     <div
       onClick={() => onSelect(d.id)}
+      // Keyboard and screen readers can open a deal (cards were mouse-only; M9e).
+      // Inner buttons handle their own keys, so only react when the card itself has focus.
+      role="button"
+      tabIndex={0}
+      aria-label={`Open deal: ${d.address || 'Untitled deal'}`}
+      onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onSelect(d.id); } }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -309,6 +315,13 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
   const handleDelete = id => {
     setConfirmDeleteId(id);
   };
+  // Escape cancels the delete confirmation (M9e)
+  useEffect(() => {
+    if (!confirmDeleteId) return;
+    const onKey = e => { if (e.key === 'Escape') setConfirmDeleteId(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [confirmDeleteId]);
   const confirmDelete = () => {
     if (!confirmDeleteId) return;
     const snapshot = [...deals];
@@ -399,7 +412,7 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
         )}
         {confirmDeleteId && (
           <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-            <div style={{background:"var(--card)",borderRadius:14,padding:"24px 24px",maxWidth:340,width:"100%",boxShadow:"0 8px 32px rgba(0,0,0,0.25)"}}>
+            <div role="dialog" aria-modal="true" aria-label="Delete this deal?" style={{background:"var(--card)",borderRadius:14,padding:"24px 24px",maxWidth:340,width:"100%",boxShadow:"0 8px 32px rgba(0,0,0,0.25)"}}>
               <div style={{fontSize:16,fontWeight:800,color:"var(--text)",marginBottom:8}}>Delete this deal?</div>
               <div style={{fontSize:13,color:"var(--muted)",marginBottom:20}}>This action can be undone immediately after.</div>
               <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
@@ -486,6 +499,9 @@ function PortfolioPage({ deals, onSelect, onAdd, onAddSample, onDelete, onExport
                     onDragStart={e => handleDragStart(e, i)} onDragOver={e => handleDragOver(e, i)}
                     onDrop={e => handleDrop(e, i)} onDragEnd={handleDragEnd}
                     onClick={() => onSelect(d.id)}
+                    tabIndex={0}
+                    aria-label={`Open deal: ${d.address || 'Untitled deal'}`}
+                    onKeyDown={e => { if (e.target === e.currentTarget && e.key === 'Enter') onSelect(d.id); }}
                     style={{ cursor: 'pointer', borderBottom: '1px solid var(--border-faint)', opacity: isDragging ? 0.4 : 1, background: isOver ? 'var(--accent-soft)' : 'transparent', transition: 'background 0.1s' }}
                     onMouseEnter={e => { if (!isDragging) e.currentTarget.style.background = 'var(--row-hover)'; }}
                     onMouseLeave={e => { e.currentTarget.style.background = isOver ? 'var(--accent-soft)' : 'transparent'; }}
