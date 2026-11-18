@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { FMT_USD, FMT_PCT } from '../lib/constants';
 import { calcDeal, calcSensitivity } from '../lib/calc';
 import { useIsMobile } from '../lib/hooks';
+import { benchmarks } from '../lib/benchmarks';
 
 // ─── DEFAULT SCENARIO OVERRIDES ───────────────────────────────────────────────
 const DEFAULT_SCENARIOS = {
@@ -91,8 +92,10 @@ function scaleRents(a, newUnit1Rent) {
   return a.units.map(u => ({ ...u, rent: Math.round(unitRent(u) * ratio) }));
 }
 
-// Thresholds for "green zone"
-const THRESHOLDS = { coc: 0.06, irr: 0.12, dscr: 1.25, cashFlow: 0 };
+// "Green zone" cut-offs come from the shared benchmarks so this tab agrees with the
+// rest of the app (it used DSCR 1.25 while Red Flags used 1.20).
+const BM = benchmarks();
+const THRESHOLDS = { coc: BM.coc.good, irr: BM.irr.good, dscr: BM.dscr.good, cashFlow: 0 };
 
 function SensitivityTab({ deal }) {
   const isMobile = useIsMobile();
@@ -249,7 +252,7 @@ function SensitivityTab({ deal }) {
           {metricCard("CoC Yr1",    base.cocReturn,  scenCalc.cocReturn,  FMT_PCT, true)}
           {metricCard("Cap Rate",   base.capRate,    scenCalc.capRate,    FMT_PCT, true)}
           {metricCard(`IRR ${holdYears}yr`,   base.irr,        scenCalc.irr,        FMT_PCT, true)}
-          {metricCard("DSCR",       base.dscr,       scenCalc.dscr,       v => v?.toFixed(2)+'x', true)}
+          {metricCard("DSCR (lender)", base.dscrLenderView, scenCalc.dscrLenderView, v => v?.toFixed(2)+'x', true)}
         </div>
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:8,marginBottom:14}}>
           {metricCard("Monthly CF", base.monthlyCF,  scenCalc.monthlyCF,  FMT_USD, true)}
@@ -324,7 +327,7 @@ function SensitivityTab({ deal }) {
           {[
             ["CoC",  FMT_PCT(sliderCalc.cocReturn),  sliderCalc.cocReturn  >= THRESHOLDS.coc],
             ["IRR",  FMT_PCT(sliderCalc.irr),         sliderCalc.irr        >= THRESHOLDS.irr],
-            ["DSCR", (sliderCalc.dscr||0).toFixed(2)+'x', sliderCalc.dscr  >= THRESHOLDS.dscr],
+            ["DSCR (lender)", (sliderCalc.dscrLenderView||0).toFixed(2)+'x', sliderCalc.dscrLenderView >= THRESHOLDS.dscr],
             ["Mo. CF", FMT_USD(sliderCalc.monthlyCF), sliderCalc.monthlyCF >= THRESHOLDS.cashFlow],
           ].map(([lbl, val, isGood]) => (
             <div key={lbl} style={{textAlign:"center"}}>
