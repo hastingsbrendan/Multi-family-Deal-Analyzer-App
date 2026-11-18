@@ -546,7 +546,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
           </div>
 
           {/* ── Row B: PITI donut + OpEx donut ── */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:0}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:0}}>
 
             {/* PITI donut */}
             <DSPanel>
@@ -819,7 +819,7 @@ function DealSummaryTab({deal, result, onUpdate}) {
       return(
         <div style={{marginTop:8,padding:"12px 0"}}>
           <div style={{fontSize:"var(--text-xs)",color:"var(--muted)",marginBottom:8}}>Fetched {rd.fetchedAt}</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:"0 24px"}}>
             <div>
               <DataRow label="Property Type" value={rd.propertyType}/>
               <DataRow label="Bedrooms / Bathrooms" value={rd.bedrooms!=null?`${rd.bedrooms} bed / ${rd.bathrooms||"?"} bath`:null}/>

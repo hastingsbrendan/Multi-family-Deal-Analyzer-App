@@ -123,7 +123,7 @@ function GroupsPage({ user, dark, onBack, onSelectGroup }) {
         </div>
 
         {msg && (
-          <div style={{background: msg.ok ? '#d1fae5' : '#fee2e2', color: msg.ok ? '#065f46' : '#991b1b',
+          <div style={{background: msg.ok ? 'var(--success-bg)' : 'var(--error-bg)', color: msg.ok ? 'var(--success-text)' : 'var(--error-text)',
             borderRadius:8, padding:'10px 14px', marginBottom:14, fontSize:13, fontWeight:600}}>
             {msg.text}
           </div>
@@ -131,8 +131,8 @@ function GroupsPage({ user, dark, onBack, onSelectGroup }) {
 
         {/* Pending invites */}
         {pending.length > 0 && (
-          <div style={{...card, border:'1px solid #f59e0b', background:'#fffbeb'}}>
-            <div style={{fontWeight:700, fontSize:13, color:'#92400e', marginBottom:12}}>
+          <div style={{...card, border:'1px solid var(--accent2)', background:'var(--warn-bg)'}}>
+            <div style={{fontWeight:700, fontSize:13, color:'var(--warn-text)', marginBottom:12}}>
               📬 Pending Invites ({pending.length})
             </div>
             {pending.map(inv => (
@@ -140,7 +140,7 @@ function GroupsPage({ user, dark, onBack, onSelectGroup }) {
                 padding:'10px 0', borderBottom:'1px solid #fde68a'}}>
                 <div>
                   <div style={{fontWeight:700, fontSize:14}}>{inv.groups?.name}</div>
-                  <div style={{fontSize:12, color:'#92400e', marginTop:2}}>
+                  <div style={{fontSize:12, color:'var(--warn-text)', marginTop:2}}>
                     Invited as <strong>{inv.role}</strong>
                     {inv.groups?.description && ` · ${inv.groups.description}`}
                   </div>
@@ -295,7 +295,7 @@ function GroupsPage({ user, dark, onBack, onSelectGroup }) {
                       <div style={{fontSize:12,color:'var(--muted)'}}>{m.profiles?.email}</div>
                     </div>
                     {m.status==='pending' && (
-                      <span style={{fontSize:11,fontWeight:700,color:'#92400e',background:'#fef3c7',
+                      <span style={{fontSize:11,fontWeight:700,color:'var(--warn-text)',background:'var(--warn-bg)',
                         borderRadius:20,padding:'2px 8px'}}>Pending</span>
                     )}
                     {isOwner && !isMe ? (

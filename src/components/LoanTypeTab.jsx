@@ -89,7 +89,7 @@ function RecommendationCard({ loanType, scoreData, answers, onProceed, onExplore
         <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 10, padding: '12px 14px' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#B45309', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>⚠️ Things to watch</div>
           {warnings.map((w, i) => (
-            <p key={i} style={{ fontSize: 12, color: '#92400E', lineHeight: 1.5, margin: 0, marginBottom: i < warnings.length - 1 ? 6 : 0 }}>{w}</p>
+            <p key={i} style={{ fontSize: 12, color:'var(--warn-text)', lineHeight: 1.5, margin: 0, marginBottom: i < warnings.length - 1 ? 6 : 0 }}>{w}</p>
           ))}
         </div>
       )}
@@ -315,7 +315,7 @@ function LoanDetailPanel({ loanType, scoreData, onProceed, onBack }) {
       {warnings.length > 0 && (
         <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 10, padding: '12px 14px' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#B45309', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>⚠️ Watch out</div>
-          {warnings.map((w, i) => <p key={i} style={{ fontSize: 12, color: '#92400E', lineHeight: 1.5, margin: 0, marginBottom: i < warnings.length - 1 ? 6 : 0 }}>{w}</p>)}
+          {warnings.map((w, i) => <p key={i} style={{ fontSize: 12, color:'var(--warn-text)', lineHeight: 1.5, margin: 0, marginBottom: i < warnings.length - 1 ? 6 : 0 }}>{w}</p>)}
         </div>
       )}
 

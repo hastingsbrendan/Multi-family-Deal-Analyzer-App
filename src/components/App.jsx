@@ -182,6 +182,9 @@ function App() {
   }
 
   const theme = dark ? "dark" : "light";
+  // index.html ships data-theme="light" on <html>; mirror the user's theme there so the
+  // page background and overscroll match in dark mode (M9f).
+  useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
   const showDisclaimer = user && !user.user_metadata?.disclaimer_ack_at;
   const activeDeal   = (activeGroup ? (groupDeals||[]) : (deals||[])).find(d=>d.id===activeDealId);
 
@@ -411,34 +414,13 @@ function App() {
       <div style={{borderBottom:"1px solid var(--border)",padding:"0 20px",height:60,display:"flex",alignItems:"center",justifyContent:"space-between",background:dark?"var(--card)":"rgba(253,250,246,0.95)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",position:"sticky",top:0,zIndex:100}}>
         {/* Left: logo + breadcrumb */}
         <div style={{display:"flex",alignItems:"center",gap:10,flex:"0 0 auto"}}>
-          <a href="/landing" style={{display:"flex",alignItems:"center",gap:8,textDecoration:"none"}}>
+          {/* Inside the app the logo goes to your deals, not the marketing page (M9g) */}
+          <a href="/" aria-label="RentHack — My Deals" onClick={e=>{e.preventDefault();setActiveDealId(null);setShowSettings(false);setShowGroups(false);}} style={{display:"flex",alignItems:"center",gap:8,textDecoration:"none"}}>
             <div style={{width:28,height:28,background:"var(--accent)",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>🏠</div>
             <span style={{fontFamily:"'Fraunces',serif",fontWeight:900,fontSize:18,color:"var(--text)",letterSpacing:"-0.5px"}}><span>Rent</span><span style={{color:"var(--accent)"}}>Hack</span></span>
           </a>
           {activeDeal&&<span style={{color:"var(--muted)",fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:140}}>/ {activeDeal.address||"New Deal"}</span>}
         </div>
-
-        {/* Centre: primary nav links — hidden on mobile or when a deal is open */}
-        {!activeDeal&&!isMobile&&<nav style={{display:"flex",alignItems:"center",gap:28,position:"absolute",left:"50%",transform:"translateX(-50%)"}}>
-          {[
-            {label:"How it Works", href:"/landing#how"},
-            {label:"Pricing",      href:"/landing#pricing"},
-            {label:"Blog",         href:"/blog/"},
-          ].map(({label,href})=>(
-            <a key={label} href={href}
-              style={{fontSize:14,fontWeight:500,color:"var(--muted)",textDecoration:"none",transition:"color 0.15s",whiteSpace:"nowrap"}}
-              onMouseEnter={e=>e.currentTarget.style.color="var(--text)"}
-              onMouseLeave={e=>e.currentTarget.style.color="var(--muted)"}>
-              {label}
-            </a>
-          ))}
-          <button onClick={()=>setActiveDealId(null)}
-            style={{fontSize:14,fontWeight:600,color:"var(--accent)",background:"none",border:"none",cursor:"pointer",padding:0,transition:"opacity 0.15s",whiteSpace:"nowrap"}}
-            onMouseEnter={e=>e.currentTarget.style.opacity="0.75"}
-            onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
-            My Deals
-          </button>
-        </nav>}
 
         {/* Right: sync status + utility buttons + avatar */}
         <div style={{display:"flex",alignItems:"center",gap:6,flex:"0 0 auto"}}>
@@ -460,7 +442,7 @@ function App() {
                 behind the avatar menu so the header stays readable. */}
             {lastSyncedAt && !(isMobile && activeDeal) && (
               <div style={{fontSize:10,color:"var(--muted)",whiteSpace:"nowrap"}}>
-                {!syncBadge && "✓ "}{lastSyncedAt.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit",second:"2-digit"})}
+                {!syncBadge && "✓ "}{lastSyncedAt.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})}
               </div>
             )}
             {!(isMobile && activeDeal) && (
@@ -531,6 +513,12 @@ function App() {
                           </button>
                         </>
                       )}
+                      {/* Marketing pages live here instead of the app header (M9g) */}
+                      <div style={{borderTop:"1px solid var(--border)"}}>
+                        {[["How RentHack works","/landing#how"],["Pricing","/landing#pricing"],["Blog","/blog/"]].map(([label,href])=>(
+                          <a key={href} href={href} style={{display:"block",padding:"8px 14px",fontSize:12,color:"var(--muted)",textDecoration:"none"}}>{label}</a>
+                        ))}
+                      </div>
                       <button onClick={handleSignOut}
                         style={{display:"block",width:"100%",textAlign:"left",padding:"10px 14px",
                           background:"none",border:"none",color:"var(--red)",fontSize:13,

@@ -12,7 +12,7 @@ function AppearanceTab({ dark, setDark, card }) {
             <div style={{fontSize:12,color:'var(--muted)',marginTop:2}}>Easy on the eyes for late-night deal analysis</div>
           </div>
           <button onClick={()=>{const nd=!dark;setDark(nd);localStorage.setItem('rh_dark',nd);}}
-            style={{background:dark?'var(--accent)':'#cbd5e1',border:'none',borderRadius:20,
+            style={{background:dark?'var(--accent)':'var(--toggle-off)',border:'none',borderRadius:20,
               width:46,height:24,position:'relative',cursor:'pointer',transition:'background 0.2s',flexShrink:0}}>
             <div style={{width:16,height:16,background:'#fff',borderRadius:'50%',position:'absolute',
               top:4,left:dark?26:4,transition:'left 0.2s'}}/>

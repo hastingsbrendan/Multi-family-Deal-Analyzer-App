@@ -137,9 +137,9 @@ function AuthScreen({ onAuth, initialMode }) {
         {mode === "reset" && (
           <div style={{display:"flex", flexDirection:"column", gap:14}}>
             <div style={{fontWeight:800, fontSize:20, marginBottom:2}}>Set new password</div>
-            <input type="password" placeholder="New password (min 8 chars)" value={password}
+            <input type="password" aria-label="New password (min 8 chars)" placeholder="New password (min 8 chars)" value={password}
               onChange={e=>{setPassword(e.target.value);clr();}} style={iS} />
-            <input type="password" placeholder="Confirm new password" value={confirmPw}
+            <input type="password" aria-label="Confirm new password" placeholder="Confirm new password" value={confirmPw}
               onChange={e=>{setConfirmPw(e.target.value);clr();}} style={iS}
               onKeyDown={e=>e.key==="Enter"&&doReset()} />
             {error && <div style={{color:"var(--red)",fontSize:13,padding:"8px 10px",background:"rgba(239,68,68,0.07)",borderRadius:6}}>{error}</div>}
@@ -154,7 +154,7 @@ function AuthScreen({ onAuth, initialMode }) {
           <div style={{display:"flex", flexDirection:"column", gap:14}}>
             <div style={{fontWeight:800, fontSize:20, marginBottom:2}}>Reset password</div>
             <div style={{color:"var(--muted)", fontSize:13}}>Enter your email and we'll send a reset link.</div>
-            <input type="email" placeholder="you@email.com" value={email}
+            <input type="email" aria-label="you@email.com" placeholder="you@email.com" value={email}
               onChange={e=>{setEmail(e.target.value);clr();}} style={iS}
               onKeyDown={e=>e.key==="Enter"&&doForgot()} />
             {error && <div style={{color:"var(--red)",fontSize:13,padding:"8px 10px",background:"rgba(239,68,68,0.07)",borderRadius:6}}>{error}</div>}
@@ -193,9 +193,9 @@ function AuthScreen({ onAuth, initialMode }) {
               <span style={{fontSize:12,color:"var(--muted)",whiteSpace:"nowrap"}}>or sign in with email</span>
               <div style={{flex:1,height:1,background:"var(--border)"}}/>
             </div>
-            <input type="email" placeholder="Email address" value={email} autoComplete="email"
+            <input type="email" aria-label="Email address" placeholder="Email address" value={email} autoComplete="email"
               onChange={e=>{setEmail(e.target.value);clr();}} style={iS} />
-            <input type="password" placeholder="Password" value={password} autoComplete="current-password"
+            <input type="password" aria-label="Password" placeholder="Password" value={password} autoComplete="current-password"
               onChange={e=>{setPassword(e.target.value);clr();}} style={iS}
               onKeyDown={e=>e.key==="Enter"&&doLogin()} />
             {error && <div style={{color:"var(--red)",fontSize:13,padding:"8px 10px",background:"rgba(239,68,68,0.07)",borderRadius:6}}>{error}</div>}
@@ -228,11 +228,11 @@ function AuthScreen({ onAuth, initialMode }) {
               <span style={{fontSize:12,color:"var(--muted)",whiteSpace:"nowrap"}}>or sign up with email</span>
               <div style={{flex:1,height:1,background:"var(--border)"}}/>
             </div>
-            <input type="email" placeholder="Email address" value={email} autoComplete="email"
+            <input type="email" aria-label="Email address" placeholder="Email address" value={email} autoComplete="email"
               onChange={e=>{setEmail(e.target.value);clr();}} style={iS} />
-            <input type="password" placeholder="Password (min 8 characters)" value={password} autoComplete="new-password"
+            <input type="password" aria-label="Password (min 8 characters)" placeholder="Password (min 8 characters)" value={password} autoComplete="new-password"
               onChange={e=>{setPassword(e.target.value);clr();}} style={iS} />
-            <input type="password" placeholder="Confirm password" value={confirmPw} autoComplete="new-password"
+            <input type="password" aria-label="Confirm password" placeholder="Confirm password" value={confirmPw} autoComplete="new-password"
               onChange={e=>{setConfirmPw(e.target.value);clr();}} style={iS}
               onKeyDown={e=>e.key==="Enter"&&doSignup()} />
             {error && <div style={{color:"var(--red)",fontSize:13,padding:"8px 10px",background:"rgba(239,68,68,0.07)",borderRadius:6}}>{error}</div>}

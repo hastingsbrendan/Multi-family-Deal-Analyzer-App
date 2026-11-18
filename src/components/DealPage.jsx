@@ -109,7 +109,7 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
           <button onClick={onShare} style={{background:"var(--accentlt, #CCFBF1)",border:"1px solid rgba(13,148,136,0.25)",borderRadius:6,padding:"7px 14px",cursor:"pointer",fontSize:13,color:"var(--accentdk, #0F766E)",fontWeight:700}}>👥 Share</button>
         )}
         {onShare && !canShare && (
-          <button onClick={()=>setShowUpgrade(true)} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:6,padding:"7px 14px",cursor:"pointer",fontSize:13,color:"var(--muted)",fontWeight:700}}>🔒 Share Deal — Pro</button>
+          <button onClick={()=>setShowUpgrade(true)} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:6,padding:"7px 14px",cursor:"pointer",fontSize:13,color:"var(--muted)",fontWeight:700}}>{isMobile?"🔒 Share":"🔒 Share Deal — Pro"}</button>
         )}
 
         {groupRole==="Viewer"&&<div style={{fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:20,background:"var(--accent-soft)",color:"var(--accent)",border:"1px solid var(--accent)"}}>👁 View Only</div>}
@@ -119,7 +119,7 @@ function DealPage({deal, onUpdate, onBack, onExport, onExportPDF, onShare, group
           <Button variant="outline" onClick={onExportPDF} style={{padding:"7px 14px",fontSize:13}}>⬇ PDF</Button>
         )}
         {groupRole!=="Viewer" && !canPDF && (
-          <button onClick={()=>setShowUpgrade(true)} style={{background:"var(--card)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:100,padding:"7px 14px",cursor:"pointer",fontSize:13,fontWeight:700}}>🔒 Export PDF — Pro</button>
+          <button onClick={()=>setShowUpgrade(true)} style={{background:"var(--card)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:100,padding:"7px 14px",cursor:"pointer",fontSize:13,fontWeight:700}}>{isMobile?"🔒 PDF":"🔒 Export PDF — Pro"}</button>
         )}
 
         <Button variant="primary" onClick={onExport} style={{padding:"7px 14px",fontSize:13}}>⬇ Excel</Button>

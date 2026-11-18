@@ -381,7 +381,7 @@ function MarketTab({deal, onChange}) {
 
       {/* PAUSED BANNER */}
       {apiPaused && (
-        <div style={{marginBottom:16,padding:'10px 14px',borderRadius:10,background:'#fffbeb',border:'1px solid rgba(217,119,6,0.3)',fontSize:12,color:'var(--accent2)',fontWeight:600}}>
+        <div style={{marginBottom:16,padding:'10px 14px',borderRadius:10,background:'var(--warn-bg)',border:'1px solid rgba(217,119,6,0.3)',fontSize:12,color:'var(--accent2)',fontWeight:600}}>
           ⏸ Rentcast API is temporarily paused — showing cached data from {marketFetchedAt || 'a previous session'}.
         </div>
       )}

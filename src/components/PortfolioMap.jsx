@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FMT_PCT, FMT_USD, GMAPS_KEY, STATUS_COLORS } from '../lib/constants';
 import { calcDeal } from '../lib/calc';
+import { useIsMobile } from '../lib/hooks';
 
 // Geocoding every deal on every page load (and again after every edit) cost one
 // billable lookup per deal each time. Coordinates for an address never change, so
@@ -55,6 +56,7 @@ function PortfolioMap({deals, onSelect}) {
   // Maps can fail outside our control (billing, key restrictions, ad blockers,
   // offline). Show a quiet note instead of Google's error dialog or a stuck spinner.
   const [failed, setFailed] = useState(false);
+  const isMobile = useIsMobile();
   const [collapsed, setCollapsed] = useState(false);
   const addressedDeals = deals.filter(d => d.address && d.address.trim().length > 3);
 
@@ -181,7 +183,7 @@ function PortfolioMap({deals, onSelect}) {
         </div>
       )}
       {!collapsed && !failed && (
-        <div style={{position:"relative",height:380}}>
+        <div style={{position:"relative",height:isMobile?240:380}}>
           <div ref={mapRef} style={{width:"100%",height:"100%",display:"block"}}/>
           {!mapReady && (
             <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"var(--card)",color:"var(--muted)",fontSize:13}}>Loading map…</div>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useIsMobile } from '../lib/hooks';
 import { DEFAULT_PREFS } from '../lib/calc';
 import { sbClient, SB_URL, authUpdatePassword, authUpdateProfile } from '../lib/constants';
 import Button from './ui/Button';
@@ -31,6 +32,7 @@ const SECTIONS = [...new Set(PUSH_FIELDS.map(f => f.section))];
 const TABS = ['Defaults', 'Account', 'Appearance', 'Groups'];
 
 function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, deals, onOpenGroups }) {
+  const isMobile = useIsMobile();
   const [tab, setTab] = useState(0);
 
   // ── Defaults tab state ────────────────────────────────────────────────────
@@ -164,7 +166,8 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
   const iS    = { width:'100%', padding:'9px 12px', borderRadius:7, fontSize:14, border:'1px solid var(--border)', background:'var(--input-bg)', color:'var(--text)', fontFamily:'inherit' };
   const lbl   = (txt) => <label style={{fontSize:10,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.06em',display:'block',marginBottom:4}}>{txt}</label>;
   const row2  = { display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 };
-  const row3  = { display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12 };
+  // Three narrow inputs don't fit at phone width (2026-11, M9d)
+  const row3  = { display:'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr 1fr', gap:12 };
 
   const pushedCount = pushFields.size;
   const totalFields = PUSH_FIELDS.length;
