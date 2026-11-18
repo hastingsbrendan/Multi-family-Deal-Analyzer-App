@@ -231,7 +231,7 @@ function App() {
   }, [authIntent]);
   useEffect(() => { setAuthIntent(i => consumeAuthIntent(i, user)); }, [user]);
   useEffect(() => {
-    if (gate === 'redirect') window.location.replace('/landing.html');
+    if (gate === 'redirect') window.location.replace('/landing');
   }, [gate]);
 
   if (deals === null) {
@@ -344,7 +344,7 @@ function App() {
       <div style={{borderBottom:"1px solid var(--border)",padding:"0 20px",height:60,display:"flex",alignItems:"center",justifyContent:"space-between",background:dark?"var(--card)":"rgba(253,250,246,0.95)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",position:"sticky",top:0,zIndex:100}}>
         {/* Left: logo + breadcrumb */}
         <div style={{display:"flex",alignItems:"center",gap:10,flex:"0 0 auto"}}>
-          <a href="/landing.html" style={{display:"flex",alignItems:"center",gap:8,textDecoration:"none"}}>
+          <a href="/landing" style={{display:"flex",alignItems:"center",gap:8,textDecoration:"none"}}>
             <div style={{width:28,height:28,background:"var(--accent)",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>🏠</div>
             <span style={{fontFamily:"'Fraunces',serif",fontWeight:900,fontSize:18,color:"var(--text)",letterSpacing:"-0.5px"}}><span>Rent</span><span style={{color:"var(--accent)"}}>Hack</span></span>
           </a>
@@ -354,8 +354,8 @@ function App() {
         {/* Centre: primary nav links — hidden on mobile or when a deal is open */}
         {!activeDeal&&!isMobile&&<nav style={{display:"flex",alignItems:"center",gap:28,position:"absolute",left:"50%",transform:"translateX(-50%)"}}>
           {[
-            {label:"How it Works", href:"/landing.html#how"},
-            {label:"Pricing",      href:"/landing.html#pricing"},
+            {label:"How it Works", href:"/landing#how"},
+            {label:"Pricing",      href:"/landing#pricing"},
             {label:"Blog",         href:"/blog/"},
           ].map(({label,href})=>(
             <a key={label} href={href}
@@ -561,9 +561,9 @@ function App() {
       <div style={{borderTop:'1px solid var(--border)',padding: isMobile ? '5px 16px' : '7px 20px',background:dark?'var(--card)':'rgba(253,250,246,0.95)',textAlign:'center',position:'sticky',bottom:0,zIndex:50}}>
         <span style={{fontSize:isMobile ? 9 : 10,color:'var(--muted)',lineHeight:1.5}}>
           For informational purposes only. Not financial, legal, or tax advice.{!isMobile && ' Consult qualified professionals before making investment decisions.'}{' '}
-          <a href="/legal/tos.html" target="_blank" style={{color:'var(--muted)',textDecoration:'underline'}}>Terms</a>
+          <a href="/legal/tos" target="_blank" style={{color:'var(--muted)',textDecoration:'underline'}}>Terms</a>
           {' · '}
-          <a href="/legal/privacy.html" target="_blank" style={{color:'var(--muted)',textDecoration:'underline'}}>Privacy</a>
+          <a href="/legal/privacy" target="_blank" style={{color:'var(--muted)',textDecoration:'underline'}}>Privacy</a>
         </span>
       </div>
     </div>

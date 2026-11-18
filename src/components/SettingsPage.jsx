@@ -152,7 +152,7 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
       if (!res.ok) throw new Error(json.error || 'Deletion failed');
       localStorage.clear();
       await sbClient.auth.signOut();
-      window.location.replace('/landing.html');
+      window.location.replace('/landing');
     } catch (e) {
       setDeleteError(e.message || 'Something went wrong. Please try again or contact support@renthack.io.');
       setDeleteLoading(false);
@@ -439,9 +439,9 @@ function SettingsPage({ user, prefs, onSave, onBack, onSignOut, dark, setDark, d
           </div>
           <div style={{fontSize:12,color:'var(--muted)',lineHeight:1.5}}>
             Your data is yours.{' '}
-            <a href="/legal/privacy.html" target="_blank" style={{color:'var(--accent)'}}>Privacy Policy</a>
+            <a href="/legal/privacy" target="_blank" style={{color:'var(--accent)'}}>Privacy Policy</a>
             {' · '}
-            <a href="/legal/tos.html" target="_blank" style={{color:'var(--accent)'}}>Terms of Service</a>
+            <a href="/legal/tos" target="_blank" style={{color:'var(--accent)'}}>Terms of Service</a>
           </div>
         </div>
 

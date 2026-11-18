@@ -184,9 +184,9 @@ function AuthScreen({ onAuth, initialMode }) {
             </button>
             <div style={{fontSize:11,color:"var(--muted)",textAlign:"center",marginTop:-4}}>
               By continuing, you agree to our{" "}
-              <a href="/legal/tos.html" target="_blank" style={{color:"var(--muted)"}}>Terms</a>
+              <a href="/legal/tos" target="_blank" style={{color:"var(--muted)"}}>Terms</a>
               {" "}&amp;{" "}
-              <a href="/legal/privacy.html" target="_blank" style={{color:"var(--muted)"}}>Privacy Policy</a>
+              <a href="/legal/privacy" target="_blank" style={{color:"var(--muted)"}}>Privacy Policy</a>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
               <div style={{flex:1,height:1,background:"var(--border)"}}/>
@@ -241,9 +241,9 @@ function AuthScreen({ onAuth, initialMode }) {
                 style={{marginTop:2,width:15,height:15,cursor:"pointer",accentColor:"var(--accent)"}}/>
               <span style={{fontSize:13,color:"var(--muted)",lineHeight:1.5}}>
                 I agree to the{" "}
-                <a href="/legal/tos.html" target="_blank" style={{color:"var(--accent)"}}>Terms of Service</a>
+                <a href="/legal/tos" target="_blank" style={{color:"var(--accent)"}}>Terms of Service</a>
                 {" "}and{" "}
-                <a href="/legal/privacy.html" target="_blank" style={{color:"var(--accent)"}}>Privacy Policy</a>
+                <a href="/legal/privacy" target="_blank" style={{color:"var(--accent)"}}>Privacy Policy</a>
               </span>
             </label>
             <button onClick={doSignup} disabled={loading||!tosAccepted} style={{...bS,opacity:(loading||!tosAccepted)?.7:1}}>
