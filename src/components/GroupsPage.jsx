@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { iSty, btnSm, srcSty } from './ui/InputRow';
 import { sbClient, FMT_USD } from '../lib/constants';
@@ -26,8 +27,8 @@ function GroupsPage({ user, dark, onBack, onSelectGroup }) {
       const [g, p] = await Promise.all([sbGetMyGroups(), sbGetPendingInvites()]);
       setGroups(g); setPending(p);
     } catch(e) {
-      console.error('Groups load error:', e);
-      flash('Could not load groups — check Supabase tables are created.', false);
+      Sentry.captureException(e, { tags: { origin: 'GroupsPage.reload' } });
+      flash("Couldn't load your groups. Check your connection and try again.", false);
     }
     setLoading(false);
   };
@@ -45,13 +46,17 @@ function GroupsPage({ user, dark, onBack, onSelectGroup }) {
     setSaving(false);
   };
 
-  const handleInvite = async () => {
-    if (!inviteEmail.trim()) return;
+  // groupId is passed in: the Members panel used to call setShowInvite() and then
+  // this handler in the same click, so it read the old (null) group and failed.
+  const handleInvite = async (groupId = showInvite) => {
+    if (!inviteEmail.trim() || !groupId) return;
     setSaving(true);
     try {
-      const res = await sbInviteMember(showInvite, inviteEmail.trim(), inviteRole);
+      const res = await sbInviteMember(groupId, inviteEmail.trim(), inviteRole);
       setInviteEmail('');
-      flash(res.pending ? "Invite saved — they'll see it when they join." : "Invite sent!");
+      setShowInvite(null);
+      // No email is sent: invites appear in the app when the person signs in.
+      flash(res.pending ? "Invite saved. They'll see it after they create an account." : "Invite added. They'll see it next time they sign in.");
       if (showMembers) {
         const m = await sbGetGroupMembers(showMembers.id);
         setMembers(m);
@@ -60,36 +65,41 @@ function GroupsPage({ user, dark, onBack, onSelectGroup }) {
     setSaving(false);
   };
 
-  const handleRespond = async (groupId, accept) => {
+  // Shared error handling for the group actions below (they had none, so failures
+  // were silent unhandled rejections).
+  const attempt = async (fn, failMsg) => {
+    try { await fn(); }
+    catch (e) { Sentry.captureException(e, { tags: { origin: 'GroupsPage' } }); flash(failMsg, false); }
+  };
+
+  const handleRespond = (groupId, accept) => attempt(async () => {
     await sbRespondToInvite(groupId, accept);
     flash(accept ? 'Joined group!' : 'Invite declined');
     reload();
-  };
+  }, "Couldn't update that invite. Try again.");
 
-  const handleLeave = async (groupId) => {
+  const handleLeave = (groupId) => {
     if (!confirm('Leave this group? You will lose access to shared deals.')) return;
-    await sbLeaveGroup(groupId);
-    flash('Left group');
-    reload();
+    return attempt(async () => { await sbLeaveGroup(groupId); flash('Left group'); reload(); },
+      "Couldn't leave the group. Try again.");
   };
 
-  const openMembers = async (group) => {
+  const openMembers = (group) => {
     setShowMembers(group);
-    const m = await sbGetGroupMembers(group.id);
-    setMembers(m);
+    return attempt(async () => setMembers(await sbGetGroupMembers(group.id)), "Couldn't load members. Try again.");
   };
 
-  const handleRoleChange = async (groupId, memberId, newRole) => {
+  const handleRoleChange = (groupId, memberId, newRole) => attempt(async () => {
     await sbUpdateMemberRole(groupId, memberId, newRole);
-    const m = await sbGetGroupMembers(groupId);
-    setMembers(m);
-  };
+    setMembers(await sbGetGroupMembers(groupId));
+  }, "Couldn't change that role. Try again.");
 
-  const handleRemoveMember = async (groupId, memberId) => {
+  const handleRemoveMember = (groupId, memberId) => {
     if (!confirm('Remove this member?')) return;
-    await sbRemoveMember(groupId, memberId);
-    const m = await sbGetGroupMembers(groupId);
-    setMembers(m);
+    return attempt(async () => {
+      await sbRemoveMember(groupId, memberId);
+      setMembers(await sbGetGroupMembers(groupId));
+    }, "Couldn't remove that member. Try again.");
   };
 
   const card  = { background:'var(--card)', border:'1px solid var(--border)', borderRadius:12, padding:20, marginBottom:12 };
@@ -250,7 +260,7 @@ function GroupsPage({ user, dark, onBack, onSelectGroup }) {
                 ))}
               </div>
               <div style={{display:'flex',gap:10}}>
-                <button onClick={handleInvite} disabled={!inviteEmail.trim()||saving} style={btnPrimary}>
+                <button onClick={()=>handleInvite()} disabled={!inviteEmail.trim()||saving} style={btnPrimary}>
                   {saving?'Sending…':'Send Invite'}
                 </button>
                 <button onClick={()=>setShowInvite(null)} style={btnGhost}>Cancel</button>
@@ -322,7 +332,7 @@ function GroupsPage({ user, dark, onBack, onSelectGroup }) {
                         background:'var(--input-bg)',color:'var(--text)',fontFamily:'inherit'}}>
                       <option>Editor</option><option>Viewer</option>
                     </select>
-                    <button onClick={()=>{setShowInvite(showMembers.id); handleInvite();}}
+                    <button onClick={()=>handleInvite(showMembers.id)}
                       style={{...btnPrimary,padding:'9px 14px',fontSize:13,whiteSpace:'nowrap'}}
                       disabled={!inviteEmail.trim()}>
                       Invite
